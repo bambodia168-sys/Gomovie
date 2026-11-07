@@ -1,5 +1,17 @@
 # Third-party notices
 
-The initial Laravel application skeleton is derived from [laravel/laravel 13.x](https://github.com/laravel/laravel/tree/13.x) (MIT license). Original authors retain copyrights and license notices. Gomovie-specific application work is proprietary.
+The Gomovie Laravel application skeleton is based on [laravel/laravel 13.x](https://github.com/laravel/laravel/tree/13.x) (MIT licensed). Laravel and other packages installed by Composer and NPM are licensed separately; see their bundled license files and notices.
 
-All Composer and NPM dependencies retain their respective licenses. Media files, film metadata and TMDB material require their own appropriate licenses and provider terms.
+## MIT permission notice for upstream Laravel code
+
+Copyright (c) Taylor Otwell
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Licensed media
+
+No films, TV episodes, audio masters, cover art, trailers, or TMDB data rights are bundled. Obtain distribution rights, use authorized metadata/image sources, and follow provider attribution and use rules before publication.

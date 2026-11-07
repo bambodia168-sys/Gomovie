@@ -1,0 +1,45 @@
+name: Gomovie CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, sqlite3, pdo_sqlite, curl, fileinfo, openssl, redis
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Validate PHP syntax
+        run: |
+          find app bootstrap config database routes tests -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+      - name: Build frontend assets
+        run: |
+          npm install --ignore-scripts
+          npm run build
+      - name: Prepare application environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Run fresh database migration
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan migrate --force
+      - name: Run feature and unit tests
+        run: php artisan test
