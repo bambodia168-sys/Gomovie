@@ -23,7 +23,7 @@ class PlaybackGrantService
      */
     public function issue(User $user, UserProfile $profile, string $type, int $id): array
     {
-        abort_unless($profile->user_id === $user->id, 403);
+        abort_unless((int) $profile->user_id === (int) $user->id, 403);
         [$asset, $limit] = $this->authorize($user, $profile, $type, $id);
         $this->assertEdgeConfigured();
 
