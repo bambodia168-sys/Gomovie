@@ -42,4 +42,4 @@ jobs:
           DB_DATABASE: ':memory:'
         run: php artisan migrate --force
       - name: Run feature and unit tests
-        run: php artisan test
+        run: vendor/bin/phpunit --colors=never
