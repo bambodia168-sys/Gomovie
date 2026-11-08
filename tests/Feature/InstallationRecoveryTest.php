@@ -33,6 +33,26 @@ final class InstallationRecoveryTest extends TestCase
         self::assertStringNotContainsString((string) config('app.key'), Artisan::output());
     }
 
+    public function test_preflight_rejects_malformed_application_keys_and_unsafe_feature_flags(): void
+    {
+        $key = config('app.key');
+        config()->set('app.key', 'base64:not-valid-key');
+        try {
+            $report = app(InstallReadiness::class)->inspect('upgrade');
+            self::assertFalse($report['checks']['app_key_present']);
+            self::assertFalse($report['ready_for_review']);
+            config()->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
+            self::assertTrue(app(InstallReadiness::class)->inspect('upgrade')['checks']['app_key_present']);
+        } finally {
+            config()->set('app.key', $key);
+        }
+
+        config()->set('gomovie.media_staging_enabled', true);
+        self::assertFalse(app(InstallReadiness::class)
+            ->inspect('upgrade')['checks']['dangerous_features_disabled']);
+        config()->set('gomovie.media_staging_enabled', false);
+    }
+
     public function test_recovery_bundle_check_detects_tampering_and_unsafe_files(): void
     {
         $dir = sys_get_temp_dir().'/gomovie-recovery-'.bin2hex(random_bytes(8));

@@ -28,16 +28,20 @@ final class InstallReadiness
             'sqlite' => 'pdo_sqlite',
             default => '__unsupported_database_driver__',
         };
+        $key = config('app.key');
+        $decodedKey = is_string($key) && str_starts_with($key, 'base64:')
+            ? base64_decode(substr($key, 7), true) : $key;
         $envPath = base_path('.env');
+        $envMode = is_file($envPath) && !is_link($envPath) ? fileperms($envPath) : false;
         $private = storage_path('app/private');
         $checks = [
             'supported_php' => PHP_VERSION_ID >= 80400,
             'required_extensions' => count(array_filter($extensions, fn ($extension) => !extension_loaded($extension))) === 0,
-            'app_key_present' => is_string(config('app.key')) && strlen((string) config('app.key')) >= 32,
+            'app_key_present' => is_string($decodedKey) && strlen($decodedKey) === 32,
             'production_debug_disabled' => !$production || config('app.debug') === false,
             'production_url_https' => !$production || str_starts_with((string) config('app.url'), 'https://'),
-            'environment_file_private' => !$production || (is_file($envPath) && !is_link($envPath)
-                && (fileperms($envPath) & 0007) === 0),
+            'production_database_supported' => !$production || in_array($databaseDriver, ['mysql','pgsql'], true),
+            'environment_file_private' => !$production || (is_int($envMode) && ($envMode & 0007) === 0),
             'compiled_frontend_present' => is_file(public_path('build/manifest.json')),
             'application_storage_writable' => is_dir(storage_path('framework/views'))
                 && is_writable(storage_path('framework/views'))
@@ -45,7 +49,8 @@ final class InstallReadiness
             'private_media_storage_writable' => is_dir($private) && is_writable($private),
             'dangerous_features_disabled' => config('gomovie.billing_enabled') !== true
                 && config('gomovie.edge_enabled') !== true
-                && config('gomovie.transcoding_enabled') !== true,
+                && config('gomovie.transcoding_enabled') !== true
+                && config('gomovie.media_staging_enabled') !== true,
             'database_reachable' => false,
             'database_state_compatible' => false,
         ];
@@ -56,7 +61,7 @@ final class InstallReadiness
             $hasMigrations = Schema::hasTable('migrations');
             $hasUsers = Schema::hasTable('users');
             $checks['database_state_compatible'] = $mode === 'install'
-                ? (!$hasMigrations && !$hasUsers)
+                ? (!$hasMigrations && !$hasUsers && count(Schema::getTableListing()) === 0)
                 : ($hasMigrations && $hasUsers && Schema::hasTable('media_ingests')
                     && Schema::hasTable('admin_audit_events'));
         } catch (Throwable) {
