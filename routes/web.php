@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\TmdbController;
 use App\Http\Controllers\Admin\UserController;
@@ -44,6 +45,13 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::get('/catalog/{type}/{id}/edit', [AdminCatalogController::class, 'edit'])->name('catalog.edit');
     Route::put('/catalog/{type}/{id}', [AdminCatalogController::class, 'update'])->name('catalog.update');
     Route::delete('/catalog/{type}/{id}', [AdminCatalogController::class, 'destroy'])->name('catalog.destroy');
+    Route::get('/series/{series}/seasons', [EpisodeStudioController::class, 'index'])->name('seasons.index');
+    Route::post('/series/{series}/seasons', [EpisodeStudioController::class, 'storeSeason'])->name('seasons.store');
+    Route::patch('/series/{series}/seasons/{season}', [EpisodeStudioController::class, 'updateSeason'])->name('seasons.update');
+    Route::delete('/series/{series}/seasons/{season}', [EpisodeStudioController::class, 'destroySeason'])->name('seasons.destroy');
+    Route::post('/series/{series}/seasons/{season}/episodes', [EpisodeStudioController::class, 'storeEpisode'])->name('episodes.store');
+    Route::patch('/series/{series}/seasons/{season}/episodes/{episode}', [EpisodeStudioController::class, 'updateEpisode'])->name('episodes.update');
+    Route::delete('/series/{series}/seasons/{season}/episodes/{episode}', [EpisodeStudioController::class, 'destroyEpisode'])->name('episodes.destroy');
     Route::get('/media', [MediaController::class, 'index'])->name('media.index');
     Route::post('/media/artwork', [MediaController::class, 'artwork'])->name('media.artwork');
     Route::post('/media/ingests', [MediaController::class, 'ingest'])->name('media.ingest');

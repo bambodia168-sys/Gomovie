@@ -42,6 +42,7 @@
     <p class="text-xs leading-5 text-zinc-500">Published catalog metadata does not grant stream access. Distribution rights and media assets are checked separately.</p>
   </section>
   @if($title)
+    @if($type==='series')<a href="{{ route('admin.seasons.index',$title) }}" class="block rounded-xl border border-white/20 p-4 text-center text-sm font-semibold hover:bg-white/5">Manage seasons & episodes</a>@endif
     <a href="{{ route('admin.media.index') }}" class="block rounded-xl border border-[#F5C518]/30 p-4 text-center text-sm font-medium text-[#F5C518] hover:bg-white/5">Open Media Library</a>
     @if($title->status==='published')<a href="{{ route('watch.show',[$type === 'movies' ? 'movie' : 'series',$title->slug]) }}" class="block text-center text-sm text-[#F5C518]">View published page</a>@endif
     @if(in_array(auth()->user()->role,['admin','super_admin'],true) && $title->status === 'draft')
