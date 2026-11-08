@@ -216,6 +216,57 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .gm-episode-chip{display:grid;place-items:center;min-width:72px;padding:12px 16px;border:1px solid #ffffff21;border-radius:10px;color:#ddd2e1;text-decoration:none;background:#1c1727;font-size:11px;font-weight:850}
 .gm-episode-chip:hover{background:#3f2138}
 .gm-episode-chip.is-selected{border-color:#ff586a;background:linear-gradient(120deg,#c62240,#762749);box-shadow:0 0 15px #fa426943}
+/* Watch V3: compact top chrome, licensed player options, next-up panel and
+   complete published-episode gallery. No shared header or poster grid changes. */
+.gm-watch-toolbar-compact{justify-content:flex-end;align-items:center;min-height:40px;margin-bottom:10px}
+.gm-watch-toolbar-compact .gm-mode-switch{margin-left:auto}
+.gm-watch-player-tools{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:9px;padding:12px 14px;margin-top:12px;border:1px solid #ffffff26;border-radius:13px;background:linear-gradient(125deg,#211729,#100e1b)}
+.gm-watch-player-tool-group{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.gm-watch-player-tools button{display:inline-flex;align-items:center;justify-content:center;min-height:34px;min-width:37px;padding:7px 9px;border:1px solid #ffffff25;border-radius:9px;background:#100e1b;color:#eee5f2;font-size:11px;font-weight:800;cursor:pointer}
+.gm-watch-player-tools button:hover,.gm-watch-player-tools button:focus-visible{border-color:#f75a78;background:#2c1a32;outline-offset:2px}
+.gm-watch-player-select{display:flex;align-items:center;gap:6px;color:#bcb2c5;font-size:11px}
+.gm-watch-player-select[hidden]{display:none}
+.gm-watch-player-select select{min-height:34px;min-width:62px;padding:5px 8px;border:1px solid #ffffff28;border-radius:9px;background:#100e1b;color:white;font-size:11px;outline-color:#ff6b86}
+.gm-watch-player-slider{display:flex;align-items:center;gap:6px;color:#bcb2c5;font-size:11px}
+.gm-watch-player-slider input{width:80px;accent-color:#f1375d;cursor:pointer}
+.gm-watch-autoplay-choice{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #ffffff20;border-radius:9px;background:#251727;color:#f6dfeb;font-size:11px;font-weight:800;cursor:pointer}
+.gm-watch-autoplay-choice input{width:15px;height:15px;accent-color:#f1375d}
+.gm-watch-next-panel{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:11px;padding:14px 16px;border:1px solid #dc597068;border-radius:13px;background:linear-gradient(130deg,#361b32,#211326 74%);box-shadow:0 9px 30px #0004}
+.gm-watch-next-panel[hidden]{display:none}
+.gm-watch-next-panel>div:first-child{display:flex;flex-direction:column;gap:4px}
+.gm-watch-next-panel small{font-size:10px;letter-spacing:.15em;font-weight:900;color:#ffca82}
+.gm-watch-next-panel strong{font-size:14px;color:white}
+.gm-watch-next-panel span{font-size:11px;color:#d5c5d6}
+.gm-watch-next-actions{display:flex;flex-wrap:wrap;gap:9px}
+.gm-watch-next-actions button{border:1px solid #ffffff32;border-radius:9px;background:#24192d;color:white;font-size:12px;font-weight:750;padding:9px 13px;cursor:pointer}
+.gm-watch-next-actions button:last-child{background:#d52246;border-color:#ee425d}
+.gm-watch-next-actions button:hover{filter:brightness(1.15)}
+.gm-episode-section-near-player{margin-top:22px;padding-top:22px}
+.gm-episode-navigation{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:11px;margin:15px 0 12px;font-size:12px}
+.gm-episode-navigation a,.gm-episode-navigation span{display:inline-flex;align-items:center;min-height:31px;padding:6px 11px;border:1px solid #ffffff22;border-radius:9px;text-decoration:none;background:#1b1526;color:#eee2ef;font-weight:750}
+.gm-episode-navigation a:hover{border-color:#fb4669;background:#332036}
+.gm-episode-navigation span{color:#888094;font-weight:500}
+.gm-episode-section-near-player .gm-season-group{margin:15px 0 20px}
+.gm-episode-section-near-player .gm-episode-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px}
+.gm-episode-section-near-player .gm-episode-chip{display:flex;flex-direction:column;align-items:stretch;gap:0;min-width:0;padding:0;overflow:hidden;border-radius:12px;background:#1a1423;text-align:left;font-size:11px;transition:transform .2s,border-color .2s,background .2s}
+.gm-episode-section-near-player .gm-episode-chip:hover{transform:translateY(-2px);background:#312037;border-color:#fb6277}
+.gm-episode-section-near-player .gm-episode-chip.is-selected{background:linear-gradient(150deg,#4a203f,#24152c);border-color:#ff6d84}
+.gm-episode-cover{position:relative;display:block;flex:none;aspect-ratio:16/9;overflow:hidden;background:radial-gradient(circle at 50% 20%,#62314f,#181222)}
+.gm-episode-cover img{width:100%;height:100%;object-fit:cover;filter:brightness(.78)}
+.gm-episode-cover-number{position:absolute;left:9px;bottom:8px;display:grid;place-items:center;min-width:27px;height:24px;border-radius:7px;background:#080710b8;color:#fff;font-size:12px;font-weight:900}
+.gm-episode-card-text{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 11px;min-width:0}
+.gm-episode-card-text>span{font-size:10px;color:#ffd082;font-weight:850}
+.gm-episode-card-text strong{font-size:12px;line-height:1.45;color:#f8f4fa;font-weight:800;overflow-wrap:anywhere}
+.gm-episode-card-text small{color:#b5aaba;font-size:10px}
+@media(max-width:650px){
+ .gm-watch-toolbar-compact{margin-bottom:9px}
+ .gm-watch-player-tools{padding:10px;gap:10px}
+ .gm-watch-player-tool-group{gap:5px}
+ .gm-watch-player-slider input{width:56px}
+ .gm-episode-section-near-player .gm-episode-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .gm-watch-next-panel{align-items:flex-start}
+}
+
 .gm-watch-overview h2{font-size:19px;font-weight:850;margin-bottom:12px}
 .gm-watch-overview>p{font-size:14px;line-height:1.75;color:#c3b9c8;margin-bottom:12px;white-space:pre-line}
 .gm-related-sidebar{position:sticky;top:110px;border:1px solid #ffffff1f;background:linear-gradient(160deg,#22132b,#0f0d19 54%);border-radius:19px;padding:18px;box-shadow:0 20px 50px #0005}
