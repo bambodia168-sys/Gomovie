@@ -120,7 +120,7 @@ class CatalogController extends Controller
             'first_air_date' => ['nullable','date_format:Y-m-d'],
         ]);
 
-        $data['slug'] = $data['slug'] ?: Str::slug($data['title']);
+        $data['slug'] = ($data['slug'] ?? null) ?: Str::slug($data['title']);
         if ($data['slug'] === '') {
             throw ValidationException::withMessages(['slug'=>'Enter a title that produces a valid URL slug.']);
         }
