@@ -64,7 +64,10 @@ class MediaPipelineGateTest extends TestCase
         $ffmpeg = '/usr/bin/ffmpeg';
         $ffprobe = '/usr/bin/ffprobe';
         if (!is_executable($ffmpeg) || !is_executable($ffprobe)) {
-            $this->markTestSkipped('FFmpeg and FFprobe not installed in this test runner.');
+            if (getenv('GOMOVIE_REQUIRE_FFMPEG_SMOKE') === '1') {
+                self::fail('FFmpeg and FFprobe must be installed for the required synthetic encoding smoke test.');
+            }
+            $this->markTestSkipped('FFmpeg and FFprobe not installed in this runner.');
         }
 
         $disk = Storage::disk('local');

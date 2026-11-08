@@ -22,6 +22,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Install FFmpeg for mandatory synthetic encoding smoke test
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          /usr/bin/ffmpeg -version | head -n 1
+          /usr/bin/ffprobe -version | head -n 1
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: Validate PHP syntax
@@ -44,4 +50,6 @@ jobs:
           DB_DATABASE: ':memory:'
         run: php artisan migrate --force
       - name: Run feature and unit tests
+        env:
+          GOMOVIE_REQUIRE_FFMPEG_SMOKE: '1'
         run: vendor/bin/phpunit --colors=never
