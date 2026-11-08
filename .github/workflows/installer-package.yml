@@ -1,0 +1,41 @@
+name: Gomovie installer ZIP preparation (no production deployment)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-installer-zip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_mysql, pdo_pgsql, openssl, fileinfo, zip
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install production PHP dependencies with an installer lockfile
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+      - name: Compile customer JavaScript and CSS
+        run: |
+          npm install --ignore-scripts
+          npm run build
+      - name: Verify packaging script and prepare self-contained ZIP
+        run: |
+          bash -n support/installer/package-release.sh
+          bash support/installer/package-release.sh
+      - name: Upload customer installation QA ZIP and integrity checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: gomovie-installer-qa-package
+          path: |
+            dist/Gomovie-Installer-QA-*.zip
+            dist/Gomovie-Installer-QA-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
