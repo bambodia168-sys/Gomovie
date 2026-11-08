@@ -1,56 +1,152 @@
 @extends('layouts.app')
-@section('title', $title->title)
+@section('title',$title->title)
+@section('description',\Illuminate\Support\Str::limit($title->overview ?: $title->title,150))
 @section('content')
-<a href="{{ route('browse') }}" class="text-sm text-[#F5C518]">← Back to catalog</a>
-<div class="mt-8 grid gap-8 lg:grid-cols-[1fr_320px]">
-<div>
-  <p class="text-xs font-bold uppercase tracking-widest text-[#F5C518]">{{ $type==='movie' ? 'Feature film' : 'TV series' }}</p>
-  <h1 class="mt-3 text-5xl font-black tracking-tight">{{ $title->title }}</h1>
-  <div class="mt-5 flex flex-wrap items-center gap-3 text-sm text-zinc-400">
-    <span class="rounded-lg border border-white/20 px-3 py-1">{{ $title->is_premium ? 'Premium' : 'Free access' }}</span>
-    <span>{{ $type==='movie' ? ($title->release_year ?? 'Movie') : (optional($title->first_air_date)->format('Y') ?? 'Series') }}</span>
-    @if($type==='movie' && $title->runtime_minutes)<span>{{ $title->runtime_minutes }} min</span>@endif
-  </div>
-  @if($profileId)
-    <form method="POST" action="{{ route('account.watchlist.toggle') }}" class="mt-7">@csrf
-      <input type="hidden" name="profile_id" value="{{ $profileId }}">
-      <input type="hidden" name="kind" value="{{ $type }}">
-      <input type="hidden" name="title_id" value="{{ $title->id }}">
-      <input type="hidden" name="action" value="{{ $isWatchlisted ? 'remove' : 'add' }}">
-      <button type="submit" class="rounded-xl border border-[#F5C518]/40 px-5 py-3 text-sm font-semibold text-[#F5C518] hover:bg-white/5">{{ $isWatchlisted ? '✓ Remove from My List' : '+ Add to My List' }}</button>
-    </form>
-  @endif
-  <p class="mt-8 max-w-3xl whitespace-pre-line text-base leading-8 text-zinc-300">{{ $title->overview ?: 'No synopsis has been added yet.' }}</p>
-  @if($playerEnabled && $profileId)
-  <section data-gomovie-player data-profile-id="{{ $profileId }}" class="mt-9 rounded-2xl border border-white/15 bg-zinc-950 p-4">
-    <video controls playsinline preload="none" class="aspect-video w-full rounded-xl bg-black" aria-label="Gomovie video player"></video>
-    <div class="mt-4 flex flex-wrap items-center gap-3">
-      @if($type==='movie')<button type="button" data-play-type="movie" data-play-id="{{ $title->id }}" class="rounded-xl bg-[#E50914] px-5 py-3 text-sm font-semibold">▶ Start playback</button>@endif
-      <button type="button" data-stop-playback class="rounded-xl border border-white/20 px-5 py-3 text-sm" hidden>Stop playback</button>
-      <p data-playback-status role="status" aria-live="polite" class="text-sm text-zinc-400">Video playback is available only for authorized content.</p>
-    </div>
-  </section>
-  @endif
-  <div class="mt-8 rounded-2xl border border-[#F5C518]/20 bg-zinc-900/60 p-5">
-    <p class="font-semibold text-[#F5C518]">Playback access</p>
-    <p class="mt-2 text-sm leading-6 text-zinc-400">Only licensed, approved content can be streamed. Playback is not available from this page until the media engine and edge authorization are accepted.</p>
-  </div>
-  @if($type==='series')
-    <h2 class="mb-5 mt-10 text-2xl font-bold">Seasons & episodes</h2>
-    @forelse($title->seasons()->orderBy('season_number')->with(['episodes'=>fn ($q)=>$q->where('status','published')])->get() as $season)
-      <section class="mb-5 rounded-2xl border border-white/10 bg-zinc-900/50 p-5"><h3 class="font-semibold">Season {{ $season->season_number }} — {{ $season->title }}</h3>
-        <ul class="mt-4 space-y-3 text-sm text-zinc-300">@forelse($season->episodes as $episode)<li class="flex justify-between gap-3 border-t border-white/10 pt-3"><span>{{ $episode->episode_number }}. {{ $episode->title }}</span><span class="flex items-center gap-3 text-zinc-500">{{ $episode->runtime_minutes ? $episode->runtime_minutes.' min' : '—' }}
-      @if($playerEnabled && $profileId)<button type="button" data-play-type="episode" data-play-id="{{ $episode->id }}" class="rounded-lg border border-white/20 px-3 py-2 text-xs text-white hover:border-[#E50914]">Play</button>@endif</span></li>@empty<li class="text-zinc-500">No published episodes yet.</li>@endforelse</ul>
-      </section>
-    @empty<p class="text-sm text-zinc-500">No seasons available.</p>@endforelse
-  @endif
+@php
+  $portrait=$displayMode==='portrait';
+  $still=\App\Support\CatalogArtwork::url($selectedEpisode?->still_path ?: $title->backdrop_path ?: $title->poster_path,'original');
+  $year=$type==='movie' ? ($title->release_year ?? null) : $title->first_air_date?->format('Y');
+  $modeQuery=['type'=>$type,'slug'=>$title->slug];
+  if($selectedEpisode) $modeQuery['episode']=$selectedEpisode->id;
+@endphp
+<div class="gm-watch-breadcrumb">
+  <a href="{{ route('home') }}">Home</a><span aria-hidden="true">›</span>
+  <a href="{{ route('browse',['type'=>$type]) }}">{{ $type==='movie' ? 'Movies' : 'Series' }}</a><span aria-hidden="true">›</span>
+  <span aria-current="page">{{ $title->title }}</span>
 </div>
-<aside class="rounded-2xl border border-white/10 bg-zinc-900/50 p-6">
-  <h2 class="font-semibold">Title details</h2><dl class="mt-5 space-y-4 text-sm">
-    <div><dt class="text-zinc-500">Country</dt><dd class="mt-1">{{ $title->country_code ?: 'Not specified' }}</dd></div>
-    <div><dt class="text-zinc-500">Access tier</dt><dd class="mt-1">{{ $title->is_premium ? 'Premium' : 'Free' }}</dd></div>
-    <div><dt class="text-zinc-500">Status</dt><dd class="mt-1 capitalize">{{ $title->status }}</dd></div>
-  </dl>
-</aside>
+<div class="gm-watch-layout">
+  <div class="gm-watch-main">
+    <div class="gm-watch-toolbar">
+      <div><span class="gm-eyebrow">Now exploring</span><h1>{{ $title->title }}</h1></div>
+      <div class="gm-mode-switch" role="group" aria-label="Display aspect ratio">
+        <a href="{{ route('watch.show',array_merge($modeQuery,['view'=>'widescreen'])) }}"
+           @class(['is-selected'=>!$portrait]) @if(!$portrait) aria-current="page" @endif title="Widescreen 16 by 9">▭ <span>16:9</span></a>
+        <a href="{{ route('watch.show',array_merge($modeQuery,['view'=>'portrait'])) }}"
+           @class(['is-selected'=>$portrait]) @if($portrait) aria-current="page" @endif title="Portrait 9 by 16">▯ <span>9:16</span></a>
+      </div>
+    </div>
+
+    <div class="gm-player-placement {{ $portrait ? 'is-portrait' : 'is-widescreen' }}">
+      <section class="gm-player-stage" aria-label="{{ $portrait ? 'Portrait' : 'Widescreen' }} watch player">
+        @if($still)<img class="gm-player-background" src="{{ $still }}" alt="" loading="eager" decoding="async">@endif
+        <div class="gm-player-vignette" aria-hidden="true"></div>
+        <span class="gm-player-aspect-label">{{ $portrait ? '▯ Portrait · 9:16' : '▭ Widescreen · 16:9' }}</span>
+        @if($playerEnabled && $profileId)
+        <div data-gomovie-player data-profile-id="{{ $profileId }}" class="gm-player-live">
+          <video controls playsinline preload="none" aria-label="Gomovie secure player"></video>
+          <div class="gm-player-controls">
+            @if($type==='movie')
+              <button type="button" data-play-type="movie" data-play-id="{{ $title->id }}" class="gm-button gm-button-primary">▶ Start playback</button>
+            @elseif($selectedEpisode)
+              <button type="button" data-play-type="episode" data-play-id="{{ $selectedEpisode->id }}" class="gm-button gm-button-primary">▶ Play selected episode</button>
+            @endif
+            <button type="button" data-stop-playback class="gm-button gm-button-secondary" hidden>Stop playback</button>
+            <p data-playback-status role="status" aria-live="polite">Authorized playback requires approved media and access rights.</p>
+          </div>
+        </div>
+        @else
+          <div class="gm-player-lock-panel">
+            <span class="gm-player-lock-icon" aria-hidden="true">♛</span>
+            <p class="gm-eyebrow">{{ $title->is_premium ? 'Premium title' : 'Gomovie viewing' }}</p>
+            <h2>{{ $viewerAuthorized ? 'Secure playback is being prepared' : 'Your next story starts here' }}</h2>
+            <p>
+              @if(!$viewerAuthorized)
+                Sign in or create an account to save this title and follow new episodes. Playback opens when the licensed media service is approved.
+              @else
+                Secure streaming is not yet enabled for this installation. Media rights and delivery must be independently approved before playback.
+              @endif
+            </p>
+            <div class="gm-watch-lock-actions">
+              @guest
+                <a href="{{ route('login') }}" class="gm-button gm-button-primary">Sign in</a>
+                <a href="{{ route('register') }}" class="gm-button gm-button-secondary">Create account</a>
+              @else
+                @if(!$viewerAuthorized)<a href="{{ route('verification.notice') }}" class="gm-button gm-button-primary">Verify email</a>@endif
+                <a href="{{ route('browse') }}" class="gm-button gm-button-secondary">Explore catalog</a>
+              @endguest
+            </div>
+            @if($title->is_premium)<small>Paid access is not available until billing compliance and entitlements are verified.</small>@endif
+          </div>
+        @endif
+      </section>
+    </div>
+
+    <div class="gm-watch-summary">
+      <div class="gm-watch-title-block">
+        <div class="gm-watch-tags"><span class="{{ $title->is_premium ? 'gm-tag-premium' : 'gm-tag-free' }}">{{ $title->is_premium ? '♛ Premium' : 'Free title' }}</span>
+          <span>{{ $type==='movie' ? 'Film' : 'TV Series' }}</span>
+          @if($year)<span>{{ $year }}</span>@endif
+          @if($type==='movie' && $title->runtime_minutes)<span>{{ $title->runtime_minutes }} minutes</span>@endif
+        </div>
+        <h2>{{ $title->title }}</h2>
+        @if($selectedEpisode)
+          <p>Season {{ $selectedEpisode->season->season_number }} · Episode {{ $selectedEpisode->episode_number }}: {{ $selectedEpisode->title }}</p>
+        @endif
+      </div>
+      <div class="gm-watch-actions">
+        @if($profileId)
+        <form action="{{ route('account.watchlist.toggle') }}" method="POST">
+          @csrf
+          <input type="hidden" name="profile_id" value="{{ $profileId }}">
+          <input type="hidden" name="kind" value="{{ $type }}">
+          <input type="hidden" name="title_id" value="{{ $title->id }}">
+          <input type="hidden" name="action" value="{{ $isWatchlisted ? 'remove' : 'add' }}">
+          <button class="gm-button gm-button-secondary" type="submit">{{ $isWatchlisted ? '♥ Saved' : '♡ Save to list' }}</button>
+        </form>
+        @elseif(!auth()->check())<a class="gm-button gm-button-secondary" href="{{ route('login') }}">♡ Save to list</a>@endif
+        <button type="button" class="gm-button gm-button-secondary" data-share-url="{{ route('watch.show',[$type,$title->slug]) }}">↗ Share</button>
+      </div>
+    </div>
+    @if($type==='series')
+    <section class="gm-episode-section" aria-labelledby="episode-heading">
+      <div class="gm-section-heading"><h2 id="episode-heading"><span class="gm-section-marker"></span>Episodes</h2><span class="gm-section-caption">{{ $seasons->sum(fn ($season)=>$season->episodes->count()) }} published</span></div>
+      @forelse($seasons as $season)
+        <div class="gm-season-group">
+          <h3>Season {{ $season->season_number }} <span>{{ $season->title }}</span></h3>
+          @if($season->episodes->isNotEmpty())
+          <div class="gm-episode-strip">
+            @foreach($season->episodes as $episode)
+            <a href="{{ route('watch.show',[
+                'type'=>$type,'slug'=>$title->slug,
+                'episode'=>$episode->id,'view'=>$displayMode,
+            ]) }}" @class(['gm-episode-chip','is-selected'=>$selectedEpisode?->id===$episode->id])
+               @if($selectedEpisode?->id===$episode->id) aria-current="page" @endif
+               title="{{ $episode->title }}">
+              <span>EP {{ str_pad((string)$episode->episode_number,2,'0',STR_PAD_LEFT) }}</span>
+            </a>
+            @endforeach
+          </div>
+          @else<p class="gm-muted">No published episodes in this season.</p>@endif
+        </div>
+      @empty<p class="gm-empty-state">Episodes will appear when they are published.</p>@endforelse
+    </section>
+    @endif
+    <section class="gm-watch-overview">
+      <h2>Story details</h2>
+      <p>{{ $selectedEpisode?->overview ?: $title->overview ?: 'A synopsis has not been published for this title.' }}</p>
+      <p class="gm-muted">Playback requires approved content rights and a secure media-delivery configuration.</p>
+    </section>
+  </div>
+  <aside class="gm-related-sidebar" aria-labelledby="gm-related-heading">
+    <div class="gm-related-heading"><h2 id="gm-related-heading"><span aria-hidden="true">▣</span> Related Movies &amp; Series</h2><a href="{{ route('browse') }}">View all →</a></div>
+    @forelse($related as $entry)
+      @php
+        $relatedItem=$entry['item']; $kind=$entry['kind'];
+        $poster=\App\Support\CatalogArtwork::url($relatedItem->poster_path,'w342');
+        $relatedYear=$kind==='movie' ? ($relatedItem->release_year ?? null) : $relatedItem->first_air_date?->format('Y');
+      @endphp
+      <a class="gm-related-item" href="{{ route('watch.show',[$kind,$relatedItem->slug]) }}">
+        <span class="gm-related-thumbnail">
+          @if($poster)<img src="{{ $poster }}" alt="" loading="lazy" decoding="async">@else<span aria-hidden="true">▶</span>@endif
+        </span>
+        <span class="gm-related-info"><strong>{{ $relatedItem->title }}</strong>
+          <small>{{ $kind==='movie' ? 'Movie' : 'Series' }} @if($relatedYear) · {{ $relatedYear }} @endif</small>
+          <em class="{{ $relatedItem->is_premium ? 'gm-tag-premium' : 'gm-tag-free' }}">{{ $relatedItem->is_premium ? 'Premium' : 'Free title' }}</em>
+        </span>
+      </a>
+    @empty
+      <p class="gm-related-empty">More published titles will appear here as the catalog grows.</p>
+    @endforelse
+  </aside>
 </div>
 @endsection
