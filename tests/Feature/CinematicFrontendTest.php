@@ -55,6 +55,9 @@ final class CinematicFrontendTest extends TestCase
 
         $this->get('/')->assertOk()
             ->assertSee('gm-hero-scene')
+            ->assertSee('width:100dvw')
+            ->assertSee('filter:brightness(1.08) saturate(1.28) blur(1px)')
+            ->assertDontSee('brightness(.68)')
             ->assertSee('gm-hero-scene-tint')
             ->assertSee('x-show="active === 0"', false)
             ->assertSee('x-show="active === 1"', false)

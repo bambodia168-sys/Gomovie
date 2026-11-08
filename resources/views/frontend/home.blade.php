@@ -261,59 +261,107 @@
 .gm-home-upgrade .gm-home-preview-note a{white-space:nowrap;text-decoration:none;font-weight:800;color:#fbc57e}
 .gm-home-upgrade .gm-home-preview-note a:hover{color:#fff}
 
-/* Featured backdrop is synchronized to the existing Alpine carousel. */
-.gm-home-upgrade .gm-hero .gm-hero-scene{
-  position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;
-  border-radius:inherit;isolation:isolate;
-  background:linear-gradient(125deg,#221224 0%,#150d20 52%,#0e0a17 100%);
-}
-.gm-home-upgrade .gm-hero .gm-hero-scene-image{
-  position:absolute;inset:-7%;width:114%;height:114%;
-  object-fit:cover;object-position:center 42%;
-  filter:blur(7px) brightness(.68) saturate(1.15);
-  transform:scale(1.02);
-}
-.gm-home-upgrade .gm-hero .gm-hero-scene-tint{
-  position:absolute;inset:0;z-index:2;
-  background:
-    linear-gradient(90deg,rgba(18,9,27,.8),rgba(18,8,27,.34) 40%,rgba(18,8,27,.63) 100%),
-    linear-gradient(180deg,rgba(16,8,23,.65) 0%,rgba(15,8,24,.33) 36%,rgba(15,8,24,.73) 68%,rgba(15,8,24,.95) 100%);
-}
-.gm-home-upgrade .gm-hero > .gm-hero-kicker,
-.gm-home-upgrade .gm-hero > .gm-hero-stage,
-.gm-home-upgrade .gm-hero > .gm-hero-pagination,
-.gm-home-upgrade .gm-hero > .gm-hero-description{position:relative;z-index:3}
-.gm-home-upgrade .gm-hero .gm-hero-backlight{z-index:1;opacity:.5}
-@media(prefers-reduced-motion:reduce){
-  .gm-home-upgrade .gm-hero .gm-hero-scene-image{transition:none!important}
-}
-
-/* Full-bleed cinematic hero only. Shared header, footer, and content rails stay put. */
-.gm-home-upgrade .gm-preview-hero,
-.gm-home-upgrade .gm-hero{
+/* Cinematic backdrop V2: full viewport, high-visibility artwork.
+   Home-only selectors: shared header/footer, movie cards and catalog grids untouched. */
+.gm-home-upgrade .gm-hero,
+.gm-home-upgrade .gm-preview-hero{
   position:relative;
   left:50%;
   transform:translateX(-50%);
-  width:calc(100vw - 28px);
+  width:100vw;
+  width:100dvw;
   max-width:none;
-  margin-left:0;
-  margin-right:0;
+  box-sizing:border-box;
+  margin:-34px 0 0;
+  padding:28px max(24px,calc((100vw - 1240px)/2)) 29px;
+  border-left:0;
+  border-right:0;
+  border-top:0;
+  border-radius:0;
+  overflow:hidden;
+  background:#11101b;
+}
+.gm-home-upgrade .gm-preview-hero{
+  padding-top:28px;
+  padding-bottom:34px;
 }
 .gm-home-upgrade .gm-preview-stage,
 .gm-home-upgrade .gm-hero-stage{
   max-width:1200px;
 }
-.gm-home-upgrade .gm-hero{
+.gm-home-upgrade .gm-hero .gm-hero-scene{
+  position:absolute;
+  inset:0;
+  z-index:0;
   overflow:hidden;
-  padding:27px 34px 22px;
-  border:1px solid rgba(255,117,137,.22);
-  border-radius:26px;
-  background:radial-gradient(ellipse at 50% 30%,rgba(150,36,85,.13),transparent 70%),linear-gradient(150deg,#211126,#0c0919 70%,#1a0d24);
+  pointer-events:none;
+  background:radial-gradient(ellipse at 50% 25%,#5a2444,#141022 72%);
 }
-@media(max-width:650px){
-  .gm-home-upgrade .gm-preview-hero,
-  .gm-home-upgrade .gm-hero{width:calc(100vw - 16px);border-radius:18px}
-  .gm-home-upgrade .gm-hero{padding:22px 12px}
+.gm-home-upgrade .gm-hero .gm-hero-scene-image{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center 39%;
+  filter:brightness(1.08) saturate(1.28) blur(1px);
+  transform:scale(1.025);
+  transition:opacity .65s ease;
+}
+.gm-home-upgrade .gm-hero .gm-hero-scene-tint{
+  position:absolute;
+  z-index:2;
+  inset:0;
+  background:
+    linear-gradient(180deg,
+      rgba(9,7,18,.14) 0%,
+      rgba(9,7,18,.06) 27%,
+      rgba(9,7,18,.18) 52%,
+      rgba(9,7,18,.48) 73%,
+      rgba(9,7,18,.92) 100%),
+    linear-gradient(90deg,
+      rgba(9,7,18,.39) 0%,
+      rgba(9,7,18,.08) 26%,
+      rgba(9,7,18,.06) 72%,
+      rgba(9,7,18,.38) 100%);
+}
+.gm-home-upgrade .gm-hero .gm-hero-backlight{
+  z-index:1;
+  opacity:.25;
+}
+.gm-home-upgrade .gm-hero > .gm-hero-kicker,
+.gm-home-upgrade .gm-hero > .gm-hero-stage,
+.gm-home-upgrade .gm-hero > .gm-hero-pagination,
+.gm-home-upgrade .gm-hero > .gm-hero-description{
+  position:relative;
+  z-index:3;
+}
+.gm-home-upgrade .gm-hero > .gm-hero-description{
+  border-top-color:rgba(255,255,255,.26);
+  padding-top:24px;
+  text-shadow:0 2px 20px rgba(0,0,0,.75);
+}
+@media(max-width:760px){
+  .gm-home-upgrade .gm-hero,
+  .gm-home-upgrade .gm-preview-hero{
+    margin-top:-22px;
+    padding:22px 14px 24px;
+    width:100vw;
+    width:100dvw;
+    border-radius:0;
+  }
+  .gm-home-upgrade .gm-hero .gm-hero-scene-image{
+    object-position:50% 32%;
+    filter:brightness(.99) saturate(1.24) blur(1px);
+  }
+  .gm-home-upgrade .gm-hero .gm-hero-scene-tint{
+    background:
+      linear-gradient(180deg,rgba(9,7,18,.18),rgba(9,7,18,.27) 40%,rgba(9,7,18,.92)),
+      linear-gradient(90deg,rgba(9,7,18,.32),transparent 50%,rgba(9,7,18,.32));
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .gm-home-upgrade .gm-hero .gm-hero-scene-image{transition:none!important}
 }
 
 @media (max-width:1100px){
