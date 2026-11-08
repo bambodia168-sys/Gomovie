@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Account\SettingsController;
 use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EpisodeStudioController;
@@ -33,8 +34,15 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
     Route::post('/email/verification-notification', [SessionController::class, 'resend'])
         ->middleware('throttle:3,1')->name('verification.send');
-    Route::get('/account', fn () => view('account.overview'))
-        ->middleware('verified')->name('account.overview');
+    Route::middleware(['verified','throttle:30,1'])->group(function (): void {
+        Route::get('/account', fn () => view('account.overview'))->name('account.overview');
+        Route::get('/account/settings', [SettingsController::class,'index'])->name('account.settings');
+        Route::patch('/account/settings/identity',[SettingsController::class,'updateIdentity'])->name('account.identity');
+        Route::patch('/account/settings/password',[SettingsController::class,'changePassword'])
+            ->middleware('throttle:5,1')->name('account.password');
+        Route::post('/account/profiles',[SettingsController::class,'storeProfile'])->name('account.profiles.store');
+        Route::delete('/account/profiles/{profileId}',[SettingsController::class,'removeProfile'])->name('account.profiles.destroy');
+    });
 });
 
 Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')->name('admin.')->group(function (): void {
