@@ -243,6 +243,35 @@
 .gm-home-upgrade .gm-home-preview-note{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 0;padding:10px 0;color:#a99cad;font-size:12px;line-height:1.6}
 .gm-home-upgrade .gm-home-preview-note a{white-space:nowrap;text-decoration:none;font-weight:800;color:#fbc57e}
 .gm-home-upgrade .gm-home-preview-note a:hover{color:#fff}
+
+/* Full-bleed cinematic hero only. Shared header, footer, and content rails stay put. */
+.gm-home-upgrade .gm-preview-hero,
+.gm-home-upgrade .gm-hero{
+  position:relative;
+  left:50%;
+  transform:translateX(-50%);
+  width:calc(100vw - 28px);
+  max-width:none;
+  margin-left:0;
+  margin-right:0;
+}
+.gm-home-upgrade .gm-preview-stage,
+.gm-home-upgrade .gm-hero-stage{
+  max-width:1200px;
+}
+.gm-home-upgrade .gm-hero{
+  overflow:hidden;
+  padding:27px 34px 22px;
+  border:1px solid rgba(255,117,137,.22);
+  border-radius:26px;
+  background:radial-gradient(ellipse at 50% 30%,rgba(150,36,85,.13),transparent 70%),linear-gradient(150deg,#211126,#0c0919 70%,#1a0d24);
+}
+@media(max-width:650px){
+  .gm-home-upgrade .gm-preview-hero,
+  .gm-home-upgrade .gm-hero{width:calc(100vw - 16px);border-radius:18px}
+  .gm-home-upgrade .gm-hero{padding:22px 12px}
+}
+
 @media (max-width:1100px){
 .gm-home-upgrade .gm-preview-cover--far-left{transform:translate(-165%,-49%) scale(.68) rotateY(17deg)}
 .gm-home-upgrade .gm-preview-cover--far-right{transform:translate(65%,-49%) scale(.68) rotateY(-17deg)}
