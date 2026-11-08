@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Episode;
 use App\Models\Movie;
+use App\Models\Subscription;
+use App\Services\Rights\GlobalRights;
 use App\Models\Series;
 use App\Models\UserProfile;
 use Illuminate\Database\Eloquent\Builder;
@@ -91,6 +94,8 @@ class BrowseController extends Controller
 
         $seasons = collect();
         $selectedEpisode = null;
+        $nextEpisode = null;
+        $previousEpisode = null;
         if ($type === 'series') {
             $seasons = $title->seasons()->orderBy('season_number')
                 ->with(['episodes'=>fn ($query) => $query->where('status','published')
@@ -103,6 +108,17 @@ class BrowseController extends Controller
                 : $allEpisodes->first();
             if (isset($params['episode'])) {
                 abort_unless($selectedEpisode,404);
+            }
+
+            // Retain chronological episode order, excluding draft, archived
+            // and future-published episodes from all public navigation.
+            if ($selectedEpisode) {
+                $position = $allEpisodes->search(fn (Episode $episode): bool =>
+                    $episode->id === $selectedEpisode->id);
+                if ($position !== false) {
+                    $previousEpisode = $position > 0 ? $allEpisodes->get($position - 1) : null;
+                    $nextEpisode = $allEpisodes->get($position + 1);
+                }
             }
         } elseif (isset($params['episode'])) {
             abort(404);
@@ -129,10 +145,95 @@ class BrowseController extends Controller
             $related = $related->concat($other)->values();
         }
 
+
+        // This is a UI navigation hint, never an authorization grant.
+        // A follow-on player must always obtain a new, independently checked
+        // signed stream session through the existing protected API.
+        $autoNext = null;
+        if ($playerEnabled) {
+            $rights = app(GlobalRights::class);
+            $hasSubscription = Subscription::query()
+                ->where('user_id', auth()->id())->currentlyActive()->exists();
+
+            if ($nextEpisode && $this->readyForContinuation(
+                $nextEpisode, $title->is_premium, $hasSubscription, $rights
+            )) {
+                $autoNext = [
+                    'title' => 'Episode '.$nextEpisode->episode_number.': '.$nextEpisode->title,
+                    'url' => route('watch.show', [
+                        'type' => 'series', 'slug' => $title->slug,
+                        'episode' => $nextEpisode->id, 'view' => $displayMode, 'autoplay' => 1,
+                    ]),
+                ];
+            }
+
+            // When a season ends, choose an independently playable title
+            // from the same already-public Related Movies & Series sidebar.
+            if (!$autoNext) {
+                foreach ($related as $entry) {
+                    $candidate = $entry['item'];
+                    if ($entry['kind'] === 'movie') {
+                        $media = $candidate;
+                    } else {
+                        $media = $candidate->seasons()->orderBy('season_number')
+                            ->with(['episodes' => fn ($query) => $query
+                                ->where('status', 'published')
+                                ->where(fn ($visible) => $visible
+                                    ->whereNull('published_at')
+                                    ->orWhere('published_at', '<=', now()))
+                                ->orderBy('episode_number')])->get()
+                            ->flatMap(fn ($season) => $season->episodes)->first();
+                    }
+
+                    if (!$media || !$this->readyForContinuation(
+                        $media, $candidate->is_premium, $hasSubscription, $rights
+                    )) {
+                        continue;
+                    }
+
+                    $destination = [
+                        'type' => $entry['kind'], 'slug' => $candidate->slug,
+                        'view' => $displayMode, 'autoplay' => 1,
+                    ];
+                    if ($media instanceof Episode) {
+                        $destination['episode'] = $media->id;
+                    }
+
+                    $autoNext = [
+                        'title' => $candidate->title,
+                        'url' => route('watch.show', $destination),
+                    ];
+                    break;
+                }
+            }
+        }
+
         return view('frontend.detail', compact(
-            'title','type','displayMode','seasons','selectedEpisode','related',
-            'playerEnabled','profileId','isWatchlisted','viewerAuthorized'
+            'title','type','displayMode','seasons','selectedEpisode','previousEpisode',
+            'nextEpisode','related','autoNext','playerEnabled','profileId',
+            'isWatchlisted','viewerAuthorized'
         ));
+    }
+
+    /**
+     * Hints are deliberately conservative; the stream grant and edge always
+     * revalidate publication, license dates, account entitlement and assets.
+     */
+    private function readyForContinuation(
+        Movie|Episode $item,
+        bool $premium,
+        bool $hasSubscription,
+        GlobalRights $rights
+    ): bool {
+        if ($premium && !$hasSubscription) {
+            return false;
+        }
+
+        $kind = $item instanceof Movie ? 'movie' : 'episode';
+
+        return $rights->allows($kind, $item->id)
+            && $item->mediaAssets()->where('status', 'ready')
+                ->where('format', 'hls')->whereNull('drm_scheme')->exists();
     }
 
     private function visible(Builder $query): Builder
