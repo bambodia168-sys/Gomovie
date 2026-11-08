@@ -22,6 +22,7 @@ Laravel 13, PHP 8.4+, Tailwind CSS 4, Alpine.js, hls.js 1.7, MySQL 8.0 / Postgre
 - Prototype Cloudflare Worker for asset-scoped signed HLS, private R2 reads and per-request Laravel session authorization.
 - FFmpeg private encoding service and isolated queue job for independently approved content. The transcode feature is **disabled by default**; encoded assets are not automatically streamed or published.
 - Centralized content-rights and premium-playback policy, admin-only System Health, opt-in real worker queue probes and isolated long-running media queue configuration.
+- Non-destructive installation/upgrade preflight, offline backup bundle SHA-256 verifier, synthetic SQLite restore rehearsal, and independently reviewed private S3/R2 media staging (disabled by default, not live playback).
 - CI: Laravel/PHPUnit feature tests, JS Worker tests, frontend Vite build, FFmpeg synthetic HLS encoding fixture, independent MySQL 8 and PostgreSQL 16 acceptance suites.
 
 ## Runtime prerequisites
@@ -40,6 +41,8 @@ php artisan migrate
 php artisan test
 node --test workers/gomovie-media-edge/worker.test.mjs
 php artisan gomovie:media-preflight
+php artisan gomovie:install-preflight --mode=upgrade --json  # intentionally blocked without recovery evidence
+bash support/recovery-rehearsal.sh  # disposable SQLite only
 ~~~
 
 For development without email provider, Laravel's log mailer writes notifications to local logs rather than delivering messages. Do not treat email verification as operational until SMTP delivery is verified.
@@ -54,7 +57,7 @@ Never use development passwords, example emails or test keys in a live applicati
 
 ## Security defaults
 
-**GOMOVIE_BILLING_ENABLED=false**, **GOMOVIE_EDGE_ENABLED=false**, and **GOMOVIE_TRANSCODING_ENABLED=false**. They must remain disabled until verified independent integrations and acceptance tests are completed.
+**GOMOVIE_BILLING_ENABLED=false**, **GOMOVIE_EDGE_ENABLED=false**, **GOMOVIE_TRANSCODING_ENABLED=false**, and **GOMOVIE_MEDIA_STAGING_ENABLED=false**. They must remain disabled until verified independent integrations and acceptance tests are completed.
 
 A TMDB metadata record or a published catalog title is **not evidence of streaming rights**. Media must be licensed for all served territories. Playback grants are not DRM; real content protection requires properly licensed DRM services and full segment/key coverage.
 
@@ -67,5 +70,6 @@ The application never bundles film footage or production secrets. Payments and p
 - [Cloudflare private media edge](workers/gomovie-media-edge/README.md)
 - [Production acceptance gates](docs/RELEASE_ACCEPTANCE.md)
 - [Operations monitoring and queue supervision](docs/OPERATIONS.md)
+- [Independent installation, upgrade and backup recovery engineering](docs/INSTALLATION_RECOVERY.md)
 
 No aaPanel deployment or real-device acceptance has been performed by these source-control milestones. Never migrate production without backup, reviewed rollback and independent installation testing.

@@ -49,6 +49,10 @@ jobs:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
         run: php artisan migrate --force
+      - name: Rehearse independent SQLite installation and offline recovery
+        run: |
+          bash -n support/recovery-rehearsal.sh
+          bash support/recovery-rehearsal.sh
       - name: Run feature and unit tests
         env:
           GOMOVIE_REQUIRE_FFMPEG_SMOKE: '1'

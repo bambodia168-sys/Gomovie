@@ -76,3 +76,9 @@ Queue history older than 30 days is automatically pruned by the scheduler, while
 Keep GOMOVIE_BILLING_ENABLED=false, GOMOVIE_EDGE_ENABLED=false and GOMOVIE_TRANSCODING_ENABLED=false during development. Streaming keys must be rotated in a secure secret manager. The FFmpeg pipeline does not publish ready media assets or license content. Obtain independent approval of distribution contracts, malware scans, media output, edge authorization, rollback, off-site backups, verified SMTP and physical-device tests.
 
 Source-only operations described above have not modified any aaPanel or cPanel installation.
+
+## Installation, recovery and private staging
+
+Before installing onto a fresh **empty** database, run `php artisan gomovie:install-preflight --mode=install --json`. Before any upgrade, a consistent offline database/media/encrypted-config bundle and actual restoration test are mandatory. The verifier is `php artisan gomovie:recovery-check /secure/offline-bundle --json`; the upgrade check is `php artisan gomovie:install-preflight --mode=upgrade --recovery-bundle=/secure/offline-bundle --json`. See [installation and recovery](INSTALLATION_RECOVERY.md). The checker does not apply migrations, touch live data or assert a recovery drill passed.
+
+The media pipeline now supports independent recorded reviews and **private staging only**, gated behind `GOMOVIE_MEDIA_STAGING_ENABLED=false`. It never makes `media_assets` ready or exposes R2 objects via public URLs. The media dashboard shows review and staging state. See [media pipeline](MEDIA_PIPELINE.md).
