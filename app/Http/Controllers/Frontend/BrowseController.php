@@ -7,6 +7,7 @@ use App\Models\Movie;
 use App\Models\UserProfile;
 use App\Models\Series;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
@@ -47,12 +48,15 @@ class BrowseController extends Controller
         $model = $type === 'movie' ? Movie::query() : Series::query();
         $title = $this->visible($model)->where('slug',$slug)->firstOrFail();
 
-        $playerEnabled = config('gomovie.edge_enabled') === true
-            && auth()->check() && auth()->user()->is_active && auth()->user()->hasVerifiedEmail();
-        $profileId = $playerEnabled
+        $viewerAuthorized = auth()->check() && auth()->user()->is_active && auth()->user()->hasVerifiedEmail();
+        $profileId = $viewerAuthorized
             ? UserProfile::query()->where('user_id',auth()->id())->where('is_kids',false)->value('id')
             : null;
-        return view('frontend.detail', compact('title','type','playerEnabled','profileId'));
+        $playerEnabled = config('gomovie.edge_enabled') === true && (bool) $profileId;
+        $isWatchlisted = $profileId ? DB::table('watchlists')
+            ->where('user_profile_id',$profileId)->where('watchable_type',$type)
+            ->where('watchable_id',$title->id)->exists() : false;
+        return view('frontend.detail', compact('title','type','playerEnabled','profileId','isWatchlisted'));
     }
 
     private function visible($query)

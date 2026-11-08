@@ -7,7 +7,10 @@
   <p class="mt-2 text-zinc-400">Manage your Gomovie viewer account and profiles.</p></div>
   <span class="rounded-full border border-white/15 bg-zinc-900 px-4 py-2 text-sm capitalize text-zinc-300">{{ auth()->user()->role }}</span>
 </div>
-<div class="mt-6"><a class="inline-block rounded-xl bg-[#E50914] px-5 py-3 text-sm font-semibold hover:bg-red-700" href="{{ route('account.settings') }}">Account settings & profiles</a></div>
+<div class="mt-6 flex flex-wrap items-center gap-3">
+<a class="inline-block rounded-xl border border-[#F5C518]/30 px-5 py-3 text-sm font-semibold text-[#F5C518]" href="{{ route('account.library',['section'=>'watchlist']) }}">My List</a>
+<a class="inline-block rounded-xl border border-white/20 px-5 py-3 text-sm font-semibold" href="{{ route('account.library',['section'=>'history']) }}">Watch history</a>
+<a class="inline-block rounded-xl bg-[#E50914] px-5 py-3 text-sm font-semibold hover:bg-red-700" href="{{ route('account.settings') }}">Account settings & profiles</a></div>
 <div class="mt-8 grid gap-5 md:grid-cols-3">
   <section class="rounded-2xl border border-white/10 bg-zinc-900/70 p-6"><h2 class="font-semibold">Email verification</h2><p class="mt-3 text-sm text-emerald-300">Verified</p><p class="mt-1 break-all text-sm text-zinc-400">{{ auth()->user()->email }}</p></section>
   <section class="rounded-2xl border border-white/10 bg-zinc-900/70 p-6"><h2 class="font-semibold">Viewer profiles</h2><p class="mt-3 text-2xl font-bold">{{ \App\Models\UserProfile::where('user_id',auth()->id())->count() }}</p><p class="mt-1 text-sm text-zinc-400">Personal viewing spaces</p></section>

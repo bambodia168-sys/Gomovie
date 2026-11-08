@@ -23,6 +23,7 @@
         @if(in_array(auth()->user()->role, ['super_admin','admin','editor'], true))
           <a class="text-sm text-[#F5C518]" href="{{ route('admin.dashboard') }}">Studio</a>
         @endif
+        <a class="text-sm text-zinc-300 hover:text-white" href="{{ route('account.library',['section'=>'watchlist']) }}">My List</a>
         <a class="rounded-xl border border-white/20 px-3 py-2 text-sm" href="{{ route('account.overview') }}">Account</a>
       @else <a href="{{ route('verification.notice') }}" class="text-sm text-[#F5C518]">Verify email</a> @endif
       <form method="POST" action="{{ route('logout') }}">@csrf<button class="text-xs text-zinc-400 hover:text-white" type="submit">Sign out</button></form>

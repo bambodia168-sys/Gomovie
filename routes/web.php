@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Account\LibraryController;
 use App\Http\Controllers\Account\SettingsController;
 use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -36,6 +37,8 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         ->middleware('throttle:3,1')->name('verification.send');
     Route::middleware(['verified','throttle:30,1'])->group(function (): void {
         Route::get('/account', fn () => view('account.overview'))->name('account.overview');
+        Route::get('/account/library/{section}',[LibraryController::class,'index'])->name('account.library');
+        Route::post('/account/watchlist/toggle',[LibraryController::class,'toggle'])->name('account.watchlist.toggle');
         Route::get('/account/settings', [SettingsController::class,'index'])->name('account.settings');
         Route::patch('/account/settings/identity',[SettingsController::class,'updateIdentity'])->name('account.identity');
         Route::patch('/account/settings/password',[SettingsController::class,'changePassword'])

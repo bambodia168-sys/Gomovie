@@ -11,6 +11,15 @@
     <span>{{ $type==='movie' ? ($title->release_year ?? 'Movie') : (optional($title->first_air_date)->format('Y') ?? 'Series') }}</span>
     @if($type==='movie' && $title->runtime_minutes)<span>{{ $title->runtime_minutes }} min</span>@endif
   </div>
+  @if($profileId)
+    <form method="POST" action="{{ route('account.watchlist.toggle') }}" class="mt-7">@csrf
+      <input type="hidden" name="profile_id" value="{{ $profileId }}">
+      <input type="hidden" name="kind" value="{{ $type }}">
+      <input type="hidden" name="title_id" value="{{ $title->id }}">
+      <input type="hidden" name="action" value="{{ $isWatchlisted ? 'remove' : 'add' }}">
+      <button type="submit" class="rounded-xl border border-[#F5C518]/40 px-5 py-3 text-sm font-semibold text-[#F5C518] hover:bg-white/5">{{ $isWatchlisted ? '✓ Remove from My List' : '+ Add to My List' }}</button>
+    </form>
+  @endif
   <p class="mt-8 max-w-3xl whitespace-pre-line text-base leading-8 text-zinc-300">{{ $title->overview ?: 'No synopsis has been added yet.' }}</p>
   @if($playerEnabled && $profileId)
   <section data-gomovie-player data-profile-id="{{ $profileId }}" class="mt-9 rounded-2xl border border-white/15 bg-zinc-950 p-4">
