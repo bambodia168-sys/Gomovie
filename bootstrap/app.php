@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ApplySecurityHeaders;
 use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsureStaff;
 use Illuminate\Foundation\Application;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->append(ApplySecurityHeaders::class);
         $middleware->alias([
             'staff' => EnsureStaff::class,
             'active' => EnsureActiveAccount::class,
