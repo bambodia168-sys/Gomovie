@@ -45,13 +45,16 @@ jobs:
           php -l public/index.php
           bash -n support/installer/qa-smoke.sh
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
       - name: Build actual frontend files
         run: |
           npm install --ignore-scripts
           npm run build
       - name: Run browser HTTP installer and locked re-entry acceptance
-        run: bash support/installer/qa-smoke.sh
+        run: |
+          bash support/installer/package-release.sh
+          GOMOVIE_INSTALL_QA_ARCHIVE="$(find dist -maxdepth 1 -name 'Gomovie-Installer-QA-*.zip' -print -quit)" \
+            bash support/installer/qa-smoke.sh
 
 
   installer-postgresql:
@@ -87,7 +90,7 @@ jobs:
           php -l support/installer/InstallerEngine.php
           bash -n support/installer/qa-smoke.sh
       - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
       - name: Build actual frontend files
         run: |
           npm install --ignore-scripts
@@ -96,4 +99,7 @@ jobs:
         env:
           GOMOVIE_INSTALL_QA_DRIVER: pgsql
           GOMOVIE_INSTALL_QA_DB_PORT: '5432'
-        run: bash support/installer/qa-smoke.sh
+        run: |
+          bash support/installer/package-release.sh
+          GOMOVIE_INSTALL_QA_ARCHIVE="$(find dist -maxdepth 1 -name 'Gomovie-Installer-QA-*.zip' -print -quit)" \
+            bash support/installer/qa-smoke.sh

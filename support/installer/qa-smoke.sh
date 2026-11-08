@@ -16,13 +16,21 @@ cleanup() {
   rm -rf -- "$QA"
 }
 trap cleanup EXIT
-for dir in app bootstrap config database public resources routes storage support; do
-  cp -a "$ROOT/$dir" "$QA/"
-done
-cp "$ROOT"/{artisan,composer.json,.env.example} "$QA/"
-ln -s "$ROOT/vendor" "$QA/vendor"
+ARCHIVE="$(printenv GOMOVIE_INSTALL_QA_ARCHIVE || true)"
+if [[ -n "$ARCHIVE" ]]; then
+  test -f "$ARCHIVE"
+  # Exercise the actual buyer ZIP layout rather than a source checkout.
+  unzip -q "$ARCHIVE" -d "$QA"
+else
+  for dir in app bootstrap config database public resources routes storage support; do
+    cp -a "$ROOT/$dir" "$QA/"
+  done
+  cp "$ROOT"/{artisan,composer.json,.env.example} "$QA/"
+  ln -s "$ROOT/vendor" "$QA/vendor"
+fi
 test ! -e "$QA/.env"
 test -f "$QA/public/build/manifest.json"
+test -f "$QA/vendor/autoload.php"
 
 php -S "127.0.0.1:$PORT" -t "$QA/public" "$QA/public/index.php" > "$QA/http.log" 2>&1 &
 SERVER_PID="$!"
@@ -154,4 +162,5 @@ echo "INSTALLER_HOST_AND_CSRF_GATES=PASS"
 echo "INSTALLER_INITIAL_ADMIN_AND_AUDIT=PASS"
 echo "INSTALLER_LOCK_AND_REENTRY_BLOCK=PASS"
 echo "INSTALLER_FRONTEND_LANDING_AND_LOGIN=PASS"
+echo "INSTALLER_TESTED_EXTRACTED_BUYER_ZIP=$([[ -n "$ARCHIVE" ]] && printf YES || printf NO)"
 echo "INDEPENDENT_AAPANEL_CPANEL_ACCEPTED=NO"
