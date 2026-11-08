@@ -1,6 +1,12 @@
 name: Gomovie installer ZIP preparation (no production deployment)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/installer-package.yml'
+      - 'support/installer/**'
+      - 'public/installer/**'
   workflow_dispatch:
 
 permissions:
