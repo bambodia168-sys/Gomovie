@@ -34,8 +34,8 @@ class TmdbController extends Controller
             'title'=>$title,
             'overview'=>Str::limit((string)($result['overview']??''),12000,''),
             'release_year'=>$type==='movie' ? (int)substr((string)($result['release_date']??''),0,4) : null,
-            'first_air_date'=>$type==='series' ? ($result['first_air_date'] ?: null) : null,
-            'runtime_minutes'=>$type==='movie' ? ($result['runtime'] ?: null) : null,
+            'first_air_date'=>$type==='series' ? ($result['first_air_date'] ?? null) : null,
+            'runtime_minutes'=>$type==='movie' ? ($result['runtime'] ?? null) : null,
             'poster_path'=>isset($result['poster_path']) && preg_match('#^/[a-zA-Z0-9/_\.-]+$#',$result['poster_path']) ? $result['poster_path'] : null,
             'backdrop_path'=>isset($result['backdrop_path']) && preg_match('#^/[a-zA-Z0-9/_\.-]+$#',$result['backdrop_path']) ? $result['backdrop_path'] : null,
         ];

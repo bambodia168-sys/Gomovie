@@ -27,6 +27,7 @@ class SessionController extends Controller
 
     public function login(Request $request): RedirectResponse
     {
+        $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
@@ -56,6 +57,7 @@ class SessionController extends Controller
 
     public function register(Request $request): RedirectResponse
     {
+        $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -115,6 +117,7 @@ class SessionController extends Controller
 
     public function forgot(Request $request): RedirectResponse
     {
+        $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
         $data = $request->validate(['email' => ['required', 'email']]);
         // Never reveal whether an account exists.
         Password::sendResetLink(['email' => Str::lower($data['email'])]);
@@ -128,6 +131,7 @@ class SessionController extends Controller
 
     public function reset(Request $request): RedirectResponse
     {
+        $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
         $data = $request->validate([
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],

@@ -24,8 +24,9 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/reset-password', [SessionController::class, 'reset'])->middleware('throttle:5,1')->name('password.update');
 });
 
+Route::post('/logout', [SessionController::class, 'logout'])->middleware('auth')->name('logout');
+
 Route::middleware(['auth', 'active'])->group(function (): void {
-    Route::post('/logout', [SessionController::class, 'logout'])->name('logout');
     Route::get('/email/verify', [SessionController::class, 'verificationNotice'])->name('verification.notice');
     Route::get('/email/verify/{id}/{hash}', [SessionController::class, 'verify'])
         ->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
