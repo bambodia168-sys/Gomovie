@@ -1,26 +1,42 @@
 @extends('layouts.app')
-@section('title','Discover')
+@section('title','Explore titles')
 @section('content')
-<div class="mb-8"><p class="text-xs uppercase tracking-[.2em] text-[#F5C518]">Discover</p><h1 class="mt-2 text-4xl font-black">Movies & TV Series</h1><p class="mt-3 text-sm text-zinc-400">Find licensed entertainment by title.</p></div>
-<form method="GET" action="{{ route('browse') }}" class="mb-10 flex flex-wrap items-center gap-3">
-  <label class="sr-only" for="browse-query">Search titles</label>
-  <input id="browse-query" name="q" value="{{ $q }}" maxlength="100" placeholder="Search the catalog" class="min-w-52 flex-1 rounded-xl border border-white/15 bg-zinc-900 px-5 py-3 outline-none focus:border-[#E50914]">
-  <label for="browse-type" class="sr-only">Content type</label>
-  <select id="browse-type" name="type" class="rounded-xl border border-white/15 bg-zinc-900 px-4 py-3">
-    @foreach(['all'=>'All titles','movie'=>'Movies','series'=>'TV series'] as $value=>$label)<option value="{{ $value }}" @selected($type===$value)>{{ $label }}</option>@endforeach
-  </select>
-  <button class="rounded-xl bg-[#E50914] px-6 py-3 font-semibold hover:bg-red-700">Search</button>
+<section class="gm-browse-intro">
+  <p class="gm-eyebrow">Discover Gomovie</p>
+  <h1>Movies &amp; Series</h1>
+  <p>Explore published catalog titles. Playback depends on approved distribution rights and availability.</p>
+</section>
+<form method="GET" action="{{ route('browse') }}" class="gm-filter-bar" role="search">
+  <div class="gm-search-field"><label for="browse-query">Search titles</label>
+    <input id="browse-query" type="search" name="q" maxlength="100" value="{{ $q }}" placeholder="Search movies and series...">
+  </div>
+  <div class="gm-select-field"><label for="browse-type">Content</label><select id="browse-type" name="type">
+    @foreach(['all'=>'All titles','movie'=>'Movies','series'=>'Series'] as $value=>$label)<option value="{{ $value }}" @selected($type===$value)>{{ $label }}</option>@endforeach
+  </select></div>
+  <div class="gm-select-field"><label for="browse-access">Access</label><select id="browse-access" name="access">
+    @foreach(['all'=>'All access','free'=>'Free','premium'=>'Premium'] as $value=>$label)<option value="{{ $value }}" @selected($access===$value)>{{ $label }}</option>@endforeach
+  </select></div>
+  <button class="gm-button gm-button-primary" type="submit">Apply filters</button>
 </form>
 @if($type !== 'series')
-  <section><h2 class="mb-5 text-xl font-semibold">Movies</h2><div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-  @forelse($movies as $item)@include('frontend.partials.card',['kind'=>'movie'])@empty
-  <p class="col-span-full rounded-xl border border-dashed border-white/15 p-8 text-center text-zinc-400">No matching movies.</p>@endforelse</div>
-  <div class="mt-8">{{ $movies->links() }}</div></section>
+<section class="gm-content-section">
+  <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>Movies</h2><span class="gm-section-caption">Published movies</span></div>
+  @if($movies->isEmpty())
+    <p class="gm-empty-state">No matching movies are available yet.</p>
+  @else
+    <div class="gm-poster-grid">@foreach($movies as $item)@include('frontend.partials.card',['kind'=>'movie'])@endforeach</div>
+    <div class="mt-8">{{ $movies->links() }}</div>
+  @endif
+</section>
 @endif
 @if($type !== 'movie')
-  <section class="{{ $type==='all' ? 'mt-12' : '' }}"><h2 class="mb-5 text-xl font-semibold">TV Series</h2>
-  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">@forelse($series as $item)
-    @include('frontend.partials.card',['kind'=>'series'])
-    @empty<p class="col-span-full rounded-xl border border-dashed border-white/15 p-8 text-center text-zinc-400">No matching TV series.</p>@endforelse</div></section>
+<section class="gm-content-section">
+  <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>TV Series</h2><span class="gm-section-caption">Published series</span></div>
+  @if($series->isEmpty())
+    <p class="gm-empty-state">No matching TV series are available yet.</p>
+  @else
+    <div class="gm-poster-grid">@foreach($series as $item)@include('frontend.partials.card',['kind'=>'series'])@endforeach</div>
+  @endif
+</section>
 @endif
 @endsection

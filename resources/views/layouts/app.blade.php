@@ -1,40 +1,56 @@
 <!doctype html>
 <html lang="{{ str_replace('_','-',app()->getLocale()) }}" class="dark">
 <head>
-<meta charset="utf-8"><meta name="csrf-token" content="{{ csrf_token() }}"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0A0A0C">
-<meta name="description" content="Discover licensed movies and TV series on Gomovie">
-<title>@yield('title', 'Gomovie') — Gomovie</title>
+<meta charset="utf-8">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090812">
+<meta name="description" content="@yield('description', 'Discover licensed movies and TV series on Gomovie.')">
+<title>@yield('title','Discover') — Gomovie</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 </head>
-<body class="min-h-screen bg-[#0A0A0C] text-white antialiased">
-<header class="sticky top-0 z-40 border-b border-white/10 bg-[#0A0A0C]/95 backdrop-blur-xl">
-<div class="mx-auto flex max-w-7xl flex-wrap items-center gap-5 px-5 py-4 sm:px-8">
-    <a href="{{ route('home') }}" class="text-2xl font-black tracking-tight text-[#E50914]">GO<span class="text-white">MOVIE</span></a>
-    <nav aria-label="Main navigation" class="flex gap-4 text-sm text-zinc-300">
-        <a href="{{ route('home') }}" class="hover:text-white">Home</a>
-        <a href="{{ route('browse') }}" class="hover:text-white">Movies & Series</a>
+<body class="gm-site min-h-screen text-white antialiased">
+<a href="#main-content" class="gm-skip">Skip to content</a>
+<header class="gm-site-header">
+  <div class="gm-container gm-header-inner" x-data="{ mobileOpen:false }">
+    <a class="gm-brand" href="{{ route('home') }}" aria-label="Gomovie homepage">
+      <span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span>
+      <span class="gm-brand-copy"><strong>GOMO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span>
+    </a>
+    <button class="gm-mobile-toggle" type="button" @click="mobileOpen=!mobileOpen"
+      :aria-expanded="mobileOpen.toString()" aria-controls="gm-main-nav" aria-label="Toggle menu">☰</button>
+    <nav id="gm-main-nav" class="gm-main-nav" :class="mobileOpen ? 'is-open' : ''" aria-label="Main navigation">
+      <a href="{{ route('home') }}" @class(['is-active'=>request()->routeIs('home')]) @if(request()->routeIs('home')) aria-current="page" @endif>Home</a>
+      <a href="{{ route('browse',['type'=>'movie']) }}" @class(['is-active'=>request()->routeIs('browse')&&request('type')==='movie'])>Movies</a>
+      <a href="{{ route('browse',['type'=>'series']) }}" @class(['is-active'=>request()->routeIs('browse')&&request('type')==='series'])>Series</a>
+      <a href="{{ route('browse',['access'=>'premium']) }}" class="gm-gold-nav">♛ Premium</a>
+      <a href="{{ route('browse',['access'=>'free']) }}">Free</a>
+      <a href="{{ route('about') }}" @class(['is-active'=>request()->routeIs('about')])>About</a>
     </nav>
-    <form class="order-3 w-full sm:order-none sm:ml-auto sm:w-56" method="GET" action="{{ route('browse') }}">
-        <label class="sr-only" for="catalog-search">Search catalog</label>
-        <input id="catalog-search" name="q" value="{{ request('q') }}" placeholder="Search movies & series" maxlength="100" class="w-full rounded-xl border border-white/15 bg-zinc-900 px-4 py-2 text-sm text-white outline-none focus:border-[#E50914]">
+    <form class="gm-header-search" role="search" method="GET" action="{{ route('browse') }}">
+      <label class="sr-only" for="gm-search">Search movies or series</label>
+      <span aria-hidden="true">⌕</span>
+      <input id="gm-search" name="q" maxlength="100" value="{{ request('q') }}" placeholder="Search movies & series">
     </form>
+    <span class="gm-language-label" aria-label="Current language English">◎ EN</span>
     @auth
-      @if(auth()->user()->hasVerifiedEmail())
-        @if(in_array(auth()->user()->role, ['super_admin','admin','editor'], true))
-          <a class="text-sm text-[#F5C518]" href="{{ route('admin.dashboard') }}">Studio</a>
-        @endif
-        <a class="text-sm text-zinc-300 hover:text-white" href="{{ route('account.library',['section'=>'watchlist']) }}">My List</a>
-        <a class="rounded-xl border border-white/20 px-3 py-2 text-sm" href="{{ route('account.overview') }}">Account</a>
-      @else <a href="{{ route('verification.notice') }}" class="text-sm text-[#F5C518]">Verify email</a> @endif
-      <form method="POST" action="{{ route('logout') }}">@csrf<button class="text-xs text-zinc-400 hover:text-white" type="submit">Sign out</button></form>
+      <a href="{{ auth()->user()->hasVerifiedEmail() ? route('account.overview') : route('verification.notice') }}"
+         class="gm-account-trigger" title="My account" aria-label="My account">♙</a>
     @else
-      <a class="text-sm text-zinc-300" href="{{ route('login') }}">Sign in</a>
-      <a class="rounded-xl bg-[#E50914] px-4 py-2 text-sm font-semibold" href="{{ route('register') }}">Join</a>
+      <a href="{{ route('login') }}" class="gm-account-trigger" title="Sign in" aria-label="Sign in">♙</a>
     @endauth
-</div></header>
-<main class="mx-auto min-h-[72vh] max-w-7xl px-5 py-10 sm:px-8">
-    @if(session('status'))<p role="status" class="mb-5 rounded-xl border border-emerald-700/40 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-200">{{ session('status') }}</p>@endif
-    @yield('content')
+  </div>
+</header>
+<main id="main-content" class="gm-container gm-main-content">
+  @if(session('status'))<div class="gm-message" role="status">{{ session('status') }}</div>@endif
+  @yield('content')
 </main>
-<footer class="border-t border-white/10 px-5 py-8 text-center text-xs text-zinc-500">© {{ date('Y') }} Gomovie. Licensed media only. <a href="https://tonsamith.com" class="hover:text-white">Ton Samith</a></footer>
-</body></html>
+<footer class="gm-site-footer">
+  <div class="gm-container gm-footer-inner">
+    <a class="gm-brand gm-brand-small" href="{{ route('home') }}"><span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span><span class="gm-brand-copy"><strong>GOMO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span></a>
+    <nav aria-label="Footer"><a href="{{ route('about') }}">About Gomovie</a><a href="{{ route('browse') }}">Explore catalog</a><a href="https://tonsamith.com">Publisher</a></nav>
+    <span>© {{ date('Y') }} Gomovie · Licensed media only</span>
+  </div>
+</footer>
+</body>
+</html>

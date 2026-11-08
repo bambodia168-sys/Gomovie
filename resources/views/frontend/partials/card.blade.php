@@ -1,17 +1,25 @@
 @php
- $path = (string) ($item->poster_path ?? '');
- $image = '';
- if (preg_match('#^/[A-Za-z0-9_.\/-]+\.(?:jpg|jpeg|png|webp)$#i', $path)) $image = 'https://image.tmdb.org/t/p/w500'.$path;
- elseif (preg_match('#^artwork/[A-Za-z0-9_.\/-]+$#', $path)) $image = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+  $poster = \App\Support\CatalogArtwork::url($item->poster_path ?? null, 'w500');
+  $cardMode = $cardMode ?? 'standard';
+  $cardRank = $cardRank ?? null;
+  $year = $kind==='movie' ? ($item->release_year ?? null) : $item->first_air_date?->format('Y');
 @endphp
-<a href="{{ route('watch.show',[$kind,$item->slug]) }}" class="group block overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 transition hover:-translate-y-1 hover:border-[#E50914]/60 hover:shadow-xl hover:shadow-black/50">
-  <div class="relative aspect-[2/3] overflow-hidden bg-gradient-to-br from-zinc-800 via-zinc-900 to-black">
-   @if($image)
-     <img src="{{ $image }}" alt="Poster for {{ $item->title }}" loading="lazy" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.05]">
-   @else
-     <div class="flex h-full flex-col items-center justify-center gap-4 px-4 text-center"><span aria-hidden="true" class="text-6xl text-[#E50914]/75">▶</span><span class="text-xl font-bold text-zinc-300">{{ $item->title }}</span></div>
-   @endif
-   <span class="absolute right-3 top-3 rounded-lg bg-black/75 px-2.5 py-1 text-[11px] font-semibold text-white">{{ $item->is_premium ? 'PREMIUM' : 'FREE' }}</span>
-  </div>
-  <div class="p-4"><p class="truncate font-semibold">{{ $item->title }}</p><p class="mt-2 flex items-center justify-between text-xs text-zinc-400"><span>{{ $kind==='movie' ? ($item->release_year ?: 'Movie') : 'Series' }}</span><span class="text-[#F5C518]">View details →</span></p></div>
+<a href="{{ route('watch.show',[$kind,$item->slug]) }}"
+   class="gm-poster-card gm-poster-card-{{ $cardMode }} group"
+   aria-label="View {{ $item->title }} — {{ $kind === 'movie' ? 'movie' : 'series' }}">
+  <span class="gm-poster-frame">
+    @if($poster)
+      <img src="{{ $poster }}" alt="" loading="lazy" decoding="async" class="gm-poster-image">
+    @else
+      <span class="gm-poster-placeholder"><span aria-hidden="true">▶</span><strong>{{ $item->title }}</strong></span>
+    @endif
+    <span class="gm-poster-scrim" aria-hidden="true"></span>
+    @if($cardRank)<span class="gm-rank-badge">{{ $cardRank }}</span>@endif
+    <span class="gm-access-badge {{ $item->is_premium ? 'is-premium' : 'is-free' }}">{{ $item->is_premium ? 'Premium' : 'Free' }}</span>
+    <span class="gm-poster-play" aria-hidden="true">▶</span>
+  </span>
+  <span class="gm-poster-details">
+    <strong class="gm-poster-title">{{ $item->title }}</strong>
+    <span class="gm-poster-meta">{{ $year ?: ($kind === 'movie' ? 'Movie' : 'Series') }} <span aria-hidden="true">·</span> {{ $kind === 'movie' ? 'Movie' : 'Series' }}</span>
+  </span>
 </a>

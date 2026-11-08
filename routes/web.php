@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [BrowseController::class, 'home'])->name('home');
 Route::get('/browse', [BrowseController::class, 'index'])->name('browse');
+Route::view('/about', 'frontend.about')->name('about');
 Route::get('/watch/{type}/{slug}', [BrowseController::class, 'show'])->name('watch.show');
 
 Route::middleware('guest')->group(function (): void {
