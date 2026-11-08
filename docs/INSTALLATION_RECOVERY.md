@@ -63,3 +63,7 @@ GitHub CI also tests source migrations and features against MySQL 8 / PostgreSQL
 For **each** aaPanel and cPanel host, capture evidence with timestamps and responsible reviewer for: clean install; secure public/ document root; release ZIP and dependency checksum; minimum PHP extensions; TLS/HSTS/cookies; existing installation upgrade; migration and runtime logs; consistent database/media/config backups; verified off-site restore; rollback; default worker plus media worker supervision; cron and queue latency; email delivery; edge private bucket ACL; malware/rights attestation; device/browser coverage; and legal/payment requirements.
 
 Mark untested items as **not accepted**. A CI pass or operator-entered reference is not a production signoff.
+
+## Independent host-evidence register
+
+For actual aaPanel and cPanel acceptance, a two-person CLI evidence registry and read-only System Health matrix are now available. Source CI cannot populate genuine host evidence. See [host acceptance](HOST_ACCEPTANCE.md) for exact per-host control IDs, responsibilities and manual signoff procedures.

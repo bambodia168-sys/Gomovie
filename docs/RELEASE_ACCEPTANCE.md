@@ -45,3 +45,7 @@ php artisan gomovie:media-preflight --json
 ~~~
 
 Do NOT execute migrate:fresh against live or shared production data. A failed media-preflight is expected while external streaming integration is disabled.
+
+## Audited host acceptance evidence
+
+A CLI-only two-person [aaPanel/cPanel acceptance registry](HOST_ACCEPTANCE.md) records external host-test ticket references, independent super-admin acceptance/rejection, and an administrator dashboard of missing/accepted items. This is a record of human-provided evidence; it **cannot** certify that a host, restore or legal/payment control actually passed, and never enables live features.

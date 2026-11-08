@@ -71,5 +71,6 @@ The application never bundles film footage or production secrets. Payments and p
 - [Production acceptance gates](docs/RELEASE_ACCEPTANCE.md)
 - [Operations monitoring and queue supervision](docs/OPERATIONS.md)
 - [Independent installation, upgrade and backup recovery engineering](docs/INSTALLATION_RECOVERY.md)
+- [Real aaPanel/cPanel acceptance procedure and evidence register](docs/HOST_ACCEPTANCE.md)
 
 No aaPanel deployment or real-device acceptance has been performed by these source-control milestones. Never migrate production without backup, reviewed rollback and independent installation testing.
