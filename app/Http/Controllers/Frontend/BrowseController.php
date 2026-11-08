@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Movie;
+use App\Models\UserProfile;
 use App\Models\Series;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -41,7 +42,12 @@ class BrowseController extends Controller
         $model = $type === 'movie' ? Movie::query() : Series::query();
         $title = $this->visible($model)->where('slug',$slug)->firstOrFail();
 
-        return view('frontend.detail', compact('title','type'));
+        $playerEnabled = config('gomovie.edge_enabled') === true
+            && auth()->check() && auth()->user()->is_active && auth()->user()->hasVerifiedEmail();
+        $profileId = $playerEnabled
+            ? UserProfile::query()->where('user_id',auth()->id())->where('is_kids',false)->value('id')
+            : null;
+        return view('frontend.detail', compact('title','type','playerEnabled','profileId'));
     }
 
     private function visible($query)
