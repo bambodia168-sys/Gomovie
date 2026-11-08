@@ -1,0 +1,54 @@
+name: Gomovie five-step installer acceptance (isolated MySQL)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer-mysql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: gomovie_install_ci
+          MYSQL_USER: gomovie_installer
+          MYSQL_PASSWORD: installer_test_only
+          MYSQL_ROOT_PASSWORD: local_ci_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -plocal_ci_only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_mysql, openssl, fileinfo, curl
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: PHP syntax verification
+        run: |
+          php -l public/installer/index.php
+          php -l support/installer/InstallerEngine.php
+          php -l public/index.php
+          bash -n support/installer/qa-smoke.sh
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Build actual frontend files
+        run: |
+          npm install --ignore-scripts
+          npm run build
+      - name: Run browser HTTP installer and locked re-entry acceptance
+        run: bash support/installer/qa-smoke.sh
