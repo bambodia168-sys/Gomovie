@@ -29,14 +29,8 @@ final class TranscodeGate
         );
         abort_unless(in_array($ingest->ingestable_type, ['movie', 'episode'], true), 403);
 
-        $licensed = DB::table('content_rights')
-            ->where('licensable_type', $ingest->ingestable_type)
-            ->where('licensable_id', $ingest->ingestable_id)
-            ->where('status', 'active')->whereNull('territories')
-            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
-            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))
-            ->exists();
-        abort_unless($licensed, 403, 'Active global streaming rights must be verified.');
+        app(\App\Services\Rights\GlobalRights::class)
+            ->requireActive($ingest->ingestable_type, (int) $ingest->ingestable_id);
 
         return $ingest;
     }

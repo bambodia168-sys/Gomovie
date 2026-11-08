@@ -5,7 +5,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Episode;
 use App\Models\MediaAsset;
 use App\Models\Movie;
-use App\Models\Subscription;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,10 +32,10 @@ class EdgeAuthorizationController extends Controller
         abort_unless($session, 403);
 
         $user = User::find($data['uid']);
-        abort_unless($user?->is_active && $user->hasVerifiedEmail(), 403);
-
-        abort_unless(DB::table('user_profiles')->where('id',$data['pid'])
-            ->where('user_id',$user->id)->where('is_kids',false)->exists(),403);
+        abort_unless($user, 403);
+        $profile = \App\Models\UserProfile::query()
+            ->where('user_id', $user->id)->find($data['pid']);
+        abort_unless($profile, 403);
 
         $asset = MediaAsset::query()->where('status','ready')->where('format','hls')
             ->whereNull('drm_scheme')->find($session->media_asset_id);
@@ -44,27 +43,8 @@ class EdgeAuthorizationController extends Controller
         $title = $asset->streamable;
         abort_unless($title instanceof Movie || $title instanceof Episode,403);
 
-        $type = $title instanceof Movie ? 'movie' : 'episode';
-        $series = $title instanceof Episode ? $title->season?->series : null;
-        $published = $title->status === 'published' && (!$title->published_at || !$title->published_at->isFuture());
-        if ($series) {
-            $published = $published && $series->status === 'published'
-                && (!$series->published_at || !$series->published_at->isFuture());
-        }
-        abort_unless($published && ($type === 'movie' || $series),403);
-
-        $rights = DB::table('content_rights')->where('licensable_type',$type)
-            ->where('licensable_id',$title->id)->where('status','active')
-            ->whereNull('territories')
-            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at','<=',now()))
-            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at','>',now()))
-            ->exists();
-        abort_unless($rights,403);
-
-        $premium = $type === 'movie' ? $title->is_premium : $series->is_premium;
-        if ($premium) {
-            abort_unless(Subscription::query()->where('user_id',$user->id)->currentlyActive()->exists(),403);
-        }
+        app(\App\Services\Rights\PlaybackEligibility::class)
+            ->requireEligible($user, $profile, $title);
 
         return response()->json(['allowed'=>true])->header('Cache-Control','private, no-store');
     }

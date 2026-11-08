@@ -5,7 +5,6 @@ namespace App\Services\Streaming;
 use App\Models\Episode;
 use App\Models\MediaAsset;
 use App\Models\Movie;
-use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserProfile;
 use Illuminate\Support\Facades\Cache;
@@ -106,24 +105,8 @@ class PlaybackGrantService
                 ->findOrFail($id);
             $premium = $title->season->series->is_premium;
         }
-        abort_if($title->published_at && $title->published_at->isFuture(), 403);
-
-        // Without verified geo-IP at the edge, only explicitly GLOBAL licensed
-        // content can be granted. Never trust a client-supplied country header.
-        $hasRights = DB::table('content_rights')
-            ->where('licensable_type', $type)->where('licensable_id', $title->id)
-            ->where('status', 'active')->whereNull('territories')
-            ->where(function ($q): void {
-                $q->whereNull('starts_at')->orWhere('starts_at', '<=', now());
-            })->where(function ($q): void {
-                $q->whereNull('ends_at')->orWhere('ends_at', '>', now());
-            })->exists();
-        abort_unless($hasRights, 403, 'Streaming distribution rights are not active.');
-
-        $subscription = Subscription::query()->where('user_id', $user->id)
-            ->currentlyActive()->orderByDesc('starts_at')->first();
-        abort_if($premium && !$subscription, 403, 'An active subscription is required.');
-
+        $subscription = app(\App\Services\Rights\PlaybackEligibility::class)
+            ->requireEligible($user, $profile, $title);
         $limit = $subscription ? max(1, (int) $subscription->max_concurrent_streams) : 1;
         $asset = $title->mediaAssets()->where('status', 'ready')->where('format', 'hls')
             ->whereNull('drm_scheme')->orderBy('id')->first();
