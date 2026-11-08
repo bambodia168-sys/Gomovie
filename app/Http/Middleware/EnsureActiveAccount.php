@@ -10,8 +10,10 @@ class EnsureActiveAccount
 {
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless($request->user()?->is_active, 403, 'Account is suspended.');
-
+        // API public catalog endpoints do not require a logged-in user.
+        if ($request->user() && !$request->user()->is_active) {
+            abort(403, 'Account is suspended.');
+        }
         return $next($request);
     }
 }
