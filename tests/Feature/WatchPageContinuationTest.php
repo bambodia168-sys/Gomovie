@@ -153,6 +153,7 @@ final class WatchPageContinuationTest extends TestCase
             'title' => 'Next Related Movie',
             'slug' => 'next-related-movie',
             'status' => 'published',
+            'is_premium' => false,
         ]);
         $this->hintFor($movie);
         config()->set('gomovie.edge_enabled', true);
