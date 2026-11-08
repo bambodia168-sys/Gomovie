@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\TmdbController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\SessionController;
@@ -68,6 +69,7 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::post('/media/ingests', [MediaController::class, 'ingest'])->name('media.ingest');
     Route::post('/tmdb/preview', [TmdbController::class, 'preview'])->name('tmdb.preview');
     Route::post('/tmdb/import', [TmdbController::class, 'import'])->name('tmdb.import');
+    Route::get('/operations', [OperationsController::class, 'index'])->name('operations.index');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
 });

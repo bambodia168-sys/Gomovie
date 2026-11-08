@@ -18,6 +18,7 @@
       <a href="{{ route('admin.media.index') }}" class="block rounded-xl px-4 py-3 text-zinc-300 hover:bg-white/5">▧ &nbsp; Media Library</a>
       @if(in_array(auth()->user()->role,['super_admin','admin'],true))
       <p class="px-3 pb-2 pt-5 text-[10px] font-semibold uppercase tracking-[.2em] text-zinc-500">Administration</p>
+      <a href="{{ route('admin.operations.index') }}" class="block rounded-xl px-4 py-3 text-zinc-300 hover:bg-white/5">◇ &nbsp; System Health</a>
       <a href="{{ route('admin.users.index') }}" class="block rounded-xl px-4 py-3 text-zinc-300 hover:bg-white/5">♙ &nbsp; User Manager</a>
       @endif
       <p class="px-3 pb-2 pt-5 text-[10px] font-semibold uppercase tracking-[.2em] text-zinc-500">Workspace</p>
