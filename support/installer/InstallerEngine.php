@@ -30,6 +30,7 @@ final class InstallerEngine
             'MySQL or PostgreSQL PDO driver' =>
                 extension_loaded('pdo_mysql') || extension_loaded('pdo_pgsql'),
             'Composer dependencies bundled' => is_file($root.'/vendor/autoload.php'),
+            'No stale cached configuration' => !is_file($root.'/bootstrap/cache/config.php'),
             'Compiled frontend assets bundled' => is_file($root.'/public/build/manifest.json'),
             'Private application storage' => is_dir($private) && is_writable($private),
             'Private session and view storage' => is_dir($sessions) && is_writable($sessions)
