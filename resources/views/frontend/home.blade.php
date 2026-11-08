@@ -20,6 +20,23 @@
   next(){this.active=(this.active+1)%this.count}
 }">
   <div class="gm-hero-backlight" aria-hidden="true"></div>
+  {{-- The background tracks the same active index as the existing five-card carousel. --}}
+  <div class="gm-hero-scene" aria-hidden="true">
+    @foreach($heroTitles as $index => $entry)
+      @php
+        $scenePath = $entry['item']->backdrop_path ?: $entry['item']->poster_path;
+        $sceneUrl = \App\Support\CatalogArtwork::url($scenePath, 'w780');
+      @endphp
+      @if($sceneUrl)
+        <img src="{{ $sceneUrl }}" alt="" class="gm-hero-scene-image"
+             x-show="active === {{ $index }}" @if($index > 0) x-cloak @endif
+             x-transition.opacity.duration.650ms
+             loading="{{ $index === 0 ? 'eager' : 'lazy' }}"
+             decoding="async" onerror="this.style.opacity='0'">
+      @endif
+    @endforeach
+    <span class="gm-hero-scene-tint"></span>
+  </div>
   <p class="gm-hero-kicker">CINEMATIC STORIES · CURATED DISCOVERY</p>
   <div class="gm-hero-stage">
     @foreach($heroTitles as $index=>$entry)
@@ -243,6 +260,33 @@
 .gm-home-upgrade .gm-home-preview-note{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 0;padding:10px 0;color:#a99cad;font-size:12px;line-height:1.6}
 .gm-home-upgrade .gm-home-preview-note a{white-space:nowrap;text-decoration:none;font-weight:800;color:#fbc57e}
 .gm-home-upgrade .gm-home-preview-note a:hover{color:#fff}
+
+/* Featured backdrop is synchronized to the existing Alpine carousel. */
+.gm-home-upgrade .gm-hero .gm-hero-scene{
+  position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;
+  border-radius:inherit;isolation:isolate;
+  background:linear-gradient(125deg,#221224 0%,#150d20 52%,#0e0a17 100%);
+}
+.gm-home-upgrade .gm-hero .gm-hero-scene-image{
+  position:absolute;inset:-7%;width:114%;height:114%;
+  object-fit:cover;object-position:center 42%;
+  filter:blur(7px) brightness(.68) saturate(1.15);
+  transform:scale(1.02);
+}
+.gm-home-upgrade .gm-hero .gm-hero-scene-tint{
+  position:absolute;inset:0;z-index:2;
+  background:
+    linear-gradient(90deg,rgba(18,9,27,.8),rgba(18,8,27,.34) 40%,rgba(18,8,27,.63) 100%),
+    linear-gradient(180deg,rgba(16,8,23,.65) 0%,rgba(15,8,24,.33) 36%,rgba(15,8,24,.73) 68%,rgba(15,8,24,.95) 100%);
+}
+.gm-home-upgrade .gm-hero > .gm-hero-kicker,
+.gm-home-upgrade .gm-hero > .gm-hero-stage,
+.gm-home-upgrade .gm-hero > .gm-hero-pagination,
+.gm-home-upgrade .gm-hero > .gm-hero-description{position:relative;z-index:3}
+.gm-home-upgrade .gm-hero .gm-hero-backlight{z-index:1;opacity:.5}
+@media(prefers-reduced-motion:reduce){
+  .gm-home-upgrade .gm-hero .gm-hero-scene-image{transition:none!important}
+}
 
 /* Full-bleed cinematic hero only. Shared header, footer, and content rails stay put. */
 .gm-home-upgrade .gm-preview-hero,

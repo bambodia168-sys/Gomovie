@@ -38,6 +38,33 @@ final class CinematicFrontendTest extends TestCase
             ->assertDontSee('Trending Now');
     }
 
+    public function test_featured_hero_background_tracks_slide_and_keeps_drafts_private(): void
+    {
+        Movie::create([
+            'title' => 'Backdrop Film', 'slug' => 'backdrop-film', 'status' => 'published',
+            'poster_path' => '/poster-film.jpg', 'backdrop_path' => '/landscape-film.jpg',
+        ]);
+        Series::create([
+            'title' => 'Backdrop Series', 'slug' => 'backdrop-series', 'status' => 'published',
+            'poster_path' => '/series-portrait.jpg',
+        ]);
+        Movie::create([
+            'title' => 'Hidden Draft Backdrop', 'slug' => 'hidden-draft-backdrop',
+            'status' => 'draft', 'backdrop_path' => '/private-draft.jpg',
+        ]);
+
+        $this->get('/')->assertOk()
+            ->assertSee('gm-hero-scene')
+            ->assertSee('gm-hero-scene-tint')
+            ->assertSee('x-show="active === 0"', false)
+            ->assertSee('x-show="active === 1"', false)
+            ->assertSee('https://image.tmdb.org/t/p/w780/landscape-film.jpg')
+            ->assertSee('https://image.tmdb.org/t/p/w780/series-portrait.jpg')
+            ->assertDontSee('private-draft.jpg')
+            ->assertSee('gm-hero-tile')
+            ->assertSee('gm-feature-grid');
+    }
+
     public function test_browse_filters_are_real_and_do_not_publish_drafts(): void
     {
         Movie::create(['title'=>'Free Feature','slug'=>'free-feature','status'=>'published','is_premium'=>false]);

@@ -152,7 +152,10 @@ final class CatalogManagementTableTest extends TestCase
             ->withSession(['status' => 'Title updated.'])
             ->get('/dashboard/catalog/movies')
             ->assertOk()
-            ->assertSee('fixed right-4 top-4')
+            ->assertSee('class="gm-studio-toast"', false)
+            ->assertSee('position:fixed')
+            ->assertSee('getBoundingClientRect().bottom + 12')
+            ->assertDontSee('fixed right-4 top-4')
             ->assertSee('Dismiss confirmation')
             ->assertSee('Title updated.');
     }
