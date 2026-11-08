@@ -9,15 +9,10 @@
   $modeQuery=['type'=>$type,'slug'=>$title->slug];
   if($selectedEpisode) $modeQuery['episode']=$selectedEpisode->id;
 @endphp
-<div class="gm-watch-breadcrumb">
-  <a href="{{ route('home') }}">Home</a><span aria-hidden="true">›</span>
-  <a href="{{ route('browse',['type'=>$type]) }}">{{ $type==='movie' ? 'Movies' : 'Series' }}</a><span aria-hidden="true">›</span>
-  <span aria-current="page">{{ $title->title }}</span>
-</div>
 <div class="gm-watch-layout">
   <div class="gm-watch-main">
-    <div class="gm-watch-toolbar">
-      <div><span class="gm-eyebrow">Now exploring</span><h1>{{ $title->title }}</h1></div>
+    <h1 class="sr-only">{{ $title->title }} — Watch page</h1>
+    <div class="gm-watch-toolbar gm-watch-toolbar-compact">
       <div class="gm-mode-switch" role="group" aria-label="Display aspect ratio">
         <a href="{{ route('watch.show',array_merge($modeQuery,['view'=>'widescreen'])) }}"
            @class(['is-selected'=>!$portrait]) @if(!$portrait) aria-current="page" @endif title="Widescreen 16 by 9">▭ <span>16:9</span></a>
@@ -32,7 +27,11 @@
         <div class="gm-player-vignette" aria-hidden="true"></div>
         <span class="gm-player-aspect-label">{{ $portrait ? '▯ Portrait · 9:16' : '▭ Widescreen · 16:9' }}</span>
         @if($playerEnabled && $profileId)
-        <div data-gomovie-player data-profile-id="{{ $profileId }}" class="gm-player-live">
+        <div data-gomovie-player data-profile-id="{{ $profileId }}"
+             data-next-url="{{ $autoNext['url'] ?? '' }}"
+             data-next-title="{{ $autoNext['title'] ?? '' }}"
+             data-auto-start="{{ request('autoplay') === '1' ? '1' : '0' }}"
+             class="gm-player-live">
           <video controls playsinline preload="none" aria-label="Gomovie secure player"></video>
           <div class="gm-player-controls">
             @if($type==='movie')
@@ -41,6 +40,7 @@
               <button type="button" data-play-type="episode" data-play-id="{{ $selectedEpisode->id }}" class="gm-button gm-button-primary">▶ Play selected episode</button>
             @endif
             <button type="button" data-stop-playback class="gm-button gm-button-secondary" hidden>Stop playback</button>
+            <button type="button" data-retry-playback class="gm-button gm-button-secondary" hidden>↻ Retry</button>
             <p data-playback-status role="status" aria-live="polite">Authorized playback requires approved media and access rights.</p>
           </div>
         </div>
@@ -71,6 +71,112 @@
       </section>
     </div>
 
+    @if($playerEnabled && $profileId)
+      <section class="gm-watch-player-tools" aria-label="Playback options" data-gomovie-player-tools>
+        <div class="gm-watch-player-tool-group">
+          <button type="button" data-seek-offset="-10" title="Rewind 10 seconds" aria-label="Rewind 10 seconds">↶ 10s</button>
+          <button type="button" data-seek-offset="10" title="Forward 10 seconds" aria-label="Forward 10 seconds">10s ↷</button>
+          <button type="button" data-mute-toggle title="Mute or unmute" aria-label="Mute audio">♫</button>
+          <label class="gm-watch-player-slider"><span>Volume</span><input type="range" data-playback-volume min="0" max="1" step="0.05" value="1" aria-label="Playback volume"></label>
+        </div>
+        <div class="gm-watch-player-tool-group">
+          <label class="gm-watch-player-select"><span>Speed</span>
+            <select data-playback-speed aria-label="Playback speed">
+              <option value=".75">0.75×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.25">1.25×</option>
+              <option value="1.5">1.5×</option>
+              <option value="2">2×</option>
+            </select>
+          </label>
+          <label class="gm-watch-player-select" data-quality-container hidden><span>Quality</span>
+            <select data-playback-quality aria-label="Video quality"><option value="-1">Auto</option></select>
+          </label>
+          <button type="button" data-captions-toggle aria-label="Turn captions on or off" title="Captions when available">CC</button>
+          <button type="button" data-picture-in-picture title="Picture in picture">▣</button>
+          <button type="button" data-fullscreen-player title="Fullscreen">⛶</button>
+        </div>
+        @if($autoNext)
+          <label class="gm-watch-autoplay-choice">
+            <input type="checkbox" data-auto-next-toggle checked>
+            <span>Autoplay next</span>
+          </label>
+        @endif
+      </section>
+      @if($autoNext)
+        <div class="gm-watch-next-panel" data-gomovie-next-prompt hidden role="status" aria-live="polite">
+          <div><small>UP NEXT</small><strong>{{ $autoNext['title'] }}</strong>
+            <span>Continuing in <span data-next-countdown>7</span>s</span>
+          </div>
+          <div class="gm-watch-next-actions">
+            <button type="button" data-next-cancel>Cancel</button>
+            <button type="button" data-next-now>Play next →</button>
+          </div>
+        </div>
+      @endif
+    @endif
+
+    @if($type==='series')
+      <section class="gm-episode-section gm-episode-section-near-player" aria-labelledby="episode-heading">
+        <div class="gm-section-heading">
+          <h2 id="episode-heading"><span class="gm-section-marker"></span>All Episodes</h2>
+          <span class="gm-section-caption">{{ $seasons->sum(fn ($season) => $season->episodes->count()) }} published</span>
+        </div>
+        @if($selectedEpisode)
+          <div class="gm-episode-navigation" aria-label="Episode navigation">
+            @if($previousEpisode)
+              <a href="{{ route('watch.show', ['type' => 'series', 'slug' => $title->slug, 'episode' => $previousEpisode->id, 'view' => $displayMode]) }}">← Previous episode</a>
+            @else
+              <span>Beginning of series</span>
+            @endif
+            @if($nextEpisode)
+              <a href="{{ route('watch.show', ['type' => 'series', 'slug' => $title->slug, 'episode' => $nextEpisode->id, 'view' => $displayMode]) }}">Next episode →</a>
+            @else
+              <span>Latest published episode</span>
+            @endif
+          </div>
+        @endif
+
+        @forelse($seasons as $season)
+          <div class="gm-season-group">
+            <h3>Season {{ $season->season_number }} <span>{{ $season->title }}</span></h3>
+            @if($season->episodes->isNotEmpty())
+              <div class="gm-episode-strip">
+                @foreach($season->episodes as $episode)
+                  @php
+                    $episodeImage = \App\Support\CatalogArtwork::url(
+                        $episode->still_path ?: $season->poster_path ?: $title->poster_path,
+                        'w342'
+                    );
+                  @endphp
+                  <a href="{{ route('watch.show', [
+                      'type' => 'series', 'slug' => $title->slug,
+                      'episode' => $episode->id, 'view' => $displayMode,
+                  ]) }}" @class(['gm-episode-chip', 'is-selected' => $selectedEpisode?->id === $episode->id])
+                     @if($selectedEpisode?->id === $episode->id) aria-current="page" @endif
+                     title="{{ $episode->title }}">
+                    <span class="gm-episode-cover">
+                      @if($episodeImage)<img src="{{ $episodeImage }}" loading="lazy" decoding="async" alt="" onerror="this.hidden=true">@endif
+                      <span class="gm-episode-cover-number">{{ str_pad((string) $episode->episode_number, 2, '0', STR_PAD_LEFT) }}</span>
+                    </span>
+                    <span class="gm-episode-card-text">
+                      <span>Episode {{ $episode->episode_number }}</span>
+                      <strong>{{ $episode->title }}</strong>
+                      @if($episode->runtime_minutes)<small>{{ $episode->runtime_minutes }} min</small>@endif
+                    </span>
+                  </a>
+                @endforeach
+              </div>
+            @else
+              <p class="gm-muted">No published episodes in this season yet.</p>
+            @endif
+          </div>
+        @empty
+          <p class="gm-empty-state">Episodes will appear here when they are published. Unpublished episodes are not shown to viewers.</p>
+        @endforelse
+      </section>
+    @endif
+
     <div class="gm-watch-summary">
       <div class="gm-watch-title-block">
         <div class="gm-watch-tags"><span class="{{ $title->is_premium ? 'gm-tag-premium' : 'gm-tag-free' }}">{{ $title->is_premium ? '♛ Premium' : 'Free title' }}</span>
@@ -97,30 +203,6 @@
         <button type="button" class="gm-button gm-button-secondary" data-share-url="{{ route('watch.show',[$type,$title->slug]) }}">↗ Share</button>
       </div>
     </div>
-    @if($type==='series')
-    <section class="gm-episode-section" aria-labelledby="episode-heading">
-      <div class="gm-section-heading"><h2 id="episode-heading"><span class="gm-section-marker"></span>Episodes</h2><span class="gm-section-caption">{{ $seasons->sum(fn ($season)=>$season->episodes->count()) }} published</span></div>
-      @forelse($seasons as $season)
-        <div class="gm-season-group">
-          <h3>Season {{ $season->season_number }} <span>{{ $season->title }}</span></h3>
-          @if($season->episodes->isNotEmpty())
-          <div class="gm-episode-strip">
-            @foreach($season->episodes as $episode)
-            <a href="{{ route('watch.show',[
-                'type'=>$type,'slug'=>$title->slug,
-                'episode'=>$episode->id,'view'=>$displayMode,
-            ]) }}" @class(['gm-episode-chip','is-selected'=>$selectedEpisode?->id===$episode->id])
-               @if($selectedEpisode?->id===$episode->id) aria-current="page" @endif
-               title="{{ $episode->title }}">
-              <span>EP {{ str_pad((string)$episode->episode_number,2,'0',STR_PAD_LEFT) }}</span>
-            </a>
-            @endforeach
-          </div>
-          @else<p class="gm-muted">No published episodes in this season.</p>@endif
-        </div>
-      @empty<p class="gm-empty-state">Episodes will appear when they are published.</p>@endforelse
-    </section>
-    @endif
     <section class="gm-watch-overview">
       <h2>Story details</h2>
       <p>{{ $selectedEpisode?->overview ?: $title->overview ?: 'A synopsis has not been published for this title.' }}</p>
