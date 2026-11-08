@@ -13,6 +13,7 @@ All gates require reproducible operator evidence and explicit signoff. Passing C
 | Frontend | Dynamic carousel/cards, discover/detail, My List/history, gated HLS player | Responsive visual audit, keyboard/accessibility, physical mobile/tablet tests, native HLS retry/renewal |
 | Subscriptions | Plan/rental schema, active-subscription read check, disabled checkout | Provider onboarding/eligibility, verified webhooks and idempotency, taxes, invoices, refunds, chargebacks, subscriptions |
 | Hosting | Laravel source and CI DB suites | Repeatable independent installation and upgrade/rollback/restore on aaPanel/cPanel, TLS and mail/queue tuning |
+| Operations & queue reliability | Read-only health diagnostics, opt-in worker probes, isolated long media queue | Real aaPanel/cPanel worker supervision, cron execution, Redis failover, queue contention and incident recovery acceptance |
 | Security & legal | Basic access control, rights gate, read-only preflight, separate secrets | External pentest, license/policy approval, retention/deletion controls, observability, incident handling |
 
 ## Non-negotiable default safeguards

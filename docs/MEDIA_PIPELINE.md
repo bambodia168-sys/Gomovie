@@ -12,8 +12,9 @@ A gated FFmpeg/FFprobe HLS encoding pipeline, a private queue job, a server-only
 4. The server operator must explicitly enable GOMOVIE_TRANSCODING_ENABLED, configure trusted absolute paths for FFmpeg and FFprobe, and validate the isolated queue worker.
 5. Run php artisan gomovie:media-preflight --json for nonmutating readiness diagnostics. The server-only command php artisan gomovie:queue-encoding ID requires confirmation before dispatch.
 6. TranscodeApprovedIngest queues on gomovie-media. TranscodingService revalidates private paths, original SHA-256, source dimensions, duration, approval and rights. It stages H.264/AAC renditions in a local private directory, targeting 1080p/720p/480p no higher than source dimensions.
-7. The encoded master playlist is saved as encoded_manifest_key in media_ingests with status encoded. This is NOT a ready streaming asset and no public URL or Cloudflare object is created.
-8. A separate secured review and publisher must verify the output, encrypt or apply licensed DRM if required, upload the reviewed assets to a private R2 bucket, and activate media_assets only after rights, edge authorization and segment/key protections pass.
+7. Media encoding uses a dedicated database_media or redis_media connection with retry_after 7800s (greater than 7500s worker timeout); a supervised isolated media worker is required.
+8. The encoded master playlist is saved as encoded_manifest_key in media_ingests with status encoded. This is NOT a ready streaming asset and no public URL or Cloudflare object is created.
+9. A separate secured review and publisher must verify the output, encrypt or apply licensed DRM if required, upload the reviewed assets to a private R2 bucket, and activate media_assets only after rights, edge authorization and segment/key protections pass.
 
 ## Release blockers
 

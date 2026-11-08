@@ -21,6 +21,7 @@ Laravel 13, PHP 8.4+, Tailwind CSS 4, Alpine.js, hls.js 1.7, MySQL 8.0 / Postgre
 - Expiring HMAC-signed playback grants, fail-closed license and entitlement checks, stream-session lease enforcement and Redis distributed locks.
 - Prototype Cloudflare Worker for asset-scoped signed HLS, private R2 reads and per-request Laravel session authorization.
 - FFmpeg private encoding service and isolated queue job for independently approved content. The transcode feature is **disabled by default**; encoded assets are not automatically streamed or published.
+- Centralized content-rights and premium-playback policy, admin-only System Health, opt-in real worker queue probes and isolated long-running media queue configuration.
 - CI: Laravel/PHPUnit feature tests, JS Worker tests, frontend Vite build, FFmpeg synthetic HLS encoding fixture, independent MySQL 8 and PostgreSQL 16 acceptance suites.
 
 ## Runtime prerequisites
@@ -65,5 +66,6 @@ The application never bundles film footage or production secrets. Payments and p
 - [Private video encoding pipeline](docs/MEDIA_PIPELINE.md)
 - [Cloudflare private media edge](workers/gomovie-media-edge/README.md)
 - [Production acceptance gates](docs/RELEASE_ACCEPTANCE.md)
+- [Operations monitoring and queue supervision](docs/OPERATIONS.md)
 
 No aaPanel deployment or real-device acceptance has been performed by these source-control milestones. Never migrate production without backup, reviewed rollback and independent installation testing.

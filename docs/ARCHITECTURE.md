@@ -55,7 +55,13 @@ Private v1: /api/v1/internal/media/authorize — protected by distinct edge shar
 
 Web: home, browse, title details, login, register, email verification, password recovery, account, settings, My List, history, and /dashboard administration workspace.
 
-## 8. QA / release status
+## 8. Operations and domain service boundaries
+
+Central rights and playback eligibility decisions live in services under app/Services/Rights, shared by playback grants, private-edge validation and media encoding approvals. Regional territory handling remains fail-closed.
+
+A read-only operational snapshot reports database/schema health, private storage, failed jobs, queue backlogs, optional Redis coordination and mail configuration. System Health is restricted to verified admin roles. Real queue probes provide evidence of individual worker execution, not continuous availability, and are opt-in. Long-running FFmpeg jobs use a dedicated queue connection with 7800-second retry visibility, exceeding the 7500-second worker timeout. See docs/OPERATIONS.md.
+
+## 9. QA / release status
 
 GitHub Actions verifies PHP syntax, dependencies, Vite build, Laravel PHPUnit, pure Worker signature/playlist checks, and synthetic FFmpeg private HLS encoding. Separate workflows verify fresh schema migrations and PHP feature tests on MySQL 8 and PostgreSQL 16 with disposable services.
 
