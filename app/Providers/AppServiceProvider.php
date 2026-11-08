@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Series;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 
@@ -22,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
             'movie' => Movie::class,
             'series' => Series::class,
             'episode' => Episode::class,
+            'user' => User::class,
         ]);
     }
 }
