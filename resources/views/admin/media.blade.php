@@ -28,8 +28,8 @@
 </div>
 <section class="mt-7 rounded-2xl border border-white/10 bg-zinc-900/60">
   <div class="border-b border-white/10 px-6 py-5"><h3 class="font-semibold">Video quarantine register</h3></div>
-  <div class="overflow-x-auto"><table class="w-full min-w-[640px] text-left text-sm"><thead class="text-xs uppercase text-zinc-500"><tr><th class="p-5">File</th><th class="p-5">Uploader</th><th class="p-5">Size</th><th class="p-5">Status</th></tr></thead>
-    <tbody class="divide-y divide-white/10">@forelse($assets as $asset)<tr><td class="p-5">{{ $asset->original_name }}</td><td class="p-5 text-zinc-400">{{ $asset->uploader }}</td><td class="p-5 text-zinc-400">{{ number_format($asset->size_bytes / 1048576, 1) }} MB</td><td class="p-5 text-[#F5C518]">{{ $asset->status }}</td></tr>@empty<tr><td colspan="4" class="p-7 text-center text-zinc-500">No video uploads yet.</td></tr>@endforelse</tbody>
+  <div class="overflow-x-auto"><table class="w-full min-w-[640px] text-left text-sm"><thead class="text-xs uppercase text-zinc-500"><tr><th class="p-5">File</th><th class="p-5">Uploader</th><th class="p-5">Size</th><th class="p-5">Status</th><th class="p-5">Review</th><th class="p-5">Private staging</th></tr></thead>
+    <tbody class="divide-y divide-white/10">@forelse($assets as $asset)<tr><td class="p-5">{{ $asset->original_name }}</td><td class="p-5 text-zinc-400">{{ $asset->uploader }}</td><td class="p-5 text-zinc-400">{{ number_format($asset->size_bytes / 1048576, 1) }} MB</td><td class="p-5 text-[#F5C518]">{{ $asset->status }}</td><td class="p-5 text-xs text-zinc-400">{{ $asset->review_status ?? 'Not reviewed' }}</td><td class="p-5 text-xs text-zinc-400">{{ $asset->staging_status ?? 'Not staged' }}</td></tr>@empty<tr><td colspan="6" class="p-7 text-center text-zinc-500">No video uploads yet.</td></tr>@endforelse</tbody>
   </table></div>
 </section><div class="mt-6">{{ $assets->links() }}</div>
 <section class="mt-7 rounded-2xl border border-white/10 bg-zinc-900/60 p-6">

@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'media_staging_enabled' => filter_var(env('GOMOVIE_MEDIA_STAGING_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'media_queue_connection' => env('GOMOVIE_MEDIA_QUEUE_CONNECTION', 'database_media'),
     'queue_probes_enabled' => filter_var(env('GOMOVIE_QUEUE_PROBES_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'edge_enabled' => filter_var(env('GOMOVIE_EDGE_ENABLED', false), FILTER_VALIDATE_BOOLEAN),

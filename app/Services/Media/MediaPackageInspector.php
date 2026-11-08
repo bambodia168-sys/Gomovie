@@ -23,6 +23,19 @@ final class MediaPackageInspector
             && in_array($ingest->ingestable_type, ['movie','episode'], true),
             403, 'The ingest is not independently approved and encoded.');
 
+        // Recheck original quarantine bytes before trusting the derived package.
+        abort_unless($ingest->disk === 'local' && is_string($ingest->object_key)
+            && preg_match('#\Aingests/[0-9]{4}/[0-9]{2}/[0-9a-f-]{36}\.(mp4|mov|mkv|webm)\z#iD',
+                $ingest->object_key), 422, 'Original private ingest path is invalid.');
+        $sourcePath = Storage::disk('local')->path($ingest->object_key);
+        $privateRoot = realpath(storage_path('app/private'));
+        $source = realpath($sourcePath);
+        abort_unless($source && $privateRoot && !is_link($sourcePath)
+            && str_starts_with($source, $privateRoot.DIRECTORY_SEPARATOR)
+            && is_file($source)
+            && hash_equals((string) $ingest->sha256, (string) hash_file('sha256', $source)),
+            422, 'Original media integrity check failed.');
+
         $type = $ingest->ingestable_type;
         $id = (int) $ingest->ingestable_id;
         app(\App\Services\Rights\GlobalRights::class)->requireActive($type, $id);
