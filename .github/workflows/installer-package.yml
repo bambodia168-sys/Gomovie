@@ -7,6 +7,12 @@ on:
       - '.github/workflows/installer-package.yml'
       - 'support/installer/**'
       - 'public/installer/**'
+      - 'resources/views/**'
+      - 'resources/css/**'
+      - 'resources/js/**'
+      - 'app/Http/Controllers/Frontend/**'
+      - 'app/Support/**'
+      - 'routes/web.php'
   workflow_dispatch:
 
 permissions:

@@ -16,7 +16,7 @@ Laravel 13, PHP 8.4+, Tailwind CSS 4, Alpine.js, hls.js 1.7, MySQL 8.0 / Postgre
 - Protected viewer profiles (maximum five), password changes with token revocation, personal watchlists and private watch history.
 - Role-restricted admin dashboard, movie and series metadata CRUD, seasons and episodes editor, user management and audited administrative mutations.
 - Draft-only TMDB metadata import, artwork uploads and nonpublic/quarantined video intake.
-- Published catalog pages, responsive dark-first movie cards, database-driven featured-title carousel, title details, search and filters.
+- Owner-approved cinematic homepage with layered poster carousel, data-driven sections, published-only related titles, responsive 16:9 and 9:16 watch layouts, validated episode selection, working Save/Share controls, real search and access filters, and premium-looking native auth screens. No demo posters or fake payment/Google-login buttons.
 - HLS.js player shell with authenticated playback-grant requests, session renewal and stop controls; player is hidden until explicit media-edge activation.
 - Expiring HMAC-signed playback grants, fail-closed license and entitlement checks, stream-session lease enforcement and Redis distributed locks.
 - Prototype Cloudflare Worker for asset-scoped signed HLS, private R2 reads and per-request Laravel session authorization.
@@ -67,6 +67,7 @@ The application never bundles film footage or production secrets. Payments and p
 
 ## Implementation and release notes
 
+- [Approved frontend design system, watch modes and visual acceptance](docs/FRONTEND_DESIGN.md)
 - [Architecture & access boundaries](docs/ARCHITECTURE.md)
 - [Private video encoding pipeline](docs/MEDIA_PIPELINE.md)
 - [Cloudflare private media edge](workers/gomovie-media-edge/README.md)
