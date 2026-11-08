@@ -34,6 +34,8 @@ jobs:
         run: |
           find app bootstrap config database routes tests -name '*.php' -print0 \
             | xargs -0 -n1 php -l
+      - name: Syntax check selective aaPanel Watch updater
+        run: bash -n support/watch-page-upgrade.sh
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
