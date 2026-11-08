@@ -61,7 +61,6 @@ class AuthenticationAndAdminTest extends TestCase
         self::assertSame('editor', $editor->fresh()->role);
         self::assertTrue($editor->fresh()->is_active);
         self::assertTrue($editor->fresh()->hasVerifiedEmail());
-        $this->withoutExceptionHandling();
         $this->actingAs($editor)->get('/dashboard')->assertOk();
         $this->actingAs($editor)->get('/dashboard/users')->assertForbidden();
 
@@ -78,6 +77,7 @@ class AuthenticationAndAdminTest extends TestCase
         self::assertTrue($user->fresh()->is_active);
         self::assertTrue($user->fresh()->hasVerifiedEmail());
         $this->actingAs($user);
+        $this->withoutExceptionHandling();
 
         $this->post('/dashboard/catalog/movies',[
             'title'=>'Example Movie','release_year'=>2025,
