@@ -19,6 +19,7 @@ class EdgeAuthorizationTest extends TestCase
     {
         $payload = ['sid'=>(string) Str::uuid(),'uid'=>1,'pid'=>1,'manifest_key'=>'movie/1/private/master.m3u8'];
         $this->postJson('/api/v1/internal/media/authorize',$payload)->assertForbidden();
+        config()->set('gomovie.edge_enabled',true);
         config()->set('gomovie.edge_shared_key',str_repeat('a',48));
         $this->withHeader('X-Gomovie-Edge-Key',str_repeat('b',48))
             ->postJson('/api/v1/internal/media/authorize',$payload)->assertForbidden();
@@ -27,6 +28,7 @@ class EdgeAuthorizationTest extends TestCase
     public function test_edge_requires_live_session_and_active_distribution_rights(): void
     {
         $secret = str_repeat('s',48);
+        config()->set('gomovie.edge_enabled',true);
         config()->set('gomovie.edge_shared_key',$secret);
         $user = User::factory()->create();
         $profile = UserProfile::create(['user_id'=>$user->id,'name'=>'Main','slug'=>'main']);

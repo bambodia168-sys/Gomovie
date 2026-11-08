@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'edge_enabled' => filter_var(env('GOMOVIE_EDGE_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     // HTTPS base URL of a private media edge. No public originals.
     'media_edge_url' => env('GOMOVIE_MEDIA_EDGE_URL'),
     // Independent high-entropy signing key, not the application key.

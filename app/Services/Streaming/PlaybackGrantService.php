@@ -136,7 +136,8 @@ class PlaybackGrantService
     {
         $edge = (string) config('gomovie.media_edge_url');
         $key = (string) config('gomovie.media_signing_key');
-        abort_unless(str_starts_with($edge, 'https://') && strlen($key) >= 32,
+        abort_unless(config('gomovie.edge_enabled') === true && str_starts_with($edge, 'https://') && strlen($key) >= 32
+            && strlen((string) config('gomovie.edge_shared_key')) >= 32,
             503, 'Private streaming edge is not configured.');
     }
 

@@ -15,6 +15,7 @@ class EdgeAuthorizationController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
+        abort_unless(config('gomovie.edge_enabled') === true, 403);
         $secret = (string) config('gomovie.edge_shared_key');
         $given = (string) $request->header('X-Gomovie-Edge-Key', '');
         abort_unless(strlen($secret) >= 32 && strlen($given) >= 32 && hash_equals($secret, $given), 403);
