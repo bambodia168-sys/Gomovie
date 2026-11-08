@@ -83,7 +83,7 @@ class CentralRightsPolicyTest extends TestCase
             self::assertSame(403,$e->getStatusCode());
         }
         $series->update(['status'=>'published']);
-        self::assertNull($policy->requireEligible($user,$profile,$episode));
+        self::assertNull($policy->requireEligible($user,$profile,$episode->fresh()));
     }
 
     public function test_suspended_account_and_kids_profiles_remain_blocked(): void

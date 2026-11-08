@@ -67,7 +67,7 @@ final class OperationalSnapshot
                             ->whereNotNull('processed_at')->orderByDesc('processed_at')->first();
                         $probes[$queue] = $last ? [
                             'last_processed_at'=>$last->processed_at,
-                            'seconds_ago'=>max(0,(int) now()->diffInSeconds($last->processed_at)),
+                            'seconds_ago'=>max(0,(int) \Illuminate\Support\Carbon::parse($last->processed_at)->diffInSeconds(now())),
                         ] : null;
                     }
                     if (config('gomovie.queue_probes_enabled') === true) {
