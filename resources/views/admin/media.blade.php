@@ -1,0 +1,44 @@
+@extends('layouts.admin')
+@section('title','Media Library')
+@section('content')
+<div class="mb-7"><h2 class="text-3xl font-bold">Media Library</h2><p class="mt-2 text-sm text-zinc-400">Licensed artwork and private video staging. Uploading video never activates playback.</p></div>
+<div class="grid gap-6 xl:grid-cols-2">
+<section class="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
+  <h3 class="mb-5 text-lg font-semibold">Upload artwork</h3>
+  <form method="POST" action="{{ route('admin.media.artwork') }}" enctype="multipart/form-data" class="space-y-4">@csrf
+    <div><label for="art-type" class="mb-2 block text-sm text-zinc-300">Content type</label><select id="art-type" name="type" required class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3"><option value="movie">Movie</option><option value="series">Series</option></select></div>
+    <div><label for="art-id" class="mb-2 block text-sm text-zinc-300">Title ID</label><input id="art-id" name="title_id" required min="1" type="number" placeholder="Existing catalog ID" class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3"></div>
+    <div><label for="art-slot" class="mb-2 block text-sm text-zinc-300">Image placement</label><select id="art-slot" name="slot" class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3"><option value="poster">Poster</option><option value="backdrop">Backdrop</option></select></div>
+    <div><label for="art-image" class="mb-2 block text-sm text-zinc-300">JPG, PNG, WebP — up to 8 MB</label><input id="art-image" name="image" type="file" required accept="image/jpeg,image/png,image/webp" class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3 text-sm"></div>
+    <button type="submit" class="rounded-xl bg-[#E50914] px-5 py-3 font-semibold">Upload artwork</button>
+  </form>
+</section>
+<section class="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
+  <h3 class="mb-5 text-lg font-semibold">Private video intake</h3>
+  <p class="mb-5 rounded-lg border border-[#F5C518]/30 px-3 py-3 text-xs leading-5 text-[#F5C518]">Uploaded files enter quarantine only. A separate audited transcoding and licensing acceptance process is required before streaming.</p>
+  @if(in_array(auth()->user()->role,['admin','super_admin'],true))
+  <form method="POST" action="{{ route('admin.media.ingest') }}" enctype="multipart/form-data" class="space-y-4">@csrf
+    <div><label for="video-type" class="mb-2 block text-sm text-zinc-300">Content type</label><select id="video-type" name="type" required class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3"><option value="movie">Movie</option><option value="episode">Episode</option></select></div>
+    <div><label for="video-id" class="mb-2 block text-sm text-zinc-300">Movie / Episode ID</label><input id="video-id" name="title_id" type="number" required min="1" placeholder="Existing ID" class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3"></div>
+    <div><label for="video-file" class="mb-2 block text-sm text-zinc-300">MP4, MOV, MKV or WebM — up to 128 MB</label><input id="video-file" name="video" type="file" required accept="video/mp4,video/quicktime,video/x-matroska,video/webm" class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3 text-sm"></div>
+    <button type="submit" class="rounded-xl bg-[#E50914] px-5 py-3 font-semibold">Stage private upload</button>
+  </form>
+  @else<p class="text-sm text-zinc-400">Video intake requires administrator access.</p>@endif
+</section>
+</div>
+<section class="mt-7 rounded-2xl border border-white/10 bg-zinc-900/60">
+  <div class="border-b border-white/10 px-6 py-5"><h3 class="font-semibold">Video quarantine register</h3></div>
+  <div class="overflow-x-auto"><table class="w-full min-w-[640px] text-left text-sm"><thead class="text-xs uppercase text-zinc-500"><tr><th class="p-5">File</th><th class="p-5">Uploader</th><th class="p-5">Size</th><th class="p-5">Status</th></tr></thead>
+    <tbody class="divide-y divide-white/10">@forelse($assets as $asset)<tr><td class="p-5">{{ $asset->original_name }}</td><td class="p-5 text-zinc-400">{{ $asset->uploader }}</td><td class="p-5 text-zinc-400">{{ number_format($asset->size_bytes / 1048576, 1) }} MB</td><td class="p-5 text-[#F5C518]">{{ $asset->status }}</td></tr>@empty<tr><td colspan="4" class="p-7 text-center text-zinc-500">No video uploads yet.</td></tr>@endforelse</tbody>
+  </table></div>
+</section><div class="mt-6">{{ $assets->links() }}</div>
+<section class="mt-7 rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
+  <h3 class="font-semibold">Import TMDB metadata as a draft</h3>
+  <p class="mt-2 text-xs text-zinc-400">Requires a configured API token. Metadata is not evidence of distribution rights.</p>
+  <form method="POST" action="{{ route('admin.tmdb.import') }}" class="mt-4 flex flex-wrap items-end gap-3">@csrf
+    <div><label for="tmdb-type" class="mb-1 block text-xs text-zinc-400">Type</label><select id="tmdb-type" name="type" class="rounded-xl border border-white/15 bg-zinc-950 px-4 py-3"><option value="movie">Movie</option><option value="series">Series</option></select></div>
+    <div><label for="tmdb-id" class="mb-1 block text-xs text-zinc-400">TMDB ID</label><input id="tmdb-id" name="tmdb_id" type="number" min="1" required placeholder="e.g. 12345" class="rounded-xl border border-white/15 bg-zinc-950 px-4 py-3"></div>
+    <button type="submit" class="rounded-xl border border-[#F5C518]/40 px-5 py-3 font-semibold text-[#F5C518] hover:bg-white/5">Import draft</button>
+  </form>
+</section>
+@endsection
