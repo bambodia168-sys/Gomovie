@@ -14,10 +14,15 @@ class BrowseController extends Controller
 {
     public function home(): View
     {
-        return view('frontend.home', [
-            'featuredMovies' => $this->visible(Movie::query())->latest('published_at')->limit(12)->get(),
-            'featuredSeries' => $this->visible(Series::query())->latest('published_at')->limit(12)->get(),
-        ]);
+        $featuredMovies = $this->visible(Movie::query())->latest('published_at')->limit(12)->get();
+        $featuredSeries = $this->visible(Series::query())->latest('published_at')->limit(12)->get();
+        $heroTitles = $featuredMovies->map(fn (Movie $item) => ['kind'=>'movie','item'=>$item])
+            ->concat($featuredSeries->map(fn (Series $item) => ['kind'=>'series','item'=>$item]))
+            ->sortByDesc(fn (array $entry) => $entry['item']->published_at?->timestamp
+                ?? $entry['item']->created_at?->timestamp ?? 0)
+            ->take(5)->values();
+
+        return view('frontend.home', compact('featuredMovies','featuredSeries','heroTitles'));
     }
 
     public function index(Request $request): View
