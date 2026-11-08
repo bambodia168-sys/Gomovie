@@ -15,7 +15,7 @@
   <div class="gm-container gm-header-inner" x-data="{ mobileOpen:false }">
     <a class="gm-brand" href="{{ route('home') }}" aria-label="Gomovie homepage">
       <span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span>
-      <span class="gm-brand-copy"><strong>GOMO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span>
+      <span class="gm-brand-copy"><strong>GO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span>
     </a>
     <button class="gm-mobile-toggle" type="button" @click="mobileOpen=!mobileOpen"
       :aria-expanded="mobileOpen.toString()" aria-controls="gm-main-nav" aria-label="Toggle menu">☰</button>
@@ -47,7 +47,7 @@
 </main>
 <footer class="gm-site-footer">
   <div class="gm-container gm-footer-inner">
-    <a class="gm-brand gm-brand-small" href="{{ route('home') }}"><span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span><span class="gm-brand-copy"><strong>GOMO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span></a>
+    <a class="gm-brand gm-brand-small" href="{{ route('home') }}"><span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span><span class="gm-brand-copy"><strong>GO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span></a>
     <nav aria-label="Footer"><a href="{{ route('about') }}">About Gomovie</a><a href="{{ route('browse') }}">Explore catalog</a><a href="https://tonsamith.com">Publisher</a></nav>
     <span>© {{ date('Y') }} Gomovie · Licensed media only</span>
   </div>

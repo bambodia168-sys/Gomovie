@@ -12,7 +12,7 @@
 <div class="gm-auth-container">
   <header class="gm-auth-topbar"><a href="{{ route('home') }}" class="gm-brand">
       <span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span>
-      <span class="gm-brand-copy"><strong>GOMO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span>
+      <span class="gm-brand-copy"><strong>GO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span>
     </a>
     <a href="{{ route('home') }}" class="gm-auth-back">← Back to homepage</a>
   </header>
