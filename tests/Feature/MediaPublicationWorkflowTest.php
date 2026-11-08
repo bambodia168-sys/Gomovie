@@ -114,6 +114,18 @@ final class MediaPublicationWorkflowTest extends TestCase
         }
 
         config()->set('gomovie.media_staging_enabled', true);
+        // Master playlist is unchanged: staged segment tampering must still
+        // invalidate the complete package fingerprint captured at review.
+        $segmentKey = $package['prefix'].'/480p/segment_00000.ts';
+        Storage::disk('local')->put($segmentKey, 'POST REVIEW TAMPERING');
+        try {
+            app(PrivateMediaStagingPublisher::class)->stage($id,$publisher);
+            self::fail('Segment tampering should invalidate the reviewed package.');
+        } catch (HttpException $e) {
+            self::assertSame(403,$e->getStatusCode());
+        }
+        Storage::disk('local')->put($segmentKey, 'SYNTHETIC TS DATA');
+
         try {
             app(PrivateMediaStagingPublisher::class)->stage($id,$reviewer);
             self::fail('Reviewer should not stage their own reviewed package.');

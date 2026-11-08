@@ -87,7 +87,17 @@ final class MediaPackageInspector
 
         abort_unless(count($files) <= 10000, 422, 'Media package exceeds file-count limit.');
 
+        // Snapshot the ENTIRE inspected package, not merely the master playlist.
+        // A changed .ts segment or variant playlist invalidates its review.
+        ksort($files);
+        $fingerprints = [];
+        foreach ($files as $relative => $metadata) {
+            $fingerprints[] = $relative."\0".$metadata['sha256']."\0".$metadata['bytes'];
+        }
+        $packageHash = hash('sha256', implode("\n", $fingerprints));
+
         return [
+            'package_sha256' => $packageHash,
             'ingest' => $ingest,
             'disk_root' => $root,
             'files' => $files,

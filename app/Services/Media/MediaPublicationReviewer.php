@@ -52,6 +52,7 @@ final class MediaPublicationReviewer
                 'scan_report_reference'=>$scanReference,
                 'quality_report_reference'=>$qualityReference,
                 'manifest_sha256'=>$package['manifest_sha256'],
+                'package_sha256'=>$package['package_sha256'],
                 'status'=>'reviewed', 'reviewed_at'=>now(),
                 'created_at'=>now(), 'updated_at'=>now(),
             ]);
@@ -59,7 +60,8 @@ final class MediaPublicationReviewer
                 'actor_id'=>$reviewer->id,'action'=>'media.package_reviewed',
                 'resource_type'=>'media_ingest','resource_id'=>$ingestId,
                 'details'=>json_encode(['review_id'=>$id,'manifest_sha256'=>$package['manifest_sha256'],
-                    'file_count'=>$package['file_count']], JSON_THROW_ON_ERROR),
+                    'file_count'=>$package['file_count'],
+                    'package_sha256'=>$package['package_sha256']], JSON_THROW_ON_ERROR),
                 'created_at'=>now(),'updated_at'=>now(),
             ]);
             return $id;

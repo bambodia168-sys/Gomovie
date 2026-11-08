@@ -26,7 +26,9 @@ final class PrivateMediaStagingPublisher
         $review = DB::table('media_publication_reviews')
             ->where('media_ingest_id', $ingestId)->where('status', 'reviewed')->first();
         abort_unless($review
-            && hash_equals((string) $review->manifest_sha256, $package['manifest_sha256']),
+            && hash_equals((string) $review->manifest_sha256, $package['manifest_sha256'])
+            && is_string($review->package_sha256)
+            && hash_equals($review->package_sha256, $package['package_sha256']),
             403, 'Missing or outdated independent media package review.');
         abort_if((int) $publisher->id === (int) $review->reviewed_by, 403,
             'Staging operator must differ from package reviewer.');
@@ -53,6 +55,7 @@ final class PrivateMediaStagingPublisher
                 'staged_by'=>$publisher->id, 'status'=>'staging',
                 'object_prefix'=>$prefix, 'manifest_key'=>$manifestKey,
                 'manifest_sha256'=>$package['manifest_sha256'],
+                'package_sha256'=>$package['package_sha256'],
                 'created_at'=>now(), 'updated_at'=>now(),
             ]);
         });
@@ -101,7 +104,8 @@ final class PrivateMediaStagingPublisher
                     'resource_type'=>'media_ingest', 'resource_id'=>$ingestId,
                     'details'=>json_encode(['batch_id'=>$batchId,
                         'manifest_sha256'=>$package['manifest_sha256'],
-                        'file_count'=>$package['file_count']], JSON_THROW_ON_ERROR),
+                        'file_count'=>$package['file_count'],
+                        'package_sha256'=>$package['package_sha256']], JSON_THROW_ON_ERROR),
                     'created_at'=>now(), 'updated_at'=>now(),
                 ]);
             });
