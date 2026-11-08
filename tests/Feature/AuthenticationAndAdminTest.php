@@ -81,17 +81,6 @@ class AuthenticationAndAdminTest extends TestCase
             'title'=>'Example Movie','release_year'=>2025,
             'is_premium'=>'1','status'=>'draft',
         ]);
-        $activeUser = app('request')->user();
-        fwrite(STDERR, "ADMIN_REQUEST_DIAG ".json_encode([
-            'expected_id'=>$user->id, 'request_id'=>$activeUser?->id,
-            'auth_id'=>auth()->id(),'db_role'=>$user->fresh()->role,
-            'request_role'=>$activeUser?->role,
-            'db_active'=>$user->fresh()->is_active,
-            'request_active'=>$activeUser?->is_active,
-            'db_verified'=>$user->fresh()->hasVerifiedEmail(),
-            'request_verified'=>$activeUser?->hasVerifiedEmail(),
-            'response_status'=>$response->status(),
-        ]).PHP_EOL);
         $response->assertRedirect();
 
         $movie = Movie::query()->where('slug','example-movie')->firstOrFail();
