@@ -6,6 +6,10 @@ The source includes **read-only preflight**, **read-only offline backup checksum
 
 PHP 8.4+ and the Laravel 13 required extensions, compatible Composer dependencies, and precompiled Vite assets are required. Production must have a real HTTPS origin, APP_DEBUG=false, a private .env, and an isolated web document root pointing to **public/**. The production database must be MySQL 8 or PostgreSQL 16 until other engines are independently accepted; SQLite is a developer/CI rehearsal only.
 
+## Browser installer available (QA release only)
+
+The source includes a protected, standalone [five-step web installer](WEB_INSTALLER.md) and a downloadable QA ZIP with Composer dependencies and compiled frontend assets. Customer terminal access is not required to complete fresh schema migration or first super-admin creation. The private installer owner key must be retrieved from File Manager, and the installer refuses any preconfigured .env or nonempty database. **An actual aaPanel/cPanel run is not certified**; use the checklist below before accepting a live instance.
+
 ## Fresh independent installation (candidate isolated host)
 
 1. Provision a **new isolated database** and an OS account with least privilege. Do not share a live application's database. Keep application source, vendor files, .env and private media **outside the served document root**. For aaPanel, confirm the nginx vhost root; for cPanel, independently confirm that the document root can safely target the Laravel public/ folder. Do not move .env or index.php into an arbitrary public_html directory to bypass this requirement.

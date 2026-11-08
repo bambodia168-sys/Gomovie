@@ -23,6 +23,8 @@ Laravel 13, PHP 8.4+, Tailwind CSS 4, Alpine.js, hls.js 1.7, MySQL 8.0 / Postgre
 - FFmpeg private encoding service and isolated queue job for independently approved content. The transcode feature is **disabled by default**; encoded assets are not automatically streamed or published.
 - Centralized content-rights and premium-playback policy, admin-only System Health, opt-in real worker queue probes and isolated long-running media queue configuration.
 - Non-destructive installation/upgrade preflight, offline backup bundle SHA-256 verifier, synthetic SQLite restore rehearsal, and independently reviewed private S3/R2 media staging (disabled by default, not live playback).
+- Secure five-step standalone customer web installer: hosting owner key, automatic application-domain detection, Purchase Code (not verified), empty MySQL/PostgreSQL validation, first super-admin and post-install lock. Source-only HTTP installation acceptance has passed against isolated MySQL 8 and PostgreSQL 16; real hosts remain unverified.
+- A downloadable QA installation ZIP includes installed Composer dependencies, compiled Vite assets, lock manifests and non-Markdown hosting instructions; no buyer CLI required. The source repository does not yet retain committed dependency lockfiles.
 - CI: Laravel/PHPUnit feature tests, JS Worker tests, frontend Vite build, FFmpeg synthetic HLS encoding fixture, independent MySQL 8 and PostgreSQL 16 acceptance suites.
 
 ## Runtime prerequisites
@@ -70,6 +72,7 @@ The application never bundles film footage or production secrets. Payments and p
 - [Cloudflare private media edge](workers/gomovie-media-edge/README.md)
 - [Production acceptance gates](docs/RELEASE_ACCEPTANCE.md)
 - [Operations monitoring and queue supervision](docs/OPERATIONS.md)
+- [Five-step browser installer and buyer ZIP packaging](docs/WEB_INSTALLER.md)
 - [Independent installation, upgrade and backup recovery engineering](docs/INSTALLATION_RECOVERY.md)
 - [Real aaPanel/cPanel acceptance procedure and evidence register](docs/HOST_ACCEPTANCE.md)
 

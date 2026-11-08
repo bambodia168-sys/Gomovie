@@ -104,7 +104,7 @@ final class InstallerEngine
         if (!preg_match('/\A[a-zA-Z0-9.-]{1,253}\z/D', $host)
             || $port === false || !preg_match('/\A[A-Za-z0-9_]{1,64}\z/D', $name)
             || !preg_match('/\A[A-Za-z0-9_.@-]{1,128}\z/D', $username)
-            || strlen($password) > 256
+            || strlen($password) < 8 || strlen($password) > 256
             || str_contains($password, "\n") || str_contains($password, "\r")
             || str_contains($password, "\0")) {
             throw new InvalidArgumentException('Invalid database host, port, name, username, or password.');

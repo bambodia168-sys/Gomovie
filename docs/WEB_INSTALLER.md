@@ -20,14 +20,16 @@ The browser installer starts before Laravel because Laravel's normal DB-backed s
 
 ## Isolated QA
 
-The dedicated GitHub Actions job uses an empty disposable MySQL 8 database, a temporary copy of the application, Composer dependencies and real compiled Vite assets. It starts a local PHP HTTP server, submits each installer step with CSRF and cookies, verifies the database migrations, first admin, audit event and .env/lock creation, denies fresh-session re-entry, and verifies that homepage and login load. The QA database and files never contain customer data. A PASS is **not** independent production hosting acceptance.
+The dedicated GitHub Actions jobs use separate empty disposable MySQL 8 and PostgreSQL 16 databases, a temporary copy of the application, Composer dependencies and real compiled Vite assets. It starts a local PHP HTTP server, submits each installer step with CSRF and cookies, verifies the database migrations, first admin, audit event and .env/lock creation, denies fresh-session re-entry, and verifies that homepage and login load. The QA database and files never contain customer data. A PASS is **not** independent production hosting acceptance.
+
+A separate packaging workflow builds a customer-style ZIP containing Composer vendor/, compiled frontend assets, lock manifests, the standalone installer and INSTALL.txt (no Markdown docs). Download the QA bundle and SHA-256 receipt from the [installer ZIP preparation run](https://github.com/bambodia168-sys/Gomovie/actions/runs/42444468713). The ZIP is **not** a production-signoff artifact.
 
 The existing Laravel test suites validate catalog, account and administrator interfaces against SQLite, MySQL and PostgreSQL. These do not substitute for physical browser, mail provider, runtime queue or independent customer installation QA.
 
 ## Release acceptance still pending
 
 - Real independent aaPanel and cPanel installation with operator witnesses and full evidence capture
-- Reproducible production ZIP with pinned Composer/npm dependency lockfiles, file permissions and host-specific FPM rules
+- Operator acceptance of the QA ZIP on real hosts; Composer/npm lock manifests are embedded in each QA ZIP but dependency lockfiles are not yet committed to GitHub main, so repeat-build reproducibility is not certified
 - SMTP delivery, password recovery, worker supervision, private media rights/DRM and payments
 - Clean rollback and off-site restoration on target databases
 - Physical iPhone, Android, desktop and tablet rendering/accessibility review

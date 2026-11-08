@@ -46,6 +46,10 @@ php artisan gomovie:media-preflight --json
 
 Do NOT execute migrate:fresh against live or shared production data. A failed media-preflight is expected while external streaming integration is disabled.
 
+## Browser installer and package QA
+
+The standalone customer installer now implements five browser steps and a private hosting-owner key. Its explicit QA workflow passes genuine HTTP form submissions, empty-database migration, initial administrator/audit creation, and setup-lock re-entry denial against isolated MySQL 8 and PostgreSQL 16 containers. A separate workflow creates a QA buyer ZIP including Composer vendor/, Vite bundles and generated dependency lock manifests. These **do not** represent an aaPanel/cPanel installation or legal signoff. See [web installer](WEB_INSTALLER.md) and [GitHub package QA artifact](https://github.com/bambodia168-sys/Gomovie/actions/runs/42444468713).
+
 ## Audited host acceptance evidence
 
 A CLI-only two-person [aaPanel/cPanel acceptance registry](HOST_ACCEPTANCE.md) records external host-test ticket references, independent super-admin acceptance/rejection, and an administrator dashboard of missing/accepted items. This is a record of human-provided evidence; it **cannot** certify that a host, restore or legal/payment control actually passed, and never enables live features.
