@@ -37,7 +37,18 @@
       </div>
     </header>
     <main class="mx-auto max-w-7xl p-5 lg:p-9">
-      @if(session('status'))<p role="status" class="mb-6 rounded-xl border border-emerald-700/40 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-200">{{ session('status') }}</p>@endif
+      @if(session('status'))
+        <div x-data="{ visible: true }" x-init="setTimeout(() => visible = false, 6500)"
+             x-show="visible" x-transition.opacity.duration.250ms
+             role="status" aria-live="polite"
+             class="fixed right-4 top-4 z-[200] flex max-w-[min(440px,calc(100vw-32px))] items-start gap-3 rounded-xl border border-emerald-500/35 bg-[#10251e] px-4 py-3 text-sm text-emerald-100 shadow-[0_18px_60px_rgba(0,0,0,.55)] sm:right-6 sm:top-6">
+          <svg aria-hidden="true" class="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m7 12 3 3 7-7"/></svg>
+          <span class="min-w-0 flex-1">{{ session('status') }}</span>
+          <button type="button" @click="visible = false" class="shrink-0 text-emerald-200/75 hover:text-white" aria-label="Dismiss confirmation">
+            <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      @endif
       @if($errors->any())<div role="alert" class="mb-6 rounded-xl border border-red-700/50 bg-red-950/40 p-4 text-sm text-red-200"><p class="mb-2 font-semibold">Please check your input.</p><ul class="list-inside list-disc">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
       @yield('content')
     </main>

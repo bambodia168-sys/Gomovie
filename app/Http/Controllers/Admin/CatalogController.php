@@ -25,16 +25,120 @@ class CatalogController extends Controller
     {
         $model = $this->model($type);
         $data = $request->validate([
-            'q' => ['sometimes','nullable','string','max:100'],
-            'status' => ['sometimes','nullable',Rule::in(['draft','published','archived'])],
+            'q' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'status' => ['sometimes', 'nullable', Rule::in(['draft', 'published', 'archived'])],
+            'per_page' => ['sometimes', 'integer', Rule::in([10, 20, 30, 40, 50])],
         ]);
+        $perPage = (int) ($data['per_page'] ?? 10);
+
         return view('admin.catalog.index', [
             'type' => $type,
+            'perPage' => $perPage,
             'titles' => $model::query()
-                ->when($data['q'] ?? null, fn ($q,$value) => $q->where('title','like','%'.$value.'%'))
-                ->when($data['status'] ?? null, fn ($q,$value) => $q->where('status',$value))
-                ->latest()->paginate(20)->withQueryString(),
+                ->when(trim((string) ($data['q'] ?? '')) !== '', fn ($query) =>
+                    $query->where('title', 'like', '%'.trim($data['q']).'%'))
+                ->when($data['status'] ?? null, fn ($query, $value) =>
+                    $query->where('status', $value))
+                ->orderByDesc('created_at')->orderByDesc('id')
+                ->paginate($perPage)->withQueryString(),
         ]);
+    }
+
+
+    /**
+     * Drafts remain private. Staff preview never bypasses the public publication
+     * scope or enables access to streaming manifests.
+     */
+    public function preview(string $type, int $id): View
+    {
+        $model = $this->model($type);
+        $query = $model::query();
+
+        if ($type === 'series') {
+            $query->with(['seasons' => fn ($seasons) =>
+                $seasons->orderBy('season_number')->with([
+                    'episodes' => fn ($episodes) => $episodes->orderBy('episode_number'),
+                ])]);
+        }
+
+        return view('admin.catalog.preview', [
+            'type' => $type,
+            'title' => $query->findOrFail($id),
+        ]);
+    }
+
+    /**
+     * Bulk changes are limited to explicitly selected IDs of a single content
+     * type. They never create or change media licenses/entitlements.
+     */
+    public function bulk(Request $request, string $type): RedirectResponse
+    {
+        $model = $this->model($type);
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:50'],
+            'ids.*' => ['required', 'integer', 'min:1', 'distinct'],
+            'action' => ['required', Rule::in(['draft', 'published'])],
+            'approve_metadata' => ['sometimes', 'boolean'],
+            'q' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'status' => ['sometimes', 'nullable', Rule::in(['draft', 'published', 'archived'])],
+            'per_page' => ['sometimes', 'integer', Rule::in([10,20,30,40,50])],
+        ]);
+
+        if ($data['action'] === 'published' && !($data['approve_metadata'] ?? false)) {
+            throw ValidationException::withMessages([
+                'approve_metadata' => 'Confirm metadata, artwork rights and attribution before publishing.',
+            ]);
+        }
+
+        $ids = array_map('intval', $data['ids']);
+        $changed = DB::transaction(function () use ($request, $model, $type, $data, $ids): int {
+            $titles = $model::query()->whereIn('id', $ids)->lockForUpdate()->get();
+            if ($titles->count() !== count($ids)) {
+                throw ValidationException::withMessages([
+                    'ids' => 'Some selected titles no longer exist. Refresh and choose again.',
+                ]);
+            }
+
+            $count = 0;
+            foreach ($titles as $title) {
+                if ($title->status === $data['action']) {
+                    continue;
+                }
+                $title->forceFill([
+                    'status' => $data['action'],
+                    'published_at' => $data['action'] === 'published' ? now() : null,
+                ])->save();
+                $this->audit($request, 'catalog.bulk.'.$data['action'], $type, $title->id);
+                $count++;
+            }
+            return $count;
+        });
+
+        $query = array_filter([
+            'q' => $data['q'] ?? null,
+            'status' => $data['status'] ?? null,
+            'per_page' => $data['per_page'] ?? null,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        return redirect()->route('admin.catalog.index', array_merge(['type' => $type], $query))
+            ->with('status', $changed.' '.($changed === 1 ? 'title' : 'titles')
+                .' changed to '.ucfirst($data['action']).'.');
+    }
+
+    /** "Remove" archives a title safely, retaining episodes, audit and rights. */
+    public function archive(Request $request, string $type, int $id): RedirectResponse
+    {
+        abort_unless(in_array($request->user()->role, ['admin', 'super_admin'], true), 403);
+        $model = $this->model($type);
+        $title = $model::query()->findOrFail($id);
+
+        DB::transaction(function () use ($request, $title, $type): void {
+            $title->forceFill(['status' => 'archived', 'published_at' => null])->save();
+            $this->audit($request, 'catalog.archived', $type, $title->id);
+        });
+
+        return redirect()->route('admin.catalog.index', ['type' => $type])
+            ->with('status', 'Title removed from public catalog (archived). No records were deleted.');
     }
 
     public function create(string $type): View

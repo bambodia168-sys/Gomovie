@@ -55,6 +55,9 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::get('/catalog/{type}', [AdminCatalogController::class, 'index'])->name('catalog.index');
     Route::get('/catalog/{type}/create', [AdminCatalogController::class, 'create'])->name('catalog.create');
     Route::post('/catalog/{type}', [AdminCatalogController::class, 'store'])->name('catalog.store');
+    Route::post('/catalog/{type}/bulk', [AdminCatalogController::class, 'bulk'])->name('catalog.bulk');
+    Route::get('/catalog/{type}/{id}/preview', [AdminCatalogController::class, 'preview'])->name('catalog.preview');
+    Route::post('/catalog/{type}/{id}/archive', [AdminCatalogController::class, 'archive'])->name('catalog.archive');
     Route::get('/catalog/{type}/{id}/edit', [AdminCatalogController::class, 'edit'])->name('catalog.edit');
     Route::put('/catalog/{type}/{id}', [AdminCatalogController::class, 'update'])->name('catalog.update');
     Route::delete('/catalog/{type}/{id}', [AdminCatalogController::class, 'destroy'])->name('catalog.destroy');
