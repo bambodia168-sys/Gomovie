@@ -32,6 +32,8 @@ jobs:
         run: |
           npm install --ignore-scripts
           npm run build
+      - name: Test private edge grant logic
+        run: node --test workers/gomovie-media-edge/worker.test.mjs
       - name: Prepare application environment
         run: |
           cp .env.example .env
