@@ -17,6 +17,7 @@ class AccountIsolationTest extends TestCase
         $viewer = User::factory()->create();
         $other = User::factory()->create();
         $profile = UserProfile::create(['user_id' => $other->id, 'name' => 'Other', 'slug' => 'other']);
+        self::assertTrue($viewer->fresh()->is_active, 'Factory viewer should be active');
         Sanctum::actingAs($viewer);
         $this->postJson('/api/v1/user/watch-history/sync', [
             'profile_id' => $profile->id, 'watchable_type' => 'movie',
