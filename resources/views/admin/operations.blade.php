@@ -75,4 +75,41 @@
     </tbody>
   </table></div>
 </section>
+<section class="mt-9 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/65">
+  <div class="border-b border-white/10 px-6 py-5">
+    <p class="text-xs font-bold uppercase tracking-widest text-[#F5C518]">Independent acceptance</p>
+    <h3 class="mt-2 text-lg font-semibold">aaPanel &amp; cPanel release-evidence register</h3>
+    <p class="mt-2 max-w-3xl text-xs leading-5 text-zinc-400">Read-only evidence recorded by server operators. A separate verified super-admin must inspect actual host tests. Accepted references do not automatically enable production release, media playback or payments.</p>
+  </div>
+  <div class="grid gap-6 p-6 xl:grid-cols-2">
+  @foreach($hostAcceptance['targets'] as $target)
+    <div class="overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/70">
+      <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <h4 class="font-semibold">{{ $target['label'] }}</h4>
+        <span class="text-xs text-[#F5C518]">{{ $target['accepted'] }} / {{ $target['total'] }} reviewed</span>
+      </div>
+      <div class="max-h-[520px] overflow-x-auto overflow-y-auto">
+        <table class="w-full min-w-[380px] text-left text-xs">
+          <thead class="sticky top-0 bg-zinc-950 text-zinc-500"><tr><th class="px-5 py-3">Acceptance check</th><th class="px-5 py-3">Evidence</th></tr></thead>
+          <tbody class="divide-y divide-white/5">
+            @foreach($target['checks'] as $check)
+              <tr>
+                <td class="px-5 py-3 align-top">
+                  <span class="block text-zinc-200">{{ $check['name'] }}</span>
+                  <span class="mt-1 block text-[10px] text-zinc-500">{{ $check['id'] }}</span>
+                </td>
+                <td class="px-5 py-3 align-top">
+                  <span class="{{ $check['status']==='accepted' ? 'text-emerald-300' : ($check['status']==='rejected' ? 'text-red-300' : 'text-[#F5C518]') }}">{{ ucfirst(str_replace('_',' ',$check['status'])) }}</span>
+                  @if($check['evidence_reference'])<span class="mt-1 block max-w-[170px] break-words text-[10px] text-zinc-500">{{ $check['evidence_reference'] }}</span>@endif
+                </td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+    </div>
+  @endforeach
+  </div>
+  <p class="border-t border-white/10 px-6 py-4 text-xs text-zinc-500">Production release accepted: No. Real host, restore, email, device, rights and payment checks remain external gates.</p>
+</section>
 @endsection

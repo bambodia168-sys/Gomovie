@@ -122,6 +122,7 @@ final class OperationalSnapshot
             'queue_probes'=>$probes,
             'feature_flags'=>[
                 'private_edge_enabled'=>config('gomovie.edge_enabled') === true,
+                'private_media_staging_enabled'=>config('gomovie.media_staging_enabled') === true,
                 'transcoding_enabled'=>config('gomovie.transcoding_enabled') === true,
                 'billing_enabled'=>config('gomovie.billing_enabled') === true,
                 'queue_probes_enabled'=>config('gomovie.queue_probes_enabled') === true,
