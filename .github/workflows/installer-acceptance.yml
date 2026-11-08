@@ -1,4 +1,4 @@
-name: Gomovie five-step installer acceptance (isolated MySQL)
+name: Gomovie five-step installer acceptance (MySQL and PostgreSQL)
 
 on:
   push:
@@ -51,4 +51,49 @@ jobs:
           npm install --ignore-scripts
           npm run build
       - name: Run browser HTTP installer and locked re-entry acceptance
+        run: bash support/installer/qa-smoke.sh
+
+
+  installer-postgresql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gomovie_install_ci
+          POSTGRES_USER: gomovie_installer
+          POSTGRES_PASSWORD: installer_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U gomovie_installer -d gomovie_install_ci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_pgsql, openssl, fileinfo, curl
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: PHP syntax verification
+        run: |
+          php -l public/installer/index.php
+          php -l support/installer/InstallerEngine.php
+          bash -n support/installer/qa-smoke.sh
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Build actual frontend files
+        run: |
+          npm install --ignore-scripts
+          npm run build
+      - name: Run browser HTTP installer with PostgreSQL and locked re-entry acceptance
+        env:
+          GOMOVIE_INSTALL_QA_DRIVER: pgsql
+          GOMOVIE_INSTALL_QA_DB_PORT: '5432'
         run: bash support/installer/qa-smoke.sh
