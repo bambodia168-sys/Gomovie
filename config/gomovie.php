@@ -5,6 +5,7 @@ return [
     'media_edge_url' => env('GOMOVIE_MEDIA_EDGE_URL'),
     // Independent high-entropy signing key, not the application key.
     'media_signing_key' => env('GOMOVIE_MEDIA_SIGNING_KEY'),
+    'edge_shared_key' => env('GOMOVIE_EDGE_SHARED_KEY'),
     'stream_token_ttl' => (int) env('GOMOVIE_STREAM_TOKEN_TTL', 120),
     'heartbeat_ttl' => 90,
     // Kept disabled unless provider eligibility, webhooks and compliance are accepted.
