@@ -1,0 +1,107 @@
+name: Gomovie MySQL and PostgreSQL acceptance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  mysql-8:
+    name: MySQL 8.0 — migrations and feature tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: gomovie_ci
+          MYSQL_USER: gomovie_ci
+          MYSQL_PASSWORD: local_test_only
+          MYSQL_ROOT_PASSWORD: mysql_test_root_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pmysql_test_root_only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: gomovie_ci
+      DB_USERNAME: gomovie_ci
+      DB_PASSWORD: local_test_only
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_mysql, curl, openssl, fileinfo, sqlite3, pdo_sqlite
+          coverage: none
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Prepare test application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Fresh MySQL migration
+        run: php artisan migrate:fresh --force
+      - name: PHPUnit against MySQL 8.0
+        run: vendor/bin/phpunit --colors=never
+
+  postgres-16:
+    name: PostgreSQL 16 — migrations and feature tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: gomovie_ci
+          POSTGRES_USER: gomovie_ci
+          POSTGRES_PASSWORD: local_test_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U gomovie_ci -d gomovie_ci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: gomovie_ci
+      DB_USERNAME: gomovie_ci
+      DB_PASSWORD: local_test_only
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_pgsql, curl, openssl, fileinfo, sqlite3, pdo_sqlite
+          coverage: none
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Prepare test application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Fresh PostgreSQL migration
+        run: php artisan migrate:fresh --force
+      - name: PHPUnit against PostgreSQL 16
+        run: vendor/bin/phpunit --colors=never
