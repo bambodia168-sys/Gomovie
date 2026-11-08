@@ -261,6 +261,24 @@
 .gm-home-upgrade .gm-home-preview-note a{white-space:nowrap;text-decoration:none;font-weight:800;color:#fbc57e}
 .gm-home-upgrade .gm-home-preview-note a:hover{color:#fff}
 
+/* Hero-only visibility correction: the outer posters must stay opaque over
+   the now-bright, changing background. Keep their existing positions and size. */
+@media (min-width: 761px) {
+  .gm-home-upgrade .gm-hero .gm-hero-tile.is-far-left,
+  .gm-home-upgrade .gm-hero .gm-hero-tile.is-far-right {
+    opacity: 1;
+    filter: brightness(.96) saturate(1.08);
+    background-color: #160e1d;
+    border-color: rgba(255,255,255,.48);
+    box-shadow: 0 20px 46px rgba(0,0,0,.86), 0 0 0 1px rgba(7,5,14,.7);
+  }
+  .gm-home-upgrade .gm-hero .gm-hero-tile.is-left,
+  .gm-home-upgrade .gm-hero .gm-hero-tile.is-right {
+    opacity: 1;
+    filter: brightness(.96);
+  }
+}
+
 /* Cinematic backdrop V2: full viewport, high-visibility artwork.
    Home-only selectors: shared header/footer, movie cards and catalog grids untouched. */
 .gm-home-upgrade .gm-hero,

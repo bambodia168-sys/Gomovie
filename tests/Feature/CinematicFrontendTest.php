@@ -65,6 +65,9 @@ final class CinematicFrontendTest extends TestCase
             ->assertSee('https://image.tmdb.org/t/p/w780/series-portrait.jpg')
             ->assertDontSee('private-draft.jpg')
             ->assertSee('gm-hero-tile')
+            ->assertSee('gm-hero .gm-hero-tile.is-far-left')
+            ->assertSee('gm-hero .gm-hero-tile.is-far-right')
+            ->assertSee('filter: brightness(.96) saturate(1.08)')
             ->assertSee('gm-feature-grid');
     }
 
