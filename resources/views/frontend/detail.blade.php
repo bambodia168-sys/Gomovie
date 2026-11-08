@@ -91,7 +91,7 @@
           <input type="hidden" name="kind" value="{{ $type }}">
           <input type="hidden" name="title_id" value="{{ $title->id }}">
           <input type="hidden" name="action" value="{{ $isWatchlisted ? 'remove' : 'add' }}">
-          <button class="gm-button gm-button-secondary" type="submit">{{ $isWatchlisted ? '♥ Saved' : '♡ Save to list' }}</button>
+          <button class="gm-button gm-button-secondary" type="submit">{{ $isWatchlisted ? '♥ Remove from My List' : '♡ Add to My List' }}</button>
         </form>
         @elseif(!auth()->check())<a class="gm-button gm-button-secondary" href="{{ route('login') }}">♡ Save to list</a>@endif
         <button type="button" class="gm-button gm-button-secondary" data-share-url="{{ route('watch.show',[$type,$title->slug]) }}">↗ Share</button>
