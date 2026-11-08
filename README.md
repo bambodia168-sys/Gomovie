@@ -1,35 +1,35 @@
-# Gomovie
+# Gomovie — Movies & TV Streaming Platform
 
-**Version:** v0.0.1 (development)  
+**Version:** v0.0.1 — active development  
 **Author:** [Ton Samith](https://tonsamith.com)  
-**Stack:** Laravel 13, PHP 8.4+, Tailwind CSS 4, Alpine.js, MySQL/PostgreSQL, Redis  
-**License:** Proprietary Commercial License (Gomovie-specific work). See `THIRD_PARTY_NOTICES.md` for upstream notices.
+**License:** Proprietary Commercial License for original Gomovie code. Upstream components retain their individual licenses; see THIRD_PARTY_NOTICES.md.
 
-Gomovie is an on-demand movies and TV-series catalog and streaming application designed for licensed media. This repository is a **development baseline**, not a production-ready video delivery service.
+Gomovie is a Laravel 13-based catalog and secure video streaming project for authorized movies and TV series. The repository contains **working development modules**, but is not an accepted or deployed commercial streaming service.
 
-## Scope
+## Technology
 
-- Published movies, TV series, seasons, episodes, genres and catalog discovery
-- Subscription-aware authorization and per-account playback concurrency controls
-- Private video asset references, expiring playback grants, and CDN-edge authorization
-- Personal profiles, watchlists and resumable playback progress
-- Rights-window enforcement, territory restrictions and auditability
-- Planned: TMDB metadata synchronization, audio tracks, subtitles, adaptive HLS/DASH transcoding and streaming player, rentals, verified billing, administrative content studio
+Laravel 13, PHP 8.4+, Tailwind CSS 4, Alpine.js, hls.js 1.7, MySQL 8.0 / PostgreSQL 16, Sanctum, Redis for atomic stream coordination, FFmpeg/FFprobe for gated private HLS encoding, and a prototype private Cloudflare R2 Worker. Inertia/Vue and full DASH/DRM are not installed.
 
-## Critical safeguards
+## Current functionality
 
-1. Only distribute films and series for which the operator holds appropriate streaming and regional distribution rights.
-2. TMDB metadata does not grant the rights to distribute video content.
-3. A short-lived signed manifest URL is **not DRM**. Segment/key requests must also be protected at the edge; Widevine/FairPlay/PlayReady require licensed integrations.
-4. Paid billing and real-money transactions remain **disabled** until payment-provider eligibility, webhook verification, refunds, tax/invoice handling and compliance testing are complete.
-5. Do not point the server's public document root at the project root. Serve `public/` only.
-6. Do not commit production secrets, credentials, media originals, or API tokens.
+- Viewer registration, login, logout, strong-password reset, email verification and account settings.
+- Protected viewer profiles (maximum five), password changes with token revocation, personal watchlists and private watch history.
+- Role-restricted admin dashboard, movie and series metadata CRUD, seasons and episodes editor, user management and audited administrative mutations.
+- Draft-only TMDB metadata import, artwork uploads and nonpublic/quarantined video intake.
+- Published catalog pages, responsive dark-first movie cards, database-driven featured-title carousel, title details, search and filters.
+- HLS.js player shell with authenticated playback-grant requests, session renewal and stop controls; player is hidden until explicit media-edge activation.
+- Expiring HMAC-signed playback grants, fail-closed license and entitlement checks, stream-session lease enforcement and Redis distributed locks.
+- Prototype Cloudflare Worker for asset-scoped signed HLS, private R2 reads and per-request Laravel session authorization.
+- FFmpeg private encoding service and isolated queue job for independently approved content. The transcode feature is **disabled by default**; encoded assets are not automatically streamed or published.
+- CI: Laravel/PHPUnit feature tests, JS Worker tests, frontend Vite build, FFmpeg synthetic HLS encoding fixture, independent MySQL 8 and PostgreSQL 16 acceptance suites.
 
-## Development
+## Runtime prerequisites
 
-Create `.env` from `.env.example`, install Composer and NPM dependencies, generate an application key, configure MySQL/PostgreSQL and Redis, migrate the database and build frontend assets. The application requires PHP extensions listed in the Laravel 13 deployment documentation.
+PHP 8.4+ and Laravel 13 supported extensions, Composer, Node.js 24 for frontend assets, MySQL 8 or PostgreSQL 16, Redis for production playback coordination, and a verified SMTP provider for real email delivery. FFmpeg/FFprobe plus isolated queue workers are needed only when the separately gated media workflow is approved.
 
-```bash
+## Local development
+
+~~~sh
 composer install
 cp .env.example .env
 php artisan key:generate
@@ -37,6 +37,33 @@ npm install
 npm run build
 php artisan migrate
 php artisan test
-```
+node --test workers/gomovie-media-edge/worker.test.mjs
+php artisan gomovie:media-preflight
+~~~
 
-Never run migrations against production without backup, maintenance planning and acceptance checks. See `docs/ARCHITECTURE.md` for implementation status and security boundaries.
+For development without email provider, Laravel's log mailer writes notifications to local logs rather than delivering messages. Do not treat email verification as operational until SMTP delivery is verified.
+
+Admin access is NOT assigned through registration. A server operator can grant the highest role only to an existing verified account using an interactive CLI command:
+
+~~~sh
+php artisan gomovie:grant-admin verified@example.com
+~~~
+
+Never use development passwords, example emails or test keys in a live application. Serve the public/ directory only.
+
+## Security defaults
+
+**GOMOVIE_BILLING_ENABLED=false**, **GOMOVIE_EDGE_ENABLED=false**, and **GOMOVIE_TRANSCODING_ENABLED=false**. They must remain disabled until verified independent integrations and acceptance tests are completed.
+
+A TMDB metadata record or a published catalog title is **not evidence of streaming rights**. Media must be licensed for all served territories. Playback grants are not DRM; real content protection requires properly licensed DRM services and full segment/key coverage.
+
+The application never bundles film footage or production secrets. Payments and pay-per-view remain unavailable until a real provider, sandbox webhook verification, refunds, taxes and account entitlements have passed review.
+
+## Implementation and release notes
+
+- [Architecture & access boundaries](docs/ARCHITECTURE.md)
+- [Private video encoding pipeline](docs/MEDIA_PIPELINE.md)
+- [Cloudflare private media edge](workers/gomovie-media-edge/README.md)
+- [Production acceptance gates](docs/RELEASE_ACCEPTANCE.md)
+
+No aaPanel deployment or real-device acceptance has been performed by these source-control milestones. Never migrate production without backup, reviewed rollback and independent installation testing.
