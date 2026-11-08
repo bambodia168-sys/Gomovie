@@ -20,6 +20,10 @@ class FeaturedHomepageTest extends TestCase
 
     public function test_empty_homepage_renders_exploration_instead_of_a_broken_image(): void
     {
-        $this->get('/')->assertOk()->assertSee('Browse catalog');
+        $this->get('/')->assertOk()->assertSee('Browse catalog')
+            ->assertSee('gm-preview-hero')
+            ->assertSee('gm-home-preview-collection')
+            ->assertSee('decorative preview cards, not movie listings.')
+            ->assertDontSee('Unreleased Draft');
     }
 }
