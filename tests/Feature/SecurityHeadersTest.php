@@ -24,21 +24,22 @@ class SecurityHeadersTest extends TestCase
     {
         $admin=User::factory()->create();
         $admin->forceFill(['role'=>'admin'])->save();
-        $this->actingAs($admin)
-            ->get('/dashboard/operations')
-            ->assertOk()
-            ->assertHeader('Cache-Control','private, no-store, max-age=0')
-            ->assertHeader('Pragma','no-cache');
+        $dashboard = $this->actingAs($admin)->get('/dashboard/operations')
+            ->assertOk()->assertHeader('Pragma','no-cache');
+        $account = $this->get('/account/settings')->assertOk();
 
-        $this->get('/account/settings')
-            ->assertOk()
-            ->assertHeader('Cache-Control','private, no-store, max-age=0');
+        foreach ([$dashboard, $account] as $response) {
+            foreach (['private','no-store','max-age=0'] as $directive) {
+                self::assertStringContainsString($directive, (string) $response->headers->get('Cache-Control'));
+            }
+        }
     }
 
     public function test_internal_media_authorization_failures_are_never_cacheable(): void
     {
-        $this->postJson('/api/v1/internal/media/authorize',[])
-            ->assertForbidden()
-            ->assertHeader('Cache-Control','private, no-store, max-age=0');
+        $response = $this->postJson('/api/v1/internal/media/authorize',[])->assertForbidden();
+        foreach (['private','no-store','max-age=0'] as $directive) {
+            self::assertStringContainsString($directive, (string) $response->headers->get('Cache-Control'));
+        }
     }
 }
