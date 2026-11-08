@@ -58,6 +58,10 @@ class AuthenticationAndAdminTest extends TestCase
 
         $editor = User::factory()->create();
         $editor->forceFill(['role'=>'editor'])->save();
+        self::assertSame('editor', $editor->fresh()->role);
+        self::assertTrue($editor->fresh()->is_active);
+        self::assertTrue($editor->fresh()->hasVerifiedEmail());
+        $this->withoutExceptionHandling();
         $this->actingAs($editor)->get('/dashboard')->assertOk();
         $this->actingAs($editor)->get('/dashboard/users')->assertForbidden();
 
@@ -70,6 +74,9 @@ class AuthenticationAndAdminTest extends TestCase
     {
         $user = User::factory()->create();
         $user->forceFill(['role'=>'admin'])->save();
+        self::assertSame('admin', $user->fresh()->role);
+        self::assertTrue($user->fresh()->is_active);
+        self::assertTrue($user->fresh()->hasVerifiedEmail());
         $this->actingAs($user);
 
         $this->post('/dashboard/catalog/movies',[
