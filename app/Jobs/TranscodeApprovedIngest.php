@@ -15,6 +15,7 @@ class TranscodeApprovedIngest implements ShouldQueue
 
     public function __construct(public readonly int $ingestId)
     {
+        $this->onConnection((string) config('gomovie.media_queue_connection', 'database_media'));
         $this->onQueue('gomovie-media');
     }
 

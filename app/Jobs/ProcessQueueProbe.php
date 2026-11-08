@@ -19,6 +19,9 @@ final class ProcessQueueProbe implements ShouldQueue
 
     public function __construct(public readonly string $probeId, public readonly string $queueName)
     {
+        $this->onConnection($queueName === 'gomovie-media'
+            ? (string) config('gomovie.media_queue_connection', 'database_media')
+            : (string) config('queue.default'));
         $this->onQueue($queueName);
     }
 

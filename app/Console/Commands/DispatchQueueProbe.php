@@ -21,9 +21,12 @@ final class DispatchQueueProbe extends Command
             return self::FAILURE;
         }
 
-        // The sync driver would fabricate a positive worker health signal.
-        if (!in_array(config('queue.default'), ['database', 'redis'], true)) {
-            $this->error('An actual database or Redis queue connection is required.');
+        $connection = $queue === 'gomovie-media'
+            ? config('gomovie.media_queue_connection')
+            : config('queue.default');
+        if (!in_array($connection, ['database','redis','database_media','redis_media'],true)
+            || ($queue === 'gomovie-media' && !in_array($connection,['database_media','redis_media'],true))) {
+            $this->error('Use a real asynchronous and isolated queue connection for this probe.');
             return self::FAILURE;
         }
 

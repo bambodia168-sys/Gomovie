@@ -20,6 +20,8 @@ class MediaPipelinePreflight extends Command
             'private_storage_writable' => is_dir($localRoot) && is_writable($localRoot),
             'ffmpeg_available' => str_starts_with($ffmpeg, '/') && is_file($ffmpeg) && is_executable($ffmpeg),
             'ffprobe_available' => str_starts_with($ffprobe, '/') && is_file($ffprobe) && is_executable($ffprobe),
+            'media_queue_isolated' => in_array(config('gomovie.media_queue_connection'),['database_media','redis_media'],true),
+            'media_retry_after_safe' => (int) config('queue.connections.'.config('gomovie.media_queue_connection').'.retry_after',0) > 7500,
             'edge_enabled' => config('gomovie.edge_enabled') === true,
             'media_edge_https' => str_starts_with((string) config('gomovie.media_edge_url'), 'https://'),
             'media_signing_key_configured' => strlen((string) config('gomovie.media_signing_key')) >= 32,
