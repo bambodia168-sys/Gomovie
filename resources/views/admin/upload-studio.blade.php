@@ -283,7 +283,9 @@ button{cursor:pointer}
     // IMPORTANT: FormData MUST be collected while the controls are enabled.
     // Disabled inputs are omitted, causing "The type field is required."
     const payload = new FormData(form);
-    if (payload.get('type') !== kind || payload.get('title_id') !== target.value || payload.get('video') !== file) {
+    const submittedFile = payload.get('video');
+    if (payload.get('type') !== kind || payload.get('title_id') !== target.value || !(submittedFile instanceof File)
+      || submittedFile.size !== file.size || submittedFile.name !== file.name) {
       return show('Unable to prepare the upload. Please refresh the page.', 'error');
     }
     clearSuccess();
