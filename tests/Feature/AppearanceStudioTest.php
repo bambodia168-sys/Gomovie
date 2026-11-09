@@ -116,6 +116,7 @@ final class AppearanceStudioTest extends TestCase
     public function test_navigation_has_reusable_menus_pagination_and_centered_dialogs(): void
     {
         $this->actingAs($this->user('super_admin'));
+        Movie::create(['title'=>'Dashboard Test Movie','slug'=>'dashboard-test-movie','status'=>'draft']);
         $this->get('/dashboard')->assertOk()->assertSee('gm-studio-sidebar')
             ->assertSee('gm-studio-pager')->assertSee('Appearance');
         $this->get('/dashboard/users')->assertOk()
