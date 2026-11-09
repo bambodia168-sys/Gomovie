@@ -391,8 +391,18 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     const seek = ui.querySelector('[data-gm-timeline]');
     const current = ui.querySelector('[data-gm-current]');
     const duration = ui.querySelector('[data-gm-duration]');
-    const volume = ui.querySelector('[data-gm-volume]');
     const menuVolume = ui.querySelector('[data-gm-menu-volume]');
+    const volumePercent = ui.querySelector('[data-gm-volume-percent]');
+    const viewSelect = ui.querySelector('[data-gm-view-mode]');
+    const viewHint = ui.querySelector('[data-gm-view-hint]');
+    const placement = root.closest('[data-gm-view-placement]');
+    const settingsClose = ui.querySelector('[data-gm-settings-close]');
+    const spinner = ui.querySelector('.gm-center-spinner');
+    const adLayer = ui.querySelector('[data-gm-ad-layer]');
+    const adKind = ui.querySelector('[data-gm-ad-kind]');
+    const adCountdown = ui.querySelector('[data-gm-ad-countdown]');
+    const adSkip = ui.querySelector('[data-gm-ad-skip]');
+    const adMessage = ui.querySelector('[data-gm-ad-message]');
     const mute = ui.querySelector('[data-gm-mute]');
     const speed = ui.querySelector('[data-playback-speed]');
     const captions = ui.querySelector('[data-captions-toggle]');
@@ -411,6 +421,12 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     let idleTimer = null;
     let feedbackTimer = null;
     let isScrubbing = false;
+    let keyboardInteracting = false;
+    let viewPreference = ['portrait', 'widescreen'].includes(placement?.dataset.gmViewPreference)
+        ? placement.dataset.gmViewPreference : 'auto';
+    let sourceOrientation = null;
+    let activeAd = null;
+    let adCleanup = null;
     // Native controls in the markup remain available if this script does not load.
     // Switch to the custom controls only after the UI is initialized.
     video.controls = false;
@@ -443,6 +459,40 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
             seek.setAttribute('aria-valuetext', fmt(video.currentTime) + ' of ' + fmt(len));
         }
     };
+    // Auto orientation is based on actual loaded media dimensions, never catalog
+    // artwork. An explicit user override does not reload the video or lose time.
+    const applyViewMode = (mode, updateUrl = false) => {
+        if (!placement || !['auto', 'portrait', 'widescreen'].includes(mode)) return;
+        viewPreference = mode;
+        const chosen = mode === 'auto' ? (sourceOrientation || 'widescreen') : mode;
+        placement.classList.toggle('is-portrait', chosen === 'portrait');
+        placement.classList.toggle('is-widescreen', chosen !== 'portrait');
+        placement.dataset.gmViewPreference = mode;
+        stage?.setAttribute('aria-label', (chosen === 'portrait' ? 'Portrait' : 'Widescreen') + ' watch player');
+        if (viewSelect) viewSelect.value = mode;
+        if (viewHint) {
+            viewHint.textContent = sourceOrientation
+                ? 'Video detected: ' + (sourceOrientation === 'portrait' ? 'portrait' : 'widescreen')
+                : 'The original video determines Auto mode when available.';
+        }
+        if (updateUrl) {
+            const url = new URL(window.location.href);
+            if (mode === 'auto') url.searchParams.delete('view');
+            else url.searchParams.set('view', mode);
+            window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+        }
+    };
+    const detectOrientation = () => {
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+            sourceOrientation = video.videoHeight > video.videoWidth ? 'portrait' : 'widescreen';
+            applyViewMode(viewPreference);
+        }
+    };
+    viewSelect?.addEventListener('change', () => applyViewMode(viewSelect.value, true));
+    video.addEventListener('loadedmetadata', detectOrientation);
+    video.addEventListener('resize', detectOrientation);
+    applyViewMode(viewPreference);
+
     const updatePlay = () => {
         const playing = !video.paused && !video.ended;
         root.classList.toggle('is-playing', playing);
@@ -457,20 +507,25 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         if (settingsPanel) settingsPanel.hidden = true;
         settingsButton?.setAttribute('aria-expanded', 'false');
     };
+    settingsClose?.addEventListener('click', () => {
+        closeSettings();
+        settingsButton?.focus();
+    });
     const showControls = () => {
         root.classList.remove('is-idle');
         if (idleTimer !== null) window.clearTimeout(idleTimer);
         idleTimer = null;
     };
+    // Do not treat a mouse-clicked button's focus as keyboard interaction:
+    // otherwise controls get stuck on screen for the entire video.
+    const hasKeyboardFocus = () => keyboardInteracting && ui.contains(document.activeElement);
     const scheduleIdle = () => {
         showControls();
-        if (!hideSeconds || video.paused || document.activeElement?.closest?.('.gm-modern-ui')
-            || (settingsPanel && !settingsPanel.hidden)) return;
+        if (!hideSeconds || video.paused || hasKeyboardFocus()
+            || (settingsPanel && !settingsPanel.hidden) || activeAd) return;
         idleTimer = window.setTimeout(() => {
-            if (!video.paused && (!settingsPanel || settingsPanel.hidden)
-                && !document.activeElement?.closest?.('.gm-modern-ui')) {
-                root.classList.add('is-idle');
-            }
+            if (!video.paused && !hasKeyboardFocus() && !activeAd
+                && (!settingsPanel || settingsPanel.hidden)) root.classList.add('is-idle');
         }, hideSeconds * 1000);
     };
     const tell = (message) => {
@@ -526,18 +581,14 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     });
 
     mute?.addEventListener('click', () => { video.muted = !video.muted; });
-    volume?.addEventListener('input', () => {
-        video.volume = Math.min(1, Math.max(0, Number(volume.value)));
-        video.muted = video.volume === 0;
-    });
     menuVolume?.addEventListener('input', () => {
         video.volume = Math.min(1, Math.max(0, Number(menuVolume.value)));
         video.muted = video.volume === 0;
     });
     video.addEventListener('volumechange', () => {
         if (mute) mute.setAttribute('aria-label', video.muted || !video.volume ? 'Unmute audio' : 'Mute audio');
-        if (volume) volume.value = video.muted ? '0' : String(video.volume);
         if (menuVolume) menuVolume.value = video.muted ? '0' : String(video.volume);
+        if (volumePercent) volumePercent.textContent = Math.round((video.muted ? 0 : video.volume) * 100) + '%';
     });
     speed?.addEventListener('change', () => {
         const value = Number(speed.value);
@@ -631,9 +682,18 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
             && !event.target.closest('.gm-modern-settings-wrap')) closeSettings();
     });
 
+    root.addEventListener('pointerdown', () => {
+        keyboardInteracting = false;
+        root.classList.remove('is-keyboard');
+    }, {passive: true});
     root.addEventListener('pointermove', scheduleIdle);
     root.addEventListener('pointerleave', scheduleIdle);
-    ui.addEventListener('focusin', showControls);
+    ui.addEventListener('keydown', () => {
+        keyboardInteracting = true;
+        root.classList.add('is-keyboard');
+        showControls();
+    });
+    ui.addEventListener('focusin', () => { if (keyboardInteracting) showControls(); });
     ui.addEventListener('focusout', () => window.setTimeout(scheduleIdle, 0));
     if (stage) {
         stage.setAttribute('tabindex', '0');
@@ -654,8 +714,13 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     ['loadedmetadata','durationchange','timeupdate','progress','seeking','seeked'].forEach(name =>
         video.addEventListener(name, updateTime));
     ['play','pause','ended','playing'].forEach(name => video.addEventListener(name, updatePlay));
-    video.addEventListener('waiting', () => root.classList.add('is-buffering'));
-    video.addEventListener('playing', () => root.classList.remove('is-buffering'));
+    const setBuffering = (waiting) => {
+        root.classList.toggle('is-buffering', waiting);
+        if (spinner) spinner.hidden = !waiting;
+    };
+    video.addEventListener('waiting', () => setBuffering(!video.paused));
+    ['playing', 'canplay', 'pause', 'ended', 'error'].forEach(name =>
+        video.addEventListener(name, () => setBuffering(false)));
     video.addEventListener('error', () => {
         if (video.error) tell('The video cannot be decoded or was interrupted.');
     });
@@ -666,4 +731,6 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     updateTime();
     updateCapabilities();
     updatePlay();
+    detectOrientation();
+    if (volumePercent) volumePercent.textContent = Math.round(video.volume * 100) + '%';
 });
