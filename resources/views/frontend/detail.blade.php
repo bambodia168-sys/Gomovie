@@ -27,7 +27,11 @@
         <div class="gm-player-vignette" aria-hidden="true"></div>
         <span class="gm-player-aspect-label">{{ $portrait ? '▯ Portrait · 9:16' : '▭ Widescreen · 16:9' }}</span>
         @if($privatePreviewIngest && !$playerEnabled)
-          <div class="gm-player-live" data-gomovie-private-preview>
+          <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
+               data-gomovie-private-preview data-modern-player
+               data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
+               data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"
+               style="--gm-player-accent:{{ \App\Support\PlayerPreferences::accentColor($playerPreferences) }}">
             <video controls playsinline preload="metadata"
                    aria-label="Private administrator preview of uploaded video"
                    @if($still) poster="{{ $still }}" @endif>
@@ -35,17 +39,21 @@
                       type="{{ $privatePreviewIngest->mime }}">
               Your browser cannot play this uploaded format.
             </video>
-            <span style="position:absolute;top:14px;right:14px;z-index:5;pointer-events:none;padding:7px 11px;border-radius:9px;background:#16131de8;border:1px solid #ec46617a;color:#ffadbd;font-size:11px;font-weight:800;letter-spacing:.04em">
-              PRIVATE ADMIN PREVIEW
-            </span>
+            @include('frontend.partials.modern-player-controls', ['secure' => false])
+            <span class="gm-player-private-badge">PRIVATE ADMIN PREVIEW</span>
           </div>
         @elseif($playerEnabled && $profileId)
         <div data-gomovie-player data-profile-id="{{ $profileId }}"
              data-next-url="{{ $autoNext['url'] ?? '' }}"
              data-next-title="{{ $autoNext['title'] ?? '' }}"
              data-auto-start="{{ request('autoplay') === '1' ? '1' : '0' }}"
-             class="gm-player-live">
+             data-modern-player
+             data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
+             data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"
+             style="--gm-player-accent:{{ \App\Support\PlayerPreferences::accentColor($playerPreferences) }}"
+             class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}">
           <video controls playsinline preload="none" aria-label="Gomovie secure player"></video>
+          @include('frontend.partials.modern-player-controls', ['secure' => true])
           <div class="gm-player-controls">
             @if($type==='movie')
               <button type="button" data-play-type="movie" data-play-id="{{ $title->id }}" class="gm-button gm-button-primary">▶ Start playback</button>
@@ -91,37 +99,12 @@
     @endif
 
     @if($playerEnabled && $profileId)
-      <section class="gm-watch-player-tools" aria-label="Playback options" data-gomovie-player-tools>
-        <div class="gm-watch-player-tool-group">
-          <button type="button" data-seek-offset="-10" title="Rewind 10 seconds" aria-label="Rewind 10 seconds">↶ 10s</button>
-          <button type="button" data-seek-offset="10" title="Forward 10 seconds" aria-label="Forward 10 seconds">10s ↷</button>
-          <button type="button" data-mute-toggle title="Mute or unmute" aria-label="Mute audio">♫</button>
-          <label class="gm-watch-player-slider"><span>Volume</span><input type="range" data-playback-volume min="0" max="1" step="0.05" value="1" aria-label="Playback volume"></label>
-        </div>
-        <div class="gm-watch-player-tool-group">
-          <label class="gm-watch-player-select"><span>Speed</span>
-            <select data-playback-speed aria-label="Playback speed">
-              <option value=".75">0.75×</option>
-              <option value="1" selected>1×</option>
-              <option value="1.25">1.25×</option>
-              <option value="1.5">1.5×</option>
-              <option value="2">2×</option>
-            </select>
-          </label>
-          <label class="gm-watch-player-select" data-quality-container hidden><span>Quality</span>
-            <select data-playback-quality aria-label="Video quality"><option value="-1">Auto</option></select>
-          </label>
-          <button type="button" data-captions-toggle aria-label="Turn captions on or off" title="Captions when available">CC</button>
-          <button type="button" data-picture-in-picture title="Picture in picture">▣</button>
-          <button type="button" data-fullscreen-player title="Fullscreen">⛶</button>
-        </div>
-        @if($autoNext)
-          <label class="gm-watch-autoplay-choice">
-            <input type="checkbox" data-auto-next-toggle checked>
-            <span>Autoplay next</span>
-          </label>
-        @endif
-      </section>
+      @if($autoNext)
+        <label class="gm-watch-autoplay-choice" style="display:inline-flex;gap:9px;align-items:center;margin-top:13px;color:#b6afc6;font-size:12px">
+          <input type="checkbox" data-auto-next-toggle checked>
+          <span>Autoplay next authorized episode</span>
+        </label>
+      @endif
       @if($autoNext)
         <div class="gm-watch-next-panel" data-gomovie-next-prompt hidden role="status" aria-live="polite">
           <div><small>UP NEXT</small><strong>{{ $autoNext['title'] }}</strong>
