@@ -347,10 +347,14 @@ jobs:
             'EXISTING_MEDIA=UNCHANGED',
             "grep -RlF 'data-gm-volume-popover'",
             "6dcd7cc8a5a7d51ec10130ff42f981ed71e79b73",
+            "dde44b7f1284dbe8794fd1c7573606731710ea9e", # verified live v1.2.2 player.js
             "d9beae59872ffd171e69212c856b559c08b1300a",
             "a3da95ce141e77ef77a951ead7c1d896aec7b68d",
           ]
           for value in required: assert value in s, value
+          old=s[s.index("old_blob() {"):s.index("new_blob() {")]
+          assert "dde44b7f1284dbe8794fd1c7573606731710ea9e" in old
+          assert "2335c85f5ed5068411e13c97bc9e93456604345f" not in old
           print("SINGLE_VOLUME_DEPLOYMENT_HELPER=VERIFIED")
           PY
       - name: Build frontend assets
