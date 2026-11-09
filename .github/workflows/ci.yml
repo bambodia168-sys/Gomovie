@@ -116,6 +116,18 @@ jobs:
           assert "video.textTracks?.addEventListener?.('addtrack'" in js
           assert "'/api/v1/stream/' + type + '/' + titleId + '/token'" in js
           PY
+      - name: Verify portrait player aaPanel upgrade helper
+        run: |
+          bash -n support/portrait-player-controls-upgrade.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          script = Path("support/portrait-player-controls-upgrade.sh").read_text()
+          assert 'TESTED_SHA="400b7c09c0e40c239577a75ddcb1903457ff9828"' in script
+          assert 'BUILD_RUN="42583509288"' in script
+          assert 'GOMOVIE_PORTRAIT_DEPLOYMENT=SUCCESS' in script
+          assert 'SOURCE_ROLLBACK=COMPLETE' in script
+          assert 'DATABASE_CHANGED=NO' in script
+          PY
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
