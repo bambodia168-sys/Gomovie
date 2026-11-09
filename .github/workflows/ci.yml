@@ -215,6 +215,36 @@ jobs:
           assert "video.textTracks?.addEventListener?.('addtrack'" in js
           assert "'/api/v1/stream/' + type + '/' + titleId + '/token'" in js
           PY
+      - name: Verify pinned player Upload Studio v1.3 upgrade helper
+        run: |
+          bash -n support/player-upload-v13-upgrade.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("support/player-upload-v13-upgrade.sh").read_text()
+          required=[
+            'TESTED_SHA="c76af06e7f16b9ffbac8e21a4ee94a00fe23afd4"',
+            'SOURCE_SHA="430d4ec9b5ec8ac374ca576100448441d4d09022"',
+            'BUILD_RUN="42637837627"',
+            'DATABASE_BACKUP=VERIFIED',
+            'CAPTIONS_MIGRATION=APPLIED',
+            'GOMOVIE_PLAYER_UPLOAD_V13_DEPLOYMENT=SUCCESS',
+            'PLAYER_UPLOAD_COMPILED_ASSETS=VERIFIED',
+            'PRIVATE_CAPTION_ROUTES=VERIFIED',
+            'COMPILED_ASSET_ALLOWLIST=VERIFIED',
+            'SOURCE_ROLLBACK=COMPLETE',
+            'FONTS_MANIFEST=VERIFIED',
+            'UPLOAD_DELETE=LOCAL_UNPROCESSED_ONLY',
+            'EXISTING_MEDIA=UNCHANGED',
+            '65fa354e4fba4938f1cc83c505ef03ed647cd41f',
+            '125dca4e69430045248502e3e2591e15458c3938',
+            '1d0f9422f517aefed401115d30e43a523b3803f8',
+            'd8a3d94a51e449ee1d6b0bc1f08bf0032da1c857',
+          ]
+          for marker in required: assert marker in s, marker
+          a=s[s.index("files() {"):s.index("old_blob() {")]
+          assert a.count("resources/")+a.count("app/")+a.count("config/")+a.count("routes/")+a.count("database/") == 15
+          print("GOMOVIE_PLAYER_UPLOAD_V13_DEPLOY_HELPER=VERIFIED")
+          PY
       - name: Verify premium portrait player and private captions
         run: |
           node --check resources/js/player.js
