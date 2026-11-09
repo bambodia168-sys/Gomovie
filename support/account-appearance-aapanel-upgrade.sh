@@ -111,6 +111,8 @@ on_exit() {
     echo "DATABASE_NOTE=Additive schema migrations may remain; database backup is retained."
     echo "BACKUP_DIRECTORY=$TMP"
   fi
+  # Ensure DB credentials are never retained even on backup failures.
+  rm -f -- "$TMP/mysql.cnf" "$TMP/db-name"
   if [ "$MODE" = "--check" ]; then rm -rf -- "$TMP"; fi
   exit "$code"
 }
@@ -186,7 +188,9 @@ gh run download "$RUN" --repo "$REPO" --name gomovie-installer-qa-package --dir 
 ZIP="$(find "$TMP/package" -maxdepth 1 -type f -name 'Gomovie-Installer-QA-*.zip' -print -quit)"
 test -n "$ZIP" && test -f "$ZIP.sha256"
 test "$(find "$TMP/package" -maxdepth 1 -type f -name 'Gomovie-Installer-QA-*.zip' | wc -l)" -eq 1
-( cd "$TMP/package" && sha256sum -c "$(basename "$ZIP").sha256" )
+EXPECTED_ZIP_SHA="$(awk 'NR==1 {print $1}' "$ZIP.sha256")"
+test "$EXPECTED_ZIP_SHA" = "$(sha256sum "$ZIP" | awk '{print $1}')" || { echo "BLOCKED_ZIP_CHECKSUM"; exit 1; }
+echo "CI_PACKAGE_SHA256=VERIFIED"
 unzip -tqq "$ZIP"
 while IFS= read -r f; do
   if [ "$f" = "$AUTH" ]; then continue; fi
