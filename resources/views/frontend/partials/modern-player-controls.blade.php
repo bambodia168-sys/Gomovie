@@ -95,8 +95,11 @@
                 </label>
               @endif
               @if($playerPreferences['show_captions'])
-                <button type="button" class="gm-settings-action" data-captions-toggle
-                        aria-label="Toggle captions" aria-pressed="false" disabled hidden>Captions · Off</button>
+                <label class="gm-settings-row" data-captions-wrap hidden>Captions
+                  <select data-captions-toggle aria-label="Caption language" disabled>
+                    <option value="-1">Off</option>
+                  </select>
+                </label>
               @endif
             </div>
 
