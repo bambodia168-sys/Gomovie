@@ -9,6 +9,7 @@ use App\Services\Media\PrivateVideoIntake;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -26,10 +27,24 @@ final class UploadStudioController extends Controller
         if ($fileMax > 0) $max = min($max, $fileMax);
         if ($postMax > 0) $max = min($max, max(1, $postMax - 65536));
 
+        $resume = null;
+        if ($request->query('upload') !== null) {
+            abort_unless(ctype_digit((string) $request->query('upload')), 404);
+            $resume = DB::table('media_ingests')
+                ->where('id', (int) $request->query('upload'))
+                ->where('uploaded_by', (int) $request->user()->id)->first();
+            abort_unless($resume, 404);
+            abort_unless(in_array($resume->ingestable_type, ['movie', 'episode'], true), 404);
+        }
+
         return view('admin.upload-studio', [
-            'movies' => Movie::query()->orderBy('title')->limit(2000)->get(['id', 'title']),
-            'episodes' => Episode::query()->with('season.series')->orderByDesc('id')->limit(2000)->get(),
+            'movies' => Movie::query()->orderBy('title')->limit(2000)->get([
+                'id', 'title', 'overview', 'release_year', 'runtime_minutes', 'is_premium', 'status',
+            ]),
+            'episodes' => Episode::query()->with('season.series')
+                ->orderByDesc('id')->limit(2000)->get(),
             'maxUploadBytes' => $max,
+            'resume' => $resume,
         ]);
     }
 
@@ -54,6 +69,7 @@ final class UploadStudioController extends Controller
                 'message' => 'Video uploaded successfully. Saved to your private Media Library.',
                 'upload_id' => $id,
                 'library_url' => route('admin.media.index'),
+                'editor_url' => route('upload-studio.index', ['upload' => $id]),
             ], 201)->header('Cache-Control', 'private, no-store');
         }
         return redirect()->route('upload-studio.index')
