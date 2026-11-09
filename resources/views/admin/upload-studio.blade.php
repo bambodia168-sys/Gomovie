@@ -143,13 +143,13 @@ button{cursor:pointer}
           <button id="gm-upload-cancel" type="button" class="us-secondary" hidden>Cancel upload</button>
         </div>
         <div id="gm-upload-success-actions" class="us-success-actions" hidden>
-          <a id="gm-upload-review-link" class="us-review-link" href="#" hidden>Review this upload →</a>
+          <a id="gm-upload-library-link" class="us-review-link" href="{{ route('admin.media.index') }}">Open Media Library →</a>
           <button type="button" class="us-secondary" id="gm-upload-another">Upload another video</button>
         </div>
       </section>
     </div>
   </form>
-  <p class="us-footnote">Uploads are stored privately until reviewed. They are never published automatically.</p>
+  <p class="us-footnote">Videos are stored privately. Publishing is managed separately.</p>
 </main>
 <script>
 (() => {
@@ -173,7 +173,6 @@ button{cursor:pointer}
   const progressFill = document.getElementById('gm-upload-progress-fill');
   const percent = document.getElementById('gm-upload-percent');
   const successActions = document.getElementById('gm-upload-success-actions');
-  const reviewLink = document.getElementById('gm-upload-review-link');
   const another = document.getElementById('gm-upload-another');
   const maxBytes = Number(form.dataset.maxBytes);
   const originals = [...target.options].filter(option => option.value).map(option => ({
@@ -216,8 +215,6 @@ button{cursor:pointer}
   }
   function clearSuccess() {
     successActions.hidden = true;
-    reviewLink.hidden = true;
-    reviewLink.removeAttribute('href');
   }
   types.forEach(item => item.addEventListener('change', () => {
     target.value = '';
@@ -307,17 +304,7 @@ button{cursor:pointer}
       if (xhr.status === 201 && data.ok === true) {
         setProgress(100);
         progressText.textContent = 'Upload complete';
-        show('Video uploaded successfully. It is private and waiting for review.', 'success');
-        const reviewUrl = data.review_url;
-        if (typeof reviewUrl === 'string') {
-          try {
-            const safe = new URL(reviewUrl, window.location.origin);
-            if (safe.origin === window.location.origin && safe.pathname.startsWith('/dashboard/upload-studio/')) {
-              reviewLink.href = safe.href;
-              reviewLink.hidden = false;
-            }
-          } catch { /* Do not expose untrusted URL */ }
-        }
+        show('Video uploaded successfully. Your file is saved privately.', 'success');
         successActions.hidden = false;
         submit.hidden = true;
       } else {
