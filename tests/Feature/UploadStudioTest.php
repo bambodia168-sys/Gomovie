@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Jobs\MirrorPrivateIngestToR2;
 use App\Models\Movie;
+use App\Models\Episode;
+use App\Models\Season;
+use App\Models\Series;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -172,6 +175,145 @@ final class UploadStudioTest extends TestCase
         $editor = User::factory()->create();
         $editor->forceFill(['role' => 'editor'])->save();
         $this->actingAs($editor)->get('/dashboard/upload-studio/1')->assertForbidden();
+    }
+
+    public function test_sample_inspired_studio_has_real_optional_steps_without_fake_launch(): void
+    {
+        $this->actingAs($this->admin());
+        $this->movie();
+        $this->get('/upload-studio')->assertOk()
+            ->assertSee('File &amp; Ingest', false)
+            ->assertSee('Details &amp; Meta', false)
+            ->assertSee('Poster &amp; Assets', false)
+            ->assertSee('Catalog Access')
+            ->assertSee('Finish')
+            ->assertSee('gm-save-details')
+            ->assertSee('gm-save-artwork')
+            ->assertSee('gm-save-access')
+            ->assertDontSee('Launch to Gomovie')
+            ->assertDontSee('0 Infringements Found')
+            ->assertDontSee('256 GB accepted');
+    }
+
+    public function test_private_upload_optional_details_artwork_access_and_resume_are_real(): void
+    {
+        Storage::fake('local');
+        Storage::fake('public');
+        $movie = $this->movie();
+        $admin = $this->admin();
+        $this->actingAs($admin);
+        $this->postJson('/upload-studio', [
+            'type'=>'movie','title_id'=>$movie->id,
+            'video'=>$this->fakeVideo('real-studio.mp4'),
+        ])->assertCreated()->assertJsonPath('editor_url', route('upload-studio.index', ['upload'=>1]));
+
+        $id = (int) DB::table('media_ingests')->value('id');
+        $this->get('/upload-studio?upload='.$id)->assertOk()
+            ->assertSee('data-resume-id="'.$id.'"', false);
+
+        $this->patchJson('/upload-studio/'.$id.'/details', [
+            'title'=>'Updated Draft Title',
+            'overview'=>'A real synopsis saved through the Laravel backend.',
+            'release_year'=>2026,
+            'runtime_minutes'=>91,
+        ])->assertOk()->assertJsonPath('title','Updated Draft Title');
+        $this->assertDatabaseHas('movies', [
+            'id'=>$movie->id,'title'=>'Updated Draft Title','release_year'=>2026,
+            'runtime_minutes'=>91,'status'=>'draft',
+        ]);
+        self::assertSame('original-upload-studio-qa', $movie->fresh()->slug);
+
+        $this->patchJson('/upload-studio/'.$id.'/access', [
+            'is_premium'=>true,
+        ])->assertOk()->assertJsonPath('is_premium',true);
+        $this->assertDatabaseHas('movies',['id'=>$movie->id,'is_premium'=>1]);
+
+        $png = base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlSxggAAAAASUVORK5CYII=',
+            true
+        );
+        $path = tempnam(sys_get_temp_dir(), 'gomovie-art-');
+        file_put_contents($path, $png);
+        try {
+            $this->postJson('/upload-studio/'.$id.'/artwork', [
+                'slot'=>'poster',
+                'artwork'=>new UploadedFile($path, 'poster.png', 'image/png', null, true),
+            ])->assertOk()->assertJsonPath('slot','poster');
+        } finally {
+            @unlink($path);
+        }
+        $movie->refresh();
+        self::assertNotEmpty($movie->poster_path);
+        Storage::disk('public')->assertExists($movie->poster_path);
+
+        $this->get('/upload-studio/'.$id.'/status')->assertOk()
+            ->assertJsonPath('status','quarantined')
+            ->assertJsonPath('catalog_status','draft');
+        $this->get('/dashboard/media')->assertOk()
+            ->assertSee('Edit upload')
+            ->assertSee('real-studio.mp4');
+        $this->assertDatabaseCount('content_rights',0);
+        $this->assertDatabaseCount('media_assets',0);
+        $this->assertDatabaseHas('media_ingests',['id'=>$id,'status'=>'quarantined']);
+    }
+
+    public function test_optional_studio_changes_are_owned_and_never_publish_media(): void
+    {
+        Storage::fake('local');
+        $movie = $this->movie();
+        $owner = $this->admin();
+        $this->actingAs($owner)->postJson('/upload-studio', [
+            'type'=>'movie','title_id'=>$movie->id,
+            'video'=>$this->fakeVideo('private-owned.mp4'),
+        ])->assertCreated();
+        $id=(int) DB::table('media_ingests')->value('id');
+        $other=$this->admin();
+        $this->actingAs($other)->get('/upload-studio?upload='.$id)->assertNotFound();
+        $this->actingAs($other)->get('/upload-studio/'.$id.'/status')->assertNotFound();
+        $this->actingAs($other)->patchJson('/upload-studio/'.$id.'/details',[
+            'title'=>'Unauthorized change',
+        ])->assertNotFound();
+        $this->actingAs($other)->patchJson('/upload-studio/'.$id.'/access',[
+            'is_premium'=>true,
+        ])->assertNotFound();
+
+        $movie->forceFill(['status'=>'published','published_at'=>now()])->save();
+        $this->actingAs($owner)->patchJson('/upload-studio/'.$id.'/details',[
+            'title'=>'Should not change published title',
+        ])->assertStatus(409);
+        $this->actingAs($owner)->patchJson('/upload-studio/'.$id.'/access',[
+            'is_premium'=>true,
+        ])->assertStatus(409);
+        $this->assertDatabaseHas('media_ingests',['id'=>$id,'status'=>'quarantined']);
+        $this->assertDatabaseCount('content_rights',0);
+        $this->assertDatabaseCount('media_assets',0);
+    }
+
+    public function test_episode_still_and_series_access_are_saved_to_real_models(): void
+    {
+        Storage::fake('local');
+        $series=Series::create(['title'=>'Studio QA Series','slug'=>'studio-qa-series',
+            'status'=>'draft','is_premium'=>false]);
+        $season=Season::create(['series_id'=>$series->id,'season_number'=>1,'title'=>'Season One']);
+        $episode=Episode::create(['season_id'=>$season->id,'episode_number'=>1,
+            'title'=>'Pilot','status'=>'draft']);
+        $this->actingAs($this->admin());
+        $this->postJson('/upload-studio',[
+            'type'=>'episode','title_id'=>$episode->id,'video'=>$this->fakeVideo('episode.mp4'),
+        ])->assertCreated();
+        $id=(int) DB::table('media_ingests')->value('id');
+        $this->patchJson('/upload-studio/'.$id.'/details',[
+            'title'=>'Pilot Extended',
+            'overview'=>'Episode overview saved.',
+            'runtime_minutes'=>42,
+        ])->assertOk();
+        $this->patchJson('/upload-studio/'.$id.'/access',[
+            'is_premium'=>true,
+        ])->assertOk();
+        $this->assertDatabaseHas('episodes',['id'=>$episode->id,
+            'title'=>'Pilot Extended','runtime_minutes'=>42,'status'=>'draft']);
+        $this->assertDatabaseHas('series',['id'=>$series->id,'is_premium'=>1,'status'=>'draft']);
+        $this->assertDatabaseCount('media_assets',0);
     }
 
     public function test_r2_mirror_is_queued_isolated_and_remains_private(): void
