@@ -268,9 +268,12 @@ if ($mode === 'cleanup') {
         echo "QA_CLEANUP=NOTHING_TO_REMOVE\n";
         exit(0);
     }
-    $assert(preg_match('/\Agomovie-autopub-qa-[a-f0-9]{16}\z/D', $slug) === 1
-        && $movieId > 0 && DB::table('movies')->where('id',$movieId)->where('slug',$slug)->exists(),
-        'Refusing cleanup without an exact original QA movie.');
+    $assert(preg_match('/\Agomovie-autopub-qa-[a-f0-9]{16}\z/D', $slug) === 1,
+        'Refusing cleanup without an exact original QA slug.');
+    if ($movieId > 0) {
+        $assert(DB::table('movies')->where('id',$movieId)->where('slug',$slug)->exists(),
+            'Refusing cleanup of an unknown catalog movie.');
+    }
     $rightsId = (int) ($state['rights_id'] ?? 0);
     $queueName = (string) ($state['queue'] ?? '');
     $assert((bool) preg_match('/\Agomovie-qa-[a-f0-9]{16}\z/D', $queueName),
@@ -303,7 +306,7 @@ if ($mode === 'cleanup') {
         DB::table('content_rights')->where('id',$rightsId)
             ->where('licensable_type','movie')->where('licensable_id',$movieId)->delete();
     }
-    DB::table('movies')->where('id',$movieId)->where('slug',$slug)->delete();
+    if ($movieId > 0) DB::table('movies')->where('id',$movieId)->where('slug',$slug)->delete();
     echo "GENERATED_QA_CATALOG_AND_RIGHTS=REMOVED\n";
     echo "GENERATED_QA_ORIGINAL_AND_HLS=REMOVED\n";
     echo "EXISTING_MOVIES_AND_UPLOADS=UNCHANGED\n";
