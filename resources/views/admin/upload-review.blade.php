@@ -1,12 +1,12 @@
 @extends('layouts.admin')
-@section('title', 'Review private upload')
+@section('title', 'Manage private upload')
 @section('content')
 <div class="mx-auto max-w-4xl">
   <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
     <div>
       <a href="{{ route('upload-studio.index') }}" class="text-xs font-bold text-rose-300 hover:underline">← Upload Studio</a>
-      <h2 class="mt-3 text-2xl font-extrabold tracking-tight">Review video</h2>
-      <p class="mt-2 text-sm text-zinc-400">An operator reviews the original file; the uploader does not need to complete extra steps.</p>
+      <h2 class="mt-3 text-2xl font-extrabold tracking-tight">Manage video</h2>
+      <p class="mt-2 text-sm text-zinc-400">The video is saved privately. Run checks here only when preparing it for processing or distribution.</p>
     </div>
     <span class="rounded-full border border-white/20 px-4 py-2 text-xs font-bold text-zinc-200">{{ ucfirst($upload->status) }}</span>
   </div>
@@ -30,13 +30,13 @@
       </div>
     </div>
     <div class="mt-6 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 text-xs leading-6 text-amber-200">
-      Approving a video does not start streaming or make it public. You are responsible for confirming permission to distribute the actual video, not only the title's metadata.
+      Authorizing a video here does not start streaming or make it public. You are responsible for confirming permission to distribute the actual video, not only the title's metadata.
     </div>
     @if($upload->status === 'quarantined')
     <div class="mt-7 grid gap-6 lg:grid-cols-2">
       <form method="POST" action="{{ route('admin.upload-studio.approve', $upload->id) }}" class="space-y-4 rounded-xl border border-white/15 bg-black/25 p-5">
         @csrf
-        <h3 class="text-base font-bold">Approve for private processing</h3>
+        <h3 class="text-base font-bold">Authorize private processing</h3>
         <p class="text-xs leading-6 text-zinc-400">A trusted ClamAV scan runs automatically when you approve. The video stays private afterward.</p>
         <label class="block">
           <span class="mb-2 block text-xs font-semibold text-zinc-300">License or permission reference</span>
@@ -55,7 +55,7 @@
         @endunless
         <button type="submit" @disabled(!$scannerReady)
           class="w-full rounded-xl bg-rose-600 px-5 py-3 text-sm font-bold text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-40">
-          Run security scan & approve
+          Check and authorize
         </button>
       </form>
       <form method="POST" action="{{ route('admin.upload-studio.reject', $upload->id) }}" class="space-y-4 rounded-xl border border-white/15 bg-black/25 p-5">
