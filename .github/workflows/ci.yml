@@ -54,6 +54,23 @@ jobs:
           assert 'GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED' not in source
           assert 'GOMOVIE_PUBLIC_HLS_ENABLED' not in source
           PY
+      - name: Validate scoped original video browser acceptance fixture
+        run: |
+          php -l support/browser-public-qa-fixture.php
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('support/browser-public-qa-fixture.php').read_text()
+          assert "c510082cf911cce99efafceb96466d87b6a750653fe11385372bb93a588e8cf5" in src
+          assert "GOMOVIE-ORIGINAL-FFMPEG-QA-" in src
+          assert "BROWSER_QA_FIXTURE=CREATED" in src
+          assert "BROWSER_QA_ACCESS=DISABLED" in src
+          assert "BROWSER_QA_REAL_UPLOAD_AND_PUBLIC_ASSET=PASS" in src
+          assert "where('rights_reference',QA_REF)" in src
+          assert "'ends_at'=>now()->addDay()" in src
+          assert "'status'=>'revoked'" in src
+          assert "GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED=true" not in src
+          assert "artisan migrate" not in src
+          PY
       - name: Verify guarded production auto-publication activation script
         run: |
           bash -n support/automatic-public-production-activation.sh
