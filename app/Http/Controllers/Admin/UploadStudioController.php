@@ -22,25 +22,18 @@ final class UploadStudioController extends Controller
     {
         $this->requireAdmin($request);
 
+        // Advertise the effective PHP request limit to the browser. Keep the
+        // original private-intake ceiling at 128 MB until resumable uploads ship.
+        $max = 128 * 1048576;
+        $fileMax = $this->iniBytes(ini_get('upload_max_filesize'));
+        $postMax = $this->iniBytes(ini_get('post_max_size'));
+        if ($fileMax > 0) $max = min($max, $fileMax);
+        if ($postMax > 0) $max = min($max, max(1, $postMax - 65536));
+
         return view('admin.upload-studio', [
             'movies' => Movie::query()->orderBy('title')->limit(2000)->get(['id', 'title']),
             'episodes' => Episode::query()->with('season.series')->orderByDesc('id')->limit(2000)->get(),
-            'uploads' => DB::table('media_ingests')
-                ->join('users', 'users.id', '=', 'media_ingests.uploaded_by')
-                ->select('media_ingests.id', 'media_ingests.ingestable_type',
-                    'media_ingests.original_name', 'media_ingests.status',
-                    'media_ingests.cloud_status', 'media_ingests.size_bytes',
-                    'media_ingests.created_at', 'users.name as uploader')
-                ->orderByDesc('media_ingests.id')->paginate(15),
-            'r2Configured' => config('gomovie.r2_enabled') === true
-                && filled(config('filesystems.disks.r2.key'))
-                && filled(config('filesystems.disks.r2.secret'))
-                && filled(config('gomovie.r2_bucket'))
-                && (bool) preg_match('#\Ahttps://[a-f0-9]{32}\.r2\.cloudflarestorage\.com/?\z#D',
-                    (string) config('gomovie.r2_endpoint')),
-            'scannerReady' => is_file((string) config('gomovie.malware_scanner_binary'))
-                && is_executable((string) config('gomovie.malware_scanner_binary'))
-                && basename((string) config('gomovie.malware_scanner_binary')) === 'clamscan',
+            'maxUploadBytes' => $max,
         ]);
     }
 
@@ -67,7 +60,7 @@ final class UploadStudioController extends Controller
                 'review_url' => route('admin.upload-studio.review', $id),
             ], 201)->header('Cache-Control', 'private, no-store');
         }
-        return redirect()->route('admin.upload-studio.index')
+        return redirect()->route('upload-studio.index')
             ->with('status', 'Video uploaded privately. Review it when ready.');
     }
 
@@ -127,6 +120,20 @@ final class UploadStudioController extends Controller
 
         return redirect()->route('admin.upload-studio.review', $ingest)
             ->with('status', 'Upload rejected and retained in private quarantine for operator action.');
+    }
+
+    private function iniBytes(string|false $value): int
+    {
+        if (!is_string($value) || !preg_match('/\A(\d+)([KMG]?)\z/iD', trim($value), $parts)) {
+            return 0;
+        }
+        $multiplier = match (strtoupper($parts[2])) {
+            'K' => 1024,
+            'M' => 1048576,
+            'G' => 1073741824,
+            default => 1,
+        };
+        return min(PHP_INT_MAX, (int) $parts[1] * $multiplier);
     }
 
     private function requireAdmin(Request $request): void
