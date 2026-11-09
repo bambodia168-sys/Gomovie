@@ -100,7 +100,7 @@ final class UploadCaptionController extends Controller
             && preg_match('/\A(?:\xEF\xBB\xBF)?WEBVTT(?:[ \t][^\r\n]*)?\r?\n/', $bytes)
             && preg_match('/\d{2}:\d{2}(?::\d{2})?\.\d{3}[ \t]+-->[ \t]+\d{2}:\d{2}(?::\d{2})?\.\d{3}/', $bytes)
             && !str_contains($bytes, "\0") && !str_contains($bytes, '<')
-            && !str_contains($bytes, '>') && preg_match('//u', $bytes), 422,
+            && preg_match('//u', $bytes), 422,
             'The caption must contain valid UTF-8 WEBVTT cues without HTML markup.');
 
         $language = $data['language'];
