@@ -7,6 +7,7 @@ use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Series;
 use App\Services\Media\PrivateVideoIntake;
+use App\Services\Media\AutomaticPublicationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,15 +20,28 @@ class MediaController extends Controller
 {
     public function index(): View
     {
+        $assets = DB::table('media_ingests')
+            ->join('users', 'users.id', '=', 'media_ingests.uploaded_by')
+            ->select('media_ingests.id', 'media_ingests.original_name', 'media_ingests.mime',
+                'media_ingests.size_bytes', 'media_ingests.status', 'media_ingests.created_at',
+                'media_ingests.uploaded_by', 'media_ingests.ingestable_type',
+                'media_ingests.ingestable_id', 'media_ingests.encoded_manifest_key',
+                'users.name as uploader')
+            ->orderByDesc('media_ingests.id')->paginate(10)->withQueryString();
+
+        $auto = app(AutomaticPublicationService::class);
+        foreach ($assets as $asset) {
+            $asset->public = false;
+            if ($asset->status !== 'encoded' || !$asset->encoded_manifest_key) continue;
+            $ready = $auto->readyAsset((string) $asset->ingestable_type, (int) $asset->ingestable_id);
+            $asset->public = $ready && hash_equals(
+                (string) $ready->manifest_key, (string) $asset->encoded_manifest_key);
+        }
+
         return view('admin.media', [
             'movies' => Movie::orderBy('title')->limit(500)->get(['id','title']),
             'episodes' => Episode::orderByDesc('id')->limit(500)->get(['id','title']),
-            'assets' => DB::table('media_ingests')
-                ->join('users','users.id','=','media_ingests.uploaded_by')
-                ->select('media_ingests.id','media_ingests.original_name','media_ingests.mime',
-                    'media_ingests.size_bytes','media_ingests.status','media_ingests.created_at','media_ingests.uploaded_by',
-                    'users.name as uploader')
-                ->orderByDesc('media_ingests.id')->paginate(10)->withQueryString(),
+            'assets' => $assets,
         ]);
     }
 
