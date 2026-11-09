@@ -33,7 +33,7 @@
 @endforeach
 </fieldset>
 <p class="gm-studio-muted text-xs mt-4">Only supported controls appear when the browser and the actual video provide them. These settings do not grant public playback.</p>
-</div><div class="gm-studio-modal-actions"><button type="button" class="gm-studio-button" id="gm-player-reset">Restore defaults</button><button type="button" class="gm-studio-button" data-studio-close>Cancel</button><button type="submit" class="gm-studio-button is-primary">Save settings</button></div></form>
+</div><div class="gm-studio-modal-actions"><button type="button" class="gm-studio-button" id="gm-player-reset">Restore defaults</button><button type="button" class="gm-studio-button" data-studio-close>Cancel</button><button type="submit" class="gm-studio-button is-primary">Save player settings</button></div></form>
 </dialog>
 <script>
 (() => {
