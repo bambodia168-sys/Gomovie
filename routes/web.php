@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\PrivateIngestPreviewController;
 use App\Http\Controllers\Admin\UploadStudioController;
+use App\Http\Controllers\Admin\QuickUploadController;
 use App\Http\Controllers\Admin\UploadStudioWorkflowController;
 use App\Http\Controllers\Admin\UploadCaptionController;
 use App\Http\Controllers\Admin\OperationsController;
@@ -73,7 +74,11 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 // Standalone uploader: outside the dashboard layout, with the same staff and
 // administrator access controls. Uploads remain private.
 Route::middleware(['auth', 'active', 'verified', 'staff'])->group(function (): void {
-    Route::get('/upload-studio', [UploadStudioController::class, 'index'])->name('upload-studio.index');
+    Route::get('/upload-studio', [QuickUploadController::class, 'index'])->name('upload-studio.index');
+    Route::post('/upload-studio/quick', [QuickUploadController::class, 'store'])
+        ->middleware('throttle:12,1')->name('upload-studio.quick');
+    Route::get('/upload-studio/advanced', [UploadStudioController::class, 'index'])
+        ->name('upload-studio.advanced');
     Route::post('/upload-studio', [UploadStudioController::class, 'upload'])
         ->middleware('throttle:12,1')->name('upload-studio.upload');
     Route::get('/upload-studio/{ingest}/status', [UploadStudioWorkflowController::class, 'state'])
