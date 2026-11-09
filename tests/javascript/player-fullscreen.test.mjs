@@ -55,11 +55,19 @@ function createHarness(mode = 'standard') {
         get closed() { return closed; } };
 }
 
-test('fullscreen icon uses distinctive framed custom SVGs, not a font or browser control', () => {
+test('fullscreen uses compact unframed SVG glyphs aligned with the other player controls', () => {
     assert.match(blade, /data-fullscreen-player data-fullscreen-state="windowed"/);
     assert.match(blade, /gm-fullscreen-glyph gm-icon-expand/);
     assert.match(blade, /gm-fullscreen-glyph gm-icon-collapse/);
-    assert.equal((blade.match(/class="gm-fullscreen-frame"/g) || []).length, 2);
+    assert.equal((blade.match(/class="gm-fullscreen-frame"/g) || []).length, 0,
+        'Fullscreen SVG must not draw a second frame inside the button');
+    assert.match(blade, /d="M13\.5 4\.5h6v6m0-6-7 7M10\.5 19\.5h-6v-6m0 6 7-7"/);
+    assert.match(css, /width:21px!important/);
+    assert.match(css, /height:21px!important/);
+    assert.match(css, /border:1px solid transparent/);
+    assert.match(css, /background:transparent/);
+    assert.doesNotMatch(css, /width:29px!important/);
+    assert.doesNotMatch(css, /background:linear-gradient\(145deg,#f3306049/);
     assert.match(css, /data-fullscreen-state="expanded"/);
     assert.match(css, /data-fullscreen-state="windowed"/);
     assert.match(css, /gm-modern-fullscreen-btn svg\.gm-fullscreen-glyph/);
