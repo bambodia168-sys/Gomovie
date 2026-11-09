@@ -36,6 +36,33 @@ jobs:
             | xargs -0 -n1 php -l
       - name: Syntax check selective aaPanel Watch updater
         run: bash -n support/watch-page-upgrade.sh
+      - name: Syntax and safety verify Account Appearance aaPanel deployment
+        run: |
+          bash -n support/account-appearance-aapanel-upgrade.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('support/account-appearance-aapanel-upgrade.sh').read_text()
+          required=[
+            'GOMOVIE_AAPANEL_PREFLIGHT=PASS',
+            'DATABASE_BACKUP=VERIFIED',
+            'CI_SOURCE_BLOBS=VERIFIED',
+            'CI_PACKAGE_SHA256=VERIFIED',
+            'GOMOVIE_AAPANEL_DEPLOYMENT=SUCCESS',
+            'SOURCE_ROLLBACK=COMPLETE',
+            'MODE="$1"',
+            'APP="/www/wwwroot/gomovie.tonsamith.com"',
+            'PRIVATE_VIDEOS=UNCHANGED',
+            'PUBLIC_STREAMING=UNCHANGED',
+            'PAYMENTS=UNCHANGED',
+            'SOURCE="1d5a613294f683bcdd5300e071cb4c72ac61e859"',
+          ]
+          for item in required:
+            assert item in source,item
+          assert 'migrate:fresh' not in source
+          assert 'key:generate' not in source
+          assert 'rsync --delete' not in source
+          assert "composer install" not in source
+          PY
       - name: Syntax check selective aaPanel Upload Studio updater
         run: bash -n support/upload-studio-upgrade.sh
       - name: Syntax check selective Studio feedback and artwork upgrade
