@@ -563,10 +563,8 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         scheduleIdle();
     }));
     video.addEventListener('click', togglePlay);
-    video.addEventListener('dblclick', async () => {
-        if (!stage?.requestFullscreen) return;
-        try { if (document.fullscreenElement) await document.exitFullscreen(); else await stage.requestFullscreen(); }
-        catch { tell('Fullscreen is unavailable.'); }
+    video.addEventListener('dblclick', () => {
+        void toggleFullscreen();
     });
 
     seek?.addEventListener('pointerdown', () => { isScrubbing = true; });
@@ -620,7 +618,9 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
                 button.disabled = !supportsPip;
             }
         }
-        const supportsFullscreen = Boolean(stage?.requestFullscreen || video.webkitEnterFullscreen);
+        const supportsFullscreen = Boolean(
+            stage?.requestFullscreen || stage?.webkitRequestFullscreen || video.webkitEnterFullscreen
+        );
         if (fullscreen) {
             fullscreen.hidden = !supportsFullscreen;
             fullscreen.disabled = !supportsFullscreen;
@@ -653,23 +653,85 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     video.textTracks?.addEventListener?.('addtrack', updateCapabilities);
     video.textTracks?.addEventListener?.('removetrack', updateCapabilities);
     video.addEventListener('gomovie:tracks-change', updateCapabilities);
-    document.addEventListener('fullscreenchange', () => {
-        if (fullscreen) fullscreen.setAttribute('aria-label',
-            document.fullscreenElement ? 'Exit fullscreen' : 'Toggle fullscreen');
+    const getFullscreenElement = () =>
+        document.fullscreenElement || document.webkitFullscreenElement ||
+        document.mozFullScreenElement || document.msFullscreenElement || null;
+
+    const playerIsFullscreen = () => {
+        const active = getFullscreenElement();
+        return Boolean(
+            (active && (active === stage || active === root || active === video)) ||
+            video.webkitDisplayingFullscreen
+        );
+    };
+
+    // The glyph state is explicit, not dependent on :fullscreen CSS alone.
+    // This also covers Safari/WebKit fullscreen events and iframe contexts.
+    const syncFullscreen = () => {
+        const active = playerIsFullscreen();
+        root.classList.toggle('is-custom-fullscreen', active);
+        stage?.classList.toggle('gm-stage-fullscreen', active);
+        if (!fullscreen) return;
+        fullscreen.dataset.fullscreenState = active ? 'expanded' : 'windowed';
+        fullscreen.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+        fullscreen.setAttribute('title', active ? 'Exit fullscreen' : 'Enter fullscreen');
+        fullscreen.setAttribute('aria-pressed', String(active));
+        if (active) closeSettings();
+    };
+
+    const toggleFullscreen = async () => {
+        if (!fullscreen || fullscreen.disabled || fullscreen.hidden) return;
+        try {
+            if (playerIsFullscreen()) {
+                if (video.webkitDisplayingFullscreen && video.webkitExitFullscreen) {
+                    video.webkitExitFullscreen();
+                } else if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else {
+                    tell('Exit fullscreen is unavailable in this browser.');
+                    return;
+                }
+            } else if (getFullscreenElement()) {
+                // Never exit an unrelated element's fullscreen session.
+                tell('Close the other fullscreen view first.');
+                return;
+            } else if (stage?.requestFullscreen) {
+                await stage.requestFullscreen();
+            } else if (stage?.webkitRequestFullscreen) {
+                stage.webkitRequestFullscreen();
+            } else if (video.webkitEnterFullscreen) {
+                // iOS Safari may require native fullscreen for HTML5 video.
+                video.webkitEnterFullscreen();
+            } else {
+                tell('Fullscreen is unavailable in this browser.');
+                return;
+            }
+            syncFullscreen();
+            scheduleIdle();
+        } catch {
+            tell('Fullscreen was blocked by the browser.');
+            syncFullscreen();
+        }
+    };
+
+    for (const eventName of [
+        'fullscreenchange', 'webkitfullscreenchange',
+        'mozfullscreenchange', 'MSFullscreenChange',
+    ]) {
+        document.addEventListener(eventName, syncFullscreen);
+    }
+    video.addEventListener('webkitbeginfullscreen', syncFullscreen);
+    video.addEventListener('webkitendfullscreen', syncFullscreen);
+    fullscreen?.addEventListener('click', () => {
+        void toggleFullscreen();
     });
     video.addEventListener('enterpictureinpicture', () => {
         menuPip?.setAttribute('aria-pressed', 'true');
     });
     video.addEventListener('leavepictureinpicture', () => {
         menuPip?.setAttribute('aria-pressed', 'false');
-    });
-    fullscreen?.addEventListener('click', async () => {
-        try {
-            if (document.fullscreenElement) await document.exitFullscreen();
-            else if (stage?.requestFullscreen) await stage.requestFullscreen();
-            else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
-            else tell('Fullscreen is unavailable in this browser.');
-        } catch { tell('Fullscreen was blocked by the browser.'); }
     });
     settingsButton?.addEventListener('click', () => {
         const open = settingsPanel?.hidden !== false;
@@ -803,5 +865,6 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     updateCapabilities();
     updatePlay();
     detectOrientation();
+    syncFullscreen();
     if (volumePercent) volumePercent.textContent = Math.round(video.volume * 100) + '%';
 });
