@@ -6,26 +6,18 @@
   $portrait=$displayMode==='portrait';
   $still=\App\Support\CatalogArtwork::url($selectedEpisode?->still_path ?: $title->backdrop_path ?: $title->poster_path,'original');
   $year=$type==='movie' ? ($title->release_year ?? null) : $title->first_air_date?->format('Y');
-  $modeQuery=['type'=>$type,'slug'=>$title->slug];
-  if($selectedEpisode) $modeQuery['episode']=$selectedEpisode->id;
+  // The player chooses Auto from actual video metadata unless view was explicitly requested.
+  $requestedMode=in_array(request()->query('view'), ['portrait','widescreen'], true)
+      ? request()->query('view') : 'auto';
 @endphp
 <div class="gm-watch-layout">
   <div class="gm-watch-main">
     <h1 class="sr-only">{{ $title->title }} — Watch page</h1>
-    <div class="gm-watch-toolbar gm-watch-toolbar-compact">
-      <div class="gm-mode-switch" role="group" aria-label="Display aspect ratio">
-        <a href="{{ route('watch.show',array_merge($modeQuery,['view'=>'widescreen'])) }}"
-           @class(['is-selected'=>!$portrait]) @if(!$portrait) aria-current="page" @endif title="Widescreen 16 by 9">▭ <span>16:9</span></a>
-        <a href="{{ route('watch.show',array_merge($modeQuery,['view'=>'portrait'])) }}"
-           @class(['is-selected'=>$portrait]) @if($portrait) aria-current="page" @endif title="Portrait 9 by 16">▯ <span>9:16</span></a>
-      </div>
-    </div>
-
-    <div class="gm-player-placement {{ $portrait ? 'is-portrait' : 'is-widescreen' }}">
+    <div class="gm-player-placement {{ $portrait ? 'is-portrait' : 'is-widescreen' }}"
+         data-gm-view-placement data-gm-view-preference="{{ $requestedMode }}">
       <section class="gm-player-stage" aria-label="{{ $portrait ? 'Portrait' : 'Widescreen' }} watch player">
         @if($still)<img class="gm-player-background" src="{{ $still }}" alt="" loading="eager" decoding="async">@endif
         <div class="gm-player-vignette" aria-hidden="true"></div>
-        <span class="gm-player-aspect-label">{{ $portrait ? '▯ Portrait · 9:16' : '▭ Widescreen · 16:9' }}</span>
         @if($privatePreviewIngest && !$playerEnabled)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
                data-gomovie-private-preview data-modern-player
@@ -180,17 +172,19 @@
 
     <div class="gm-watch-summary">
       <div class="gm-watch-title-block">
-        <div class="gm-watch-tags"><span class="{{ $title->is_premium ? 'gm-tag-premium' : 'gm-tag-free' }}">{{ $title->is_premium ? '♛ Premium' : 'Free title' }}</span>
-          <span>{{ $type==='movie' ? 'Film' : 'TV Series' }}</span>
-          @if($year)<span>{{ $year }}</span>@endif
-          @if($type==='movie' && $title->runtime_minutes)<span>{{ $title->runtime_minutes }} minutes</span>@endif
-        </div>
         <h2>{{ $title->title }}</h2>
         @if($selectedEpisode)
           <p>Season {{ $selectedEpisode->season->season_number }} · Episode {{ $selectedEpisode->episode_number }}: {{ $selectedEpisode->title }}</p>
         @endif
       </div>
-      <div class="gm-watch-actions">
+      <div class="gm-watch-info-actions">
+        <div class="gm-watch-tags">
+          <span class="{{ $title->is_premium ? 'gm-tag-premium' : 'gm-tag-free' }}">{{ $title->is_premium ? '♛ Premium' : 'Free title' }}</span>
+          <span>{{ $type==='movie' ? 'Film' : 'TV Series' }}</span>
+          @if($year)<span>{{ $year }}</span>@endif
+          @if($type==='movie' && $title->runtime_minutes)<span>{{ $title->runtime_minutes }} minutes</span>@endif
+        </div>
+        <div class="gm-watch-actions">
         @if($profileId)
         <form action="{{ route('account.watchlist.toggle') }}" method="POST">
           @csrf
@@ -202,6 +196,7 @@
         </form>
         @elseif(!auth()->check())<a class="gm-button gm-button-secondary" href="{{ route('login') }}">♡ Save to list</a>@endif
         <button type="button" class="gm-button gm-button-secondary" data-share-url="{{ route('watch.show',[$type,$title->slug]) }}">↗ Share</button>
+      </div>
       </div>
     </div>
     <section class="gm-watch-overview">
