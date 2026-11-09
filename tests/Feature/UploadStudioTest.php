@@ -178,7 +178,6 @@ final class UploadStudioTest extends TestCase
 
     public function test_approved_video_queues_private_encoding_automatically_only_when_enabled(): void
     {
-        Storage::fake('local');
         Queue::fake();
 
         $scannerFolder = sys_get_temp_dir().'/gomovie-clam-queue-'.Str::uuid();
@@ -215,6 +214,9 @@ final class UploadStudioTest extends TestCase
             $this->assertDatabaseCount('media_assets', 0);
             self::assertFalse(config('gomovie.edge_enabled'));
         } finally {
+            if (isset($ingest) && $ingest && is_string($ingest->object_key)) {
+                Storage::disk('local')->delete($ingest->object_key);
+            }
             @unlink($scannerFolder.'/clamscan');
             @rmdir($scannerFolder);
         }
