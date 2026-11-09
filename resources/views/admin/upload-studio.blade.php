@@ -119,7 +119,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
   </nav>
   <div class="columns">
     <div class="card">
-      <form id="gm-upload-studio-form" action="{{ route('upload-studio.upload') }}" method="POST" enctype="multipart/form-data" data-max-bytes="{{ $maxUploadBytes }}" data-resume-id="{{ $resume->id ?? '' }}" data-resume-type="{{ $resume->ingestable_type ?? '' }}" data-resume-target="{{ $resume->ingestable_id ?? '' }}" novalidate>
+      <form id="gm-upload-studio-form" action="{{ route('upload-studio.upload') }}" method="POST" enctype="multipart/form-data" data-max-bytes="{{ $maxUploadBytes }}" data-resume-id="{{ $resume->id ?? '' }}" data-resume-type="{{ $resume->ingestable_type ?? '' }}" data-resume-target="{{ $resume->ingestable_id ?? '' }}" data-upload-base="{{ route('upload-studio.index') }}" novalidate>
         @csrf
         <section class="card-inner" data-panel="1">
           <div class="panel-title"><span class="count">1</span><h2>File &amp; Ingest</h2></div>
@@ -388,7 +388,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     el('gm-upload-next').hidden = false;
     submit.hidden = true;
     el('gm-side-resume-wrap').hidden = false;
-    el('gm-side-resume').href = @json(route('upload-studio.index')) + '?upload=' + encodeURIComponent(ingestId);
+    el('gm-side-resume').href = form.dataset.uploadBase + '?upload=' + encodeURIComponent(ingestId);
   }
   function setProgress(value) {
     el('gm-upload-progress-wrap').hidden = false;
