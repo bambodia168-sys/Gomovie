@@ -141,7 +141,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
                 <option data-kind="movie" data-title="{{ $movie->title }}" data-overview="{{ $movie->overview }}" data-runtime="{{ $movie->runtime_minutes }}" data-year="{{ $movie->release_year }}" data-premium="{{ (int) $movie->is_premium }}" data-catalog-status="{{ $movie->status }}" data-art-poster="{{ \App\Support\CatalogArtwork::url($movie->poster_path, 'w342') }}" data-art-backdrop="{{ \App\Support\CatalogArtwork::url($movie->backdrop_path, 'w780') }}" value="{{ $movie->id }}">{{ $movie->title }}</option>
               @endforeach
               @foreach($episodes as $episode)
-                <option data-kind="episode" data-title="{{ $episode->title }}" data-overview="{{ $episode->overview }}" data-runtime="{{ $episode->runtime_minutes }}" data-year="" data-premium="{{ (int) ($episode->season?->series?->is_premium ?? 0) }}" data-catalog-status="{{ $episode->status }}" data-series-status="{{ $episode->season?->series?->status ?? '' }}" data-art-still="{{ \App\Support\CatalogArtwork::url($episode->still_path, 'w780') }}" value="{{ $episode->id }}">{{ $episode->season?->series?->title ?? 'Series' }} · S{{ $episode->season?->season_number ?? '?' }} E{{ $episode->episode_number }} — {{ $episode->title }}</option>
+                <option data-kind="episode" data-title="{{ $episode->title }}" data-overview="{{ $episode->overview }}" data-runtime="{{ $episode->runtime_minutes }}" data-year="" data-premium="{{ (int) ($episode->season?->series?->is_premium ?? 0) }}" data-catalog-status="{{ $episode->status }}" data-series-status="{{ $episode->season?->series?->status ?? '' }}" data-art-still="{{ \App\Support\CatalogArtwork::url($episode->still_path, 'w780') }}" data-art-fallback="{{ \App\Support\CatalogArtwork::url($episode->season?->series?->backdrop_path ?: $episode->season?->poster_path ?: $episode->season?->series?->poster_path, 'w780') }}" value="{{ $episode->id }}">{{ $episode->season?->series?->title ?? 'Series' }} · S{{ $episode->season?->season_number ?? '?' }} E{{ $episode->episode_number }} — {{ $episode->title }}</option>
               @endforeach
             </select>
             <p class="field-note" id="gm-no-matches" hidden>No matching titles.</p>
@@ -208,9 +208,9 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
             </select>
           </div>
           <div class="field" id="gm-existing-artwork" hidden>
-            <span class="label">Already saved for this title</span>
+            <span class="label" id="gm-existing-artwork-label">Already saved for this title</span>
             <img id="gm-existing-artwork-preview" class="preview" alt="Existing title artwork" loading="lazy">
-            <p class="field-note">This image is already available. Select a different file only if you want to replace it.</p>
+            <p class="field-note" id="gm-existing-artwork-note">This image is already available. Select a different file only if you want to replace it.</p>
           </div>
           <div class="field">
             <label for="gm-artwork-file" class="label">Choose artwork (JPG, PNG or WebP · Max 8 MB)</label>
@@ -311,7 +311,8 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     runtime: o.dataset.runtime || '', year: o.dataset.year || '',
     premium: o.dataset.premium || '0', status: o.dataset.catalogStatus || 'draft',
     seriesStatus: o.dataset.seriesStatus || '',
-    artwork: {poster: o.dataset.artPoster || '', backdrop: o.dataset.artBackdrop || '', still: o.dataset.artStill || ''}
+    artwork: {poster: o.dataset.artPoster || '', backdrop: o.dataset.artBackdrop || '', still: o.dataset.artStill || ''},
+    fallbackArtwork: o.dataset.artFallback || ''
   }));
   const limitsLabel = el('gm-upload-file-meta').textContent;
   let ingestId = form.dataset.resumeId || '';
@@ -367,11 +368,17 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
   function syncExistingArtwork() {
     const entry = currentItem();
     const slot = el('gm-artwork-slot').value;
-    const url = entry?.artwork?.[slot] || '';
+    const current = entry?.artwork?.[slot] || '';
+    const fallback = !current && slot === 'still' ? entry?.fallbackArtwork || '' : '';
+    const url = current || fallback;
     const wrapper = el('gm-existing-artwork');
     const preview = el('gm-existing-artwork-preview');
     wrapper.hidden = !url;
-    if (url) { preview.src = url; preview.alt = 'Existing ' + slot + ' artwork'; }
+    el('gm-existing-artwork-label').textContent = fallback ? 'Available series artwork' : 'Already saved for this title';
+    el('gm-existing-artwork-note').textContent = fallback
+      ? 'Showing a parent-series image. Upload an episode still only if you want a separate image.'
+      : 'This image is already available. Select a different file only if you want to replace it.';
+    if (url) { preview.src = url; preview.alt = fallback ? 'Parent series artwork' : 'Existing ' + slot + ' artwork'; }
     else preview.removeAttribute('src');
   }
   function syncForms() {

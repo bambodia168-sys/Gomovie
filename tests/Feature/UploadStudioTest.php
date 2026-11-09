@@ -328,6 +328,7 @@ final class UploadStudioTest extends TestCase
             'title'=>'Artwork QA Series', 'slug'=>'artwork-qa-series', 'status'=>'draft',
             'is_premium'=>false,
         ]);
+        $series->forceFill(['backdrop_path'=>'/qa-series-backdrop.jpg'])->save();
         $season = Season::create([
             'series_id'=>$series->id, 'season_number'=>1, 'title'=>'Season One',
         ]);
@@ -341,6 +342,7 @@ final class UploadStudioTest extends TestCase
             ->assertSee('data-art-poster="https://image.tmdb.org/t/p/w342/qa-poster.jpg"', false)
             ->assertSee('data-art-backdrop="https://image.tmdb.org/t/p/w780/qa-backdrop.jpg"', false)
             ->assertSee('data-art-still=', false)
+            ->assertSee('data-art-fallback="https://image.tmdb.org/t/p/w780/qa-series-backdrop.jpg"', false)
             ->assertSee('gm-existing-artwork-preview')
             ->assertSee("entry.artwork[el('gm-artwork-slot').value] = result.artwork_url;", false);
     }
