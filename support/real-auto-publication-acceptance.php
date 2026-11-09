@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Illuminate\Http\UploadedFile;
 use Symfony\Component\Process\Process;
 
 if (PHP_SAPI !== 'cli') {
@@ -40,6 +40,9 @@ require_once getcwd().'/vendor/autoload.php';
 $app = require getcwd().'/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
+// Laravel's CLI exception handler can display errors without propagating a
+// failure exit status for direct scripts. Explicitly guard all QA operations.
+try {
 $statePath = $qa.'/state.json';
 $readState = static function () use ($statePath): array {
     if (!is_file($statePath) || is_link($statePath)) {
@@ -312,4 +315,10 @@ if ($mode === 'cleanup') {
     echo "EXISTING_MOVIES_AND_UPLOADS=UNCHANGED\n";
     echo "GOMOVIE_AUTO_QA_CLEANUP=COMPLETE\n";
     exit(0);
+}
+} catch (\Throwable $error) {
+    // Avoid reporting a successful test after an exception was printed.
+    fwrite(STDERR, 'GOMOVIE_AUTO_QA_FATAL='.get_class($error)
+        .': '.$error->getMessage()."\n");
+    exit(89);
 }
