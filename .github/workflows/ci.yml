@@ -36,6 +36,8 @@ jobs:
             | xargs -0 -n1 php -l
       - name: Syntax check selective aaPanel Watch updater
         run: bash -n support/watch-page-upgrade.sh
+      - name: Syntax check selective aaPanel Upload Studio updater
+        run: bash -n support/upload-studio-upgrade.sh
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
