@@ -1,54 +1,54 @@
-@extends('layouts.app')
+@extends('layouts.account')
 @section('title',$section==='watchlist'?'My List':'Watch history')
-@section('content')
-<div class="flex flex-wrap items-center justify-between gap-4">
-  <div><p class="text-xs uppercase tracking-widest text-[#F5C518]">Personal library</p>
-    <h1 class="mt-2 text-4xl font-black">{{ $section==='watchlist' ? 'My List' : 'Watch history' }}</h1>
-    <p class="mt-2 text-sm text-zinc-400">Your private saved titles and viewing progress.</p>
-  </div>
-  <div class="flex gap-2 text-sm"><a class="rounded-xl border border-white/20 px-4 py-3 {{ $section==='watchlist' ? 'text-[#F5C518]' : '' }}" href="{{ route('account.library',['section'=>'watchlist','profile_id'=>$profile->id]) }}">My List</a>
-  <a class="rounded-xl border border-white/20 px-4 py-3 {{ $section==='history' ? 'text-[#F5C518]' : '' }}" href="{{ route('account.library',['section'=>'history','profile_id'=>$profile->id]) }}">History</a></div>
+@section('account_content')
+<div class="gm-page-heading">
+  <div><p class="text-xs uppercase tracking-widest text-rose-300">Personal library</p><h1>{{ $section==='watchlist'?'My List':'Watch history' }}</h1><p>Private titles and viewing progress for the selected profile.</p></div>
+  <div class="gm-page-actions"><a class="gm-studio-button" href="{{ route('browse') }}">@include('partials.studio-icon',['name'=>'external']) Explore titles</a></div>
 </div>
-<nav class="mt-8 flex flex-wrap gap-2" aria-label="Viewer profiles">
-  @foreach($profiles as $p)
-  <a href="{{ route('account.library',['section'=>$section,'profile_id'=>$p->id]) }}" class="rounded-full border px-4 py-2 text-sm {{ $profile->id===$p->id ? 'border-[#E50914] bg-[#E50914]/15 text-white' : 'border-white/15 text-zinc-400 hover:text-white' }}">{{ $p->name }}</a>
-  @endforeach
-</nav>
-@if($entries->isEmpty())
-<p class="mt-9 rounded-2xl border border-dashed border-white/15 p-10 text-center text-zinc-400">Nothing to display for this profile yet. <a class="text-[#F5C518]" href="{{ route('browse') }}">Explore the catalog</a>.</p>
-@else
-  <div class="mt-8 grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-    @foreach($entries as $entry)
-      @php
-        $item = $entry['item'];
-        $kind = $entry['kind'];
-        $row = $entry['row'];
-        $parent = $kind==='episode' ? $item->season?->series : null;
-        $link = $parent
-            ? route('watch.show',['series',$parent->slug])
-            : route('watch.show',[$kind,$item->slug]);
-      @endphp
-      <div class="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900">
-        @if($kind==='movie' || $kind==='series')
-          @include('frontend.partials.card',['item'=>$item,'kind'=>$kind])
-        @else
-          <a class="block p-5" href="{{ $link }}"><span class="text-xs uppercase text-[#F5C518]">Episode</span><p class="mt-3 font-semibold">{{ $item->title }}</p><p class="mt-2 text-xs text-zinc-400">{{ $parent?->title }}</p></a>
-        @endif
-        @if($section==='history')
-          @php $progress = $row->duration_seconds > 0 ? min(100, (int) round(100*$row->progress_seconds/$row->duration_seconds)) : 0; @endphp
-          <div class="px-4 pb-4 pt-2"><p class="text-xs text-zinc-400">{{ $progress }}% watched</p>
-            <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-700"><div class="h-full rounded-full bg-[#E50914]" style="width:{{ $progress }}%"></div></div>
-          </div>
-        @else
-          <form method="POST" action="{{ route('account.watchlist.toggle') }}" class="p-4">@csrf
-            <input type="hidden" name="profile_id" value="{{ $profile->id }}"><input type="hidden" name="kind" value="{{ $kind }}">
-            <input type="hidden" name="title_id" value="{{ $item->id }}"><input type="hidden" name="action" value="remove">
-            <button class="w-full rounded-lg border border-white/15 px-3 py-2 text-xs text-zinc-300 hover:border-red-500 hover:text-red-300">Remove from My List</button>
-          </form>
-        @endif
-      </div>
-    @endforeach
-  </div>
-@endif
-<div class="mt-8">{{ $records->links() }}</div>
+<div class="gm-studio-subnav">
+<a href="{{ route('account.library',['section'=>'watchlist','profile_id'=>$profile->id]) }}" @class(['is-current'=>$section==='watchlist'])>My List</a>
+<a href="{{ route('account.library',['section'=>'history','profile_id'=>$profile->id]) }}" @class(['is-current'=>$section==='history'])>Watch history</a>
+</div>
+<form method="GET" action="{{ route('account.library',['section'=>$section]) }}" class="gm-studio-panel mb-5 p-4 flex flex-wrap gap-3 items-end">
+ <label class="gm-studio-field mb-0!"><span>Viewer profile</span><select class="gm-studio-input" name="profile_id">@foreach($profiles as $p)<option value="{{ $p->id }}" @selected($profile->id===$p->id)>{{ $p->name }}</option>@endforeach</select></label>
+ <button class="gm-studio-button" type="submit">Apply profile</button>
+</form>
+<section class="gm-studio-panel">
+<div class="gm-studio-panel-head"><div><h3>{{ $section==='watchlist'?'Saved titles':'Viewing activity' }}</h3><small>10 items per page</small></div><span class="gm-studio-pill">{{ $records->total() }} records</span></div>
+<div class="gm-studio-table-scroll">
+<table class="gm-studio-table"><thead><tr><th>No.</th><th>Title</th><th>Type</th><th>{{ $section==='history'?'Progress':'Saved' }}</th><th class="text-right">Actions</th></tr></thead>
+<tbody>
+@forelse($entries as $entry)
+@php
+  $item=$entry['item'];$kind=$entry['kind'];$row=$entry['row'];
+  $parent=$kind==='episode'?$item->season?->series:null;
+  $link=$parent?route('watch.show',['series',$parent->slug]):route('watch.show',[$kind,$item->slug]);
+  $progress=$section==='history'&&$row->duration_seconds>0?min(100,round(100*$row->progress_seconds/$row->duration_seconds)):0;
+@endphp
+<tr><td>{{ ($records->firstItem() ?? 1)+$loop->index }}</td><td><a href="{{ $link }}" class="font-semibold hover:text-rose-300">{{ $item->title }}</a><small class="block gm-studio-muted mt-1">{{ $parent?->title }}</small></td>
+<td class="capitalize gm-studio-muted">{{ $kind }}</td>
+<td>@if($section==='history')<span class="gm-studio-pill">{{ $progress }}% watched</span>@else<span class="gm-studio-pill is-ok">Saved</span>@endif</td>
+<td class="text-right">
+ <button type="button" class="gm-studio-dots" aria-label="Actions for {{ $item->title }}" data-studio-menu="account-entry-{{ $row->id }}" aria-expanded="false">@include('partials.studio-icon',['name'=>'dots'])</button>
+ <template id="account-entry-{{ $row->id }}">
+   <a role="menuitem" href="{{ $link }}">@include('partials.studio-icon',['name'=>'eye']) View title</a>
+   @if($section==='watchlist')
+     <form method="POST" action="{{ route('account.watchlist.toggle') }}">@csrf
+       <input type="hidden" name="profile_id" value="{{ $profile->id }}"><input type="hidden" name="kind" value="{{ $kind }}"><input type="hidden" name="title_id" value="{{ $item->id }}"><input type="hidden" name="action" value="remove">
+       <button type="submit" role="menuitem" class="is-danger" data-studio-confirm="Remove this title from your list?">@include('partials.studio-icon',['name'=>'trash']) Remove from My List</button>
+     </form>
+   @else
+     <form method="POST" action="{{ route('account.history.destroy',$row->id) }}">@csrf @method('DELETE')
+       <input type="hidden" name="profile_id" value="{{ $profile->id }}">
+       <button type="submit" role="menuitem" class="is-danger" data-studio-confirm="Delete this viewing history entry?">@include('partials.studio-icon',['name'=>'trash']) Delete history</button>
+     </form>
+   @endif
+ </template>
+</td></tr>
+@empty<tr><td colspan="5" class="gm-studio-empty">No records for this profile. <a class="text-rose-300" href="{{ route('browse') }}">Browse the catalog.</a></td></tr>
+@endforelse
+</tbody></table>
+</div>
+@include('partials.studio-pager',['paginator'=>$records,'id'=>'account-library-go'])
+</section>
 @endsection

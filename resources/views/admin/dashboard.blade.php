@@ -1,24 +1,29 @@
 @extends('layouts.admin')
 @section('title','Dashboard')
 @section('content')
-<div class="mb-7 flex flex-wrap items-end justify-between gap-3"><div><h2 class="text-3xl font-black tracking-tight">Content overview</h2><p class="mt-2 text-sm text-zinc-400">Real catalog data and operational activity.</p></div>
-<a class="rounded-xl bg-[#E50914] px-5 py-3 text-sm font-semibold text-white hover:bg-red-700" href="{{ route('admin.catalog.create','movies') }}">+ Add a movie</a></div>
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-@foreach([['Movies','movies','text-white'],['Series','series','text-white'],['Episodes','episodes','text-white'],['Members','members','text-white']] as $item)
-<div class="rounded-2xl border border-white/10 bg-zinc-900/70 p-6"><p class="text-sm text-zinc-400">{{ $item[0] }}</p><p class="mt-3 text-4xl font-black tabular-nums">{{ number_format($metrics[$item[1]]) }}</p></div>
+<div class="gm-page-heading"><div><p class="text-xs uppercase tracking-widest text-amber-300">Gomovie Studio</p><h2>Content overview</h2><p>Live catalog counts and recent operational activity.</p></div>
+<div class="gm-page-actions"><a class="gm-studio-button" href="{{ route('admin.media.index') }}">@include('partials.studio-icon',['name'=>'media']) Media Library</a><a class="gm-studio-button is-primary" href="{{ route('admin.catalog.create','movies') }}">@include('partials.studio-icon',['name'=>'plus']) Add a movie</a></div></div>
+<div class="gm-studio-metrics">
+@foreach([['Movies','movies'],['Series','series'],['Episodes','episodes'],['Members','members']] as $metric)
+<div class="gm-studio-metric"><small>{{ $metric[0] }}</small><strong>{{ number_format($metrics[$metric[1]]) }}</strong></div>
 @endforeach
 </div>
-<div class="mt-6 grid gap-4 md:grid-cols-3">
-<div class="rounded-2xl border border-white/10 bg-zinc-900/70 p-6"><p class="text-sm text-zinc-400">Published movies</p><p class="mt-3 text-3xl font-bold text-[#F5C518]">{{ $metrics['published_movies'] }}</p></div>
-<div class="rounded-2xl border border-white/10 bg-zinc-900/70 p-6"><p class="text-sm text-zinc-400">Published series</p><p class="mt-3 text-3xl font-bold text-[#F5C518]">{{ $metrics['published_series'] }}</p></div>
-<a href="{{ route('admin.media.index') }}" class="rounded-2xl border border-white/10 bg-zinc-900/70 p-6 hover:border-[#E50914]/40"><p class="text-sm text-zinc-400">Quarantined video uploads</p><p class="mt-3 text-3xl font-bold text-white">{{ $metrics['ingests_pending'] }}</p></a>
+<div class="grid gap-4 mt-5 md:grid-cols-3">
+<div class="gm-studio-metric"><small>Published movies</small><strong class="text-amber-300">{{ $metrics['published_movies'] }}</strong></div>
+<div class="gm-studio-metric"><small>Published series</small><strong class="text-amber-300">{{ $metrics['published_series'] }}</strong></div>
+<a href="{{ route('admin.media.index') }}" class="gm-studio-metric"><small>Private video uploads</small><strong>{{ $metrics['ingests_pending'] }}</strong></a>
 </div>
-<div class="mt-8 rounded-2xl border border-white/10 bg-zinc-900/60">
-  <div class="flex items-center justify-between border-b border-white/10 px-6 py-5"><h3 class="font-semibold">Recently updated movies</h3><a class="text-sm text-[#F5C518]" href="{{ route('admin.catalog.index','movies') }}">Manage all</a></div>
-  <div class="overflow-x-auto"><table class="w-full min-w-[580px] text-left text-sm">
-    <thead class="text-xs uppercase tracking-wider text-zinc-500"><tr><th class="p-5">Title</th><th class="p-5">Status</th><th class="p-5">Access</th><th class="p-5">Action</th></tr></thead>
-    <tbody class="divide-y divide-white/10">@forelse($recentMovies as $movie)<tr><td class="p-5 font-semibold">{{ $movie->title }}</td><td class="p-5 capitalize text-zinc-300">{{ $movie->status }}</td><td class="p-5 text-zinc-400">{{ $movie->is_premium ? 'Premium' : 'Free' }}</td><td class="p-5"><a href="{{ route('admin.catalog.edit',['movies',$movie->id]) }}" class="text-[#F5C518]">Edit</a></td></tr>
-    @empty<tr><td colspan="4" class="p-7 text-center text-zinc-500">No movies have been created.</td></tr>@endforelse</tbody>
-  </table></div>
-</div>
+<section class="gm-studio-panel mt-6">
+<div class="gm-studio-panel-head"><div><h3>Recently updated movies</h3><small>Latest catalog records · 10 per page</small></div><a class="gm-studio-button" href="{{ route('admin.catalog.index','movies') }}">Manage all</a></div>
+<div class="gm-studio-table-scroll"><table class="gm-studio-table">
+<thead><tr><th>No.</th><th>Title</th><th>Status</th><th>Access</th><th class="text-right">Actions</th></tr></thead>
+<tbody>@forelse($recentMovies as $movie)
+<tr><td>{{ ($recentMovies->firstItem() ?? 1)+$loop->index }}</td><td><a href="{{ route('admin.catalog.edit',['movies',$movie->id]) }}" class="hover:text-rose-300">{{ $movie->title }}</a></td>
+<td><span class="gm-studio-pill {{ $movie->status==='published'?'is-ok':'is-warn' }}">{{ ucfirst($movie->status) }}</span></td><td>{{ $movie->is_premium?'Premium':'Free' }}</td><td class="text-right">
+<button type="button" class="gm-studio-dots" data-studio-menu="recent-{{ $movie->id }}" aria-label="Actions for {{ $movie->title }}" aria-expanded="false">@include('partials.studio-icon',['name'=>'dots'])</button>
+<template id="recent-{{ $movie->id }}"><a role="menuitem" href="{{ route('admin.catalog.edit',['movies',$movie->id]) }}">@include('partials.studio-icon',['name'=>'edit']) Edit movie</a><a role="menuitem" href="{{ route('admin.catalog.preview',['movies',$movie->id]) }}">@include('partials.studio-icon',['name'=>'eye']) Preview</a></template>
+</td></tr>@empty<tr><td colspan="5" class="gm-studio-empty">No movies have been created.</td></tr>@endforelse</tbody>
+</table></div>
+@include('partials.studio-pager',['paginator'=>$recentMovies,'id'=>'dashboard-go'])
+</section>
 @endsection
