@@ -127,7 +127,9 @@ final class PlayerSettingsTest extends TestCase
             ->assertDontSee('data-quality-container')
             ->assertSee('--gm-player-accent:#a78bfa');
 
-        $this->get('/watch/movie/'.$movie->slug)->assertOk()
+        // Explicitly switch away from the administrator session.
+        $this->actingAs($this->user('viewer'))
+            ->get('/watch/movie/'.$movie->slug)->assertOk()
             ->assertDontSee('data-gomovie-private-preview')
             ->assertDontSee('data-modern-player');
         $this->assertDatabaseHas('media_ingests', [
