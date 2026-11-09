@@ -93,8 +93,7 @@
     </div>
     @if($privatePreviewIngest && !$playerEnabled)
       <p class="gm-muted" style="font-size:12px;line-height:1.6;margin:12px 0 0">
-        This video is a private administrator preview of the original upload. It has not been published
-        or cleared for public streaming. Some MP4/WebM codecs may require conversion for browser playback.
+        Private administrator preview · Not publicly available. Source video duration may differ from the catalog runtime.
       </p>
     @endif
 
