@@ -93,6 +93,8 @@ jobs:
           assert "route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false)" in blade
           assert '|| !$this->hasDocumentedRights($kind, $titleId)' in service
           assert '$argv[1]!=="--disable"' in source
+          assert source.count("' -- \"$MODE\"") == 2, "PHP CLI flag args must follow --"
+          assert source.count("' \"$MODE\"") == 0, "Broken PHP flag args would fail activation"
           PY
       - name: Verify one-shot real auto-publication acceptance remains isolated
         run: |
