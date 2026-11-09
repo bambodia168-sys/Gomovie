@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\UploadStudioController;
 use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\TmdbController;
 use App\Http\Controllers\Admin\UserController;
@@ -68,6 +69,15 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::post('/series/{series}/seasons/{season}/episodes', [EpisodeStudioController::class, 'storeEpisode'])->name('episodes.store');
     Route::patch('/series/{series}/seasons/{season}/episodes/{episode}', [EpisodeStudioController::class, 'updateEpisode'])->name('episodes.update');
     Route::delete('/series/{series}/seasons/{season}/episodes/{episode}', [EpisodeStudioController::class, 'destroyEpisode'])->name('episodes.destroy');
+    Route::get('/upload-studio', [UploadStudioController::class, 'index'])->name('upload-studio.index');
+    Route::post('/upload-studio', [UploadStudioController::class, 'upload'])
+        ->middleware('throttle:12,1')->name('upload-studio.upload');
+    Route::get('/upload-studio/{ingest}', [UploadStudioController::class, 'review'])
+        ->whereNumber('ingest')->name('upload-studio.review');
+    Route::post('/upload-studio/{ingest}/approve', [UploadStudioController::class, 'approve'])
+        ->middleware('throttle:6,1')->whereNumber('ingest')->name('upload-studio.approve');
+    Route::post('/upload-studio/{ingest}/reject', [UploadStudioController::class, 'reject'])
+        ->middleware('throttle:6,1')->whereNumber('ingest')->name('upload-studio.reject');
     Route::get('/media', [MediaController::class, 'index'])->name('media.index');
     Route::post('/media/artwork', [MediaController::class, 'artwork'])->name('media.artwork');
     Route::post('/media/ingests', [MediaController::class, 'ingest'])->name('media.ingest');

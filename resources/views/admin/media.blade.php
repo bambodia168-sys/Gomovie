@@ -1,7 +1,11 @@
 @extends('layouts.admin')
 @section('title','Media Library')
 @section('content')
-<div class="mb-7"><h2 class="text-3xl font-bold">Media Library</h2><p class="mt-2 text-sm text-zinc-400">Licensed artwork and private video staging. Uploading video never activates playback.</p></div>
+<div class="mb-7 flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-3xl font-bold">Media Library</h2><p class="mt-2 text-sm text-zinc-400">Licensed artwork and private video staging. Uploading video never activates playback.</p></div>
+@if(in_array(auth()->user()->role,['admin','super_admin'],true))
+<a href="{{ route('admin.upload-studio.index') }}" class="rounded-xl bg-[#E50914] px-5 py-3 text-sm font-bold text-white hover:bg-red-600">↑ Upload a video</a>
+@endif
+</div>
 <div class="grid gap-6 xl:grid-cols-2">
 <section class="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
   <h3 class="mb-5 text-lg font-semibold">Upload artwork</h3>
@@ -14,16 +18,13 @@
   </form>
 </section>
 <section class="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
-  <h3 class="mb-5 text-lg font-semibold">Private video intake</h3>
-  <p class="mb-5 rounded-lg border border-[#F5C518]/30 px-3 py-3 text-xs leading-5 text-[#F5C518]">Uploaded files enter quarantine only. A separate audited transcoding and licensing acceptance process is required before streaming.</p>
+  <h3 class="mb-3 text-lg font-semibold">Upload Studio</h3>
+  <p class="mb-5 text-sm leading-6 text-zinc-400">Upload a video in one step, view its progress and check private storage status. Security and rights review happen separately.</p>
   @if(in_array(auth()->user()->role,['admin','super_admin'],true))
-  <form method="POST" action="{{ route('admin.media.ingest') }}" enctype="multipart/form-data" class="space-y-4">@csrf
-    <div><label for="video-type" class="mb-2 block text-sm text-zinc-300">Content type</label><select id="video-type" name="type" required class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3"><option value="movie">Movie</option><option value="episode">Episode</option></select></div>
-    <div><label for="video-id" class="mb-2 block text-sm text-zinc-300">Movie / Episode ID</label><input id="video-id" name="title_id" type="number" required min="1" placeholder="Existing ID" class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3"></div>
-    <div><label for="video-file" class="mb-2 block text-sm text-zinc-300">MP4, MOV, MKV or WebM — up to 128 MB</label><input id="video-file" name="video" type="file" required accept="video/mp4,video/quicktime,video/x-matroska,video/webm" class="w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3 text-sm"></div>
-    <button type="submit" class="rounded-xl bg-[#E50914] px-5 py-3 font-semibold">Stage private upload</button>
-  </form>
-  @else<p class="text-sm text-zinc-400">Video intake requires administrator access.</p>@endif
+    <a href="{{ route('admin.upload-studio.index') }}" class="inline-flex rounded-xl bg-[#E50914] px-5 py-3 text-sm font-semibold text-white">Open Upload Studio →</a>
+  @else
+    <p class="text-sm text-zinc-400">Private video upload requires administrator access.</p>
+  @endif
 </section>
 </div>
 <section class="mt-7 rounded-2xl border border-white/10 bg-zinc-900/60">
