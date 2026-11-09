@@ -61,7 +61,7 @@ final class UploadStudioTest extends TestCase
         $movie = $this->movie();
         $this->actingAs($this->admin())
             ->get('/upload-studio')->assertOk()
-            ->assertSee('Upload your video')
+            ->assertSee('Upload a video')
             ->assertSee('gm-upload-studio-form')
             ->assertSee('gm-upload-progress')
             ->assertSee('name="type"', false)
