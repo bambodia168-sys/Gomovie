@@ -136,6 +136,34 @@ jobs:
         run: |
           npm install --ignore-scripts
           npm run build
+      - name: Verify Vite fonts manifest is an allowed, restorable asset
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("public/build")
+          manifest = root / "fonts-manifest.json"
+          assert manifest.is_file(), "Vite fonts manifest missing"
+          assert isinstance(json.loads(manifest.read_text()), (dict, list))
+          paths = {str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()}
+          assert paths
+          assert "manifest.json" in paths
+          assert "fonts-manifest.json" in paths
+          assert all(p in {"manifest.json", "fonts-manifest.json"} or p.startswith("assets/") for p in paths), paths
+          script = Path("support/portrait-player-controls-upgrade.sh").read_text()
+          assert "manifest.json|fonts-manifest.json|assets/*" in script
+          assert 'FONTS_MANIFEST=VERIFIED' in script
+          assert 'FONTS_MANIFEST_BACKUP=VERIFIED' in script
+          assert 'cp -p "$BACKUP/old/fonts-manifest.json"' in script
+          assert 'rm -f -- "$APP/public/build/fonts-manifest.json"' in script
+          print("GOMOVIE_GENERATED_FONT_MANIFEST=VERIFIED")
+          PY
+          php -r '
+          $contents=file_get_contents("public/build/fonts-manifest.json");
+          $data=json_decode($contents,true,512,JSON_THROW_ON_ERROR);
+          if (!is_array($data)) exit(1);
+          echo "FONTS_MANIFEST_PHP_JSON=VERIFIED\\n";
+          '
       - name: Test private edge grant logic
         run: node --test workers/gomovie-media-edge/worker.test.mjs
       - name: Prepare application environment
