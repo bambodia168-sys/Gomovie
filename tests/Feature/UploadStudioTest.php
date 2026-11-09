@@ -141,7 +141,8 @@ final class UploadStudioTest extends TestCase
             $disk = Storage::disk('local');
             $source = $disk->get($upload->object_key);
 
-            Storage::restore('local');
+            config()->set('filesystems.disks.local.root', storage_path('app/private'));
+            Storage::forgetDisk('local');
             $disk = Storage::disk('local');
             $disk->put($upload->object_key, $source);
             try {
@@ -190,7 +191,6 @@ final class UploadStudioTest extends TestCase
 
     public function test_r2_mirror_is_queued_isolated_and_remains_private(): void
     {
-        $sourceDisk = Storage::disk('local');
         Storage::fake('r2');
         Queue::fake();
         config()->set('gomovie.r2_enabled', true);
@@ -211,7 +211,18 @@ final class UploadStudioTest extends TestCase
         Queue::assertPushed(MirrorPrivateIngestToR2::class, fn ($job) =>
             $job->connection === 'database_media' && $job->queue === 'gomovie-media');
         $this->assertDatabaseCount('media_assets', 0);
-        // The cloud mirror never creates a publicly accessible player asset.
-        config()->set('gomovie.r2_enabled', false);
+        try {
+            (new MirrorPrivateIngestToR2((int) $ingest->id))->handle();
+            $updated = DB::table('media_ingests')->where('id', $ingest->id)->first();
+            self::assertSame('ready', $updated->cloud_status);
+            self::assertSame('r2', $updated->cloud_disk);
+            Storage::disk('r2')->assertExists($updated->cloud_object_key);
+            self::assertSame('private', Storage::disk('r2')->visibility($updated->cloud_object_key));
+            $this->assertDatabaseCount('media_assets', 0);
+            self::assertFalse(config('gomovie.edge_enabled'));
+        } finally {
+            Storage::disk('local')->delete($ingest->object_key);
+            config()->set('gomovie.r2_enabled', false);
+        }
     }
 }
