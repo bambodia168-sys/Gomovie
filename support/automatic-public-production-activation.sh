@@ -96,7 +96,7 @@ check_app() {
           foreach(["automatic_publication_enabled","public_hls_enabled","transcoding_enabled"] as $name)
               if(config("gomovie.".$name)===true) exit(19);
       }
-    ' "$MODE"
+    ' -- "$MODE"
   )
 }
 check_app
@@ -280,7 +280,7 @@ systemctl is-enabled --quiet "$SERVICE"
       }
     }
     echo $expected?"PRODUCTION_PUBLICATION_SWITCHES=ENABLED\n":"PRODUCTION_PUBLICATION_SWITCHES=DISABLED\n";
-  ' "$MODE"
+  ' -- "$MODE"
 )
 
 echo "========== VERIFY PUBLIC ROUTES WITHOUT EXPOSING EXISTING MEDIA =========="
