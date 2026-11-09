@@ -1,5 +1,5 @@
 @extends('layouts.auth')
-@section('title','Sign in')
+@section('title',\App\Support\StudioAppearance::text('login','seo_title','Sign in'))
 @section('content')
 <h1 class="gm-auth-title">{{ \App\Support\StudioAppearance::text('login','heading','Welcome back') }}</h1>
 <p class="gm-auth-subtitle">{{ \App\Support\StudioAppearance::text('login','description','Sign in to manage your Gomovie account and continue exploring.') }}</p>

@@ -19,6 +19,7 @@ final class StudioAppearance
 
     private static array $pages = [];
     private static ?object $typography = null;
+    private static bool $typographyConfigured = false;
 
     public static function page(string $slug): ?object
     {
@@ -45,8 +46,10 @@ final class StudioAppearance
     public static function typography(): object
     {
         if (self::$typography === null) {
-            self::$typography = (Schema::hasTable('studio_typography')
-                ? DB::table('studio_typography')->where('id', 1)->first() : null)
+            $saved = Schema::hasTable('studio_typography')
+                ? DB::table('studio_typography')->where('id', 1)->first() : null;
+            self::$typographyConfigured = $saved !== null;
+            self::$typography = $saved
                 ?? (object) ['family'=>'Instrument Sans','base_size'=>16,'heading_scale'=>100,'weight'=>600,'custom_font_key'=>null];
         }
         return self::$typography;
@@ -55,6 +58,9 @@ final class StudioAppearance
     public static function css(): string
     {
         $data = self::typography();
+        // Never change the existing public visual design until the site owner
+        // explicitly saves a typography override.
+        if (!self::$typographyConfigured) return '';
         $families = [
             'Instrument Sans'=>'"Instrument Sans",sans-serif',
             'Inter'=>'Inter,Arial,sans-serif', 'Arial'=>'Arial,sans-serif',
@@ -72,11 +78,17 @@ final class StudioAppearance
             $face = '@font-face{font-family:"Gomovie Custom";src:url("'
                 .route('appearance.font').'") format("woff2");font-display:swap;}';
         }
+        $scaleCss = $scale === 100 ? '' :
+            '.gm-site h1,.gm-auth-body h1{font-size:clamp(25px,'
+            .'calc(3.2vw * '.($scale / 100).'),'
+            .'calc(64px * '.($scale / 100).'))}.gm-site h2,.gm-auth-body h2{'
+            .'font-size:clamp(20px,calc(2.2vw * '.($scale / 100).'),'
+            .'calc(42px * '.($scale / 100).'))}';
         return $face.'.gm-site,.gm-auth-body{--gm-custom-font:'.$font
             .';--gm-custom-base:'.$size.'px;--gm-custom-heading-scale:'.($scale / 100)
             .';--gm-custom-heading-weight:'.$weight.';}'
             .'.gm-site,.gm-auth-body{font-family:var(--gm-custom-font);font-size:var(--gm-custom-base);}'
             .'.gm-site h1,.gm-site h2,.gm-auth-body h1,.gm-auth-body h2{font-weight:var(--gm-custom-heading-weight);}'
-            ;
+            .$scaleCss;
     }
 }

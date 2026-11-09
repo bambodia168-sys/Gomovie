@@ -1,5 +1,5 @@
 @extends('layouts.auth')
-@section('title','Create your account')
+@section('title',\App\Support\StudioAppearance::text('register','seo_title','Create your account'))
 @section('content')
 <h1 class="gm-auth-title">{{ \App\Support\StudioAppearance::text('register','heading','Create your account') }}</h1>
 <p class="gm-auth-subtitle">{{ \App\Support\StudioAppearance::text('register','description','Join Gomovie and build your own movie and series watchlist.') }}</p>
