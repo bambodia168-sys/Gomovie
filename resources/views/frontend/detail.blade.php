@@ -47,6 +47,12 @@
                    @if($still) poster="{{ $still }}" @endif>
               <source src="{{ route('admin.media.ingest-preview', ['ingest' => $privatePreviewIngest->id]) }}"
                       type="{{ $privatePreviewIngest->mime }}">
+              @foreach($privatePreviewCaptions as $caption)
+                <track kind="subtitles"
+                       src="{{ route('upload-studio.captions.file', ['ingest' => $privatePreviewIngest->id, 'caption' => $caption->id]) }}"
+                       srclang="{{ $caption->language }}" label="{{ $caption->label }}"
+                       @if($caption->is_default) default @endif>
+              @endforeach
               Your browser cannot play this uploaded format.
             </video>
             @include('frontend.partials.modern-player-controls', ['secure' => false])
