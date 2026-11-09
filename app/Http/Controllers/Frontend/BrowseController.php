@@ -129,6 +129,26 @@ class BrowseController extends Controller
         $profileId = $viewerAuthorized ? UserProfile::query()->where('user_id',auth()->id())
             ->where('is_kids',false)->value('id') : null;
         $playerEnabled = config('gomovie.edge_enabled') === true && (bool) $profileId;
+
+        // A verified administrator can preview their own private source on
+        // the existing watch page. No public viewer sees the preview URL.
+        // This never creates rights, playable media assets, or public access.
+        $privatePreviewIngest = null;
+        $staff = $request->user();
+        $previewTarget = $type === 'movie' ? $title->id : $selectedEpisode?->id;
+        if ($previewTarget && $staff && $staff->is_active && $staff->hasVerifiedEmail()
+            && in_array($staff->role, ['admin', 'super_admin'], true)) {
+            $privatePreviewIngest = DB::table('media_ingests')
+                ->where('ingestable_type', $type === 'movie' ? 'movie' : 'episode')
+                ->where('ingestable_id', (int) $previewTarget)
+                ->where('disk', 'local')
+                ->whereIn('status', ['quarantined', 'approved', 'processing', 'encoded'])
+                ->whereIn('mime', ['video/mp4', 'video/webm'])
+                ->when($staff->role !== 'super_admin',
+                    fn ($query) => $query->where('uploaded_by', $staff->id))
+                ->orderByDesc('id')
+                ->first(['id', 'mime', 'original_name']);
+        }
         $isWatchlisted = $profileId ? DB::table('watchlists')
             ->where('user_profile_id',$profileId)->where('watchable_type',$type)
             ->where('watchable_id',$title->id)->exists() : false;
@@ -211,7 +231,7 @@ class BrowseController extends Controller
         return view('frontend.detail', compact(
             'title','type','displayMode','seasons','selectedEpisode','previousEpisode',
             'nextEpisode','related','autoNext','playerEnabled','profileId',
-            'isWatchlisted','viewerAuthorized'
+            'isWatchlisted','viewerAuthorized','privatePreviewIngest'
         ));
     }
 
