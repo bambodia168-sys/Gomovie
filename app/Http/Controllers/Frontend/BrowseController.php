@@ -238,7 +238,7 @@ class BrowseController extends Controller
         return view('frontend.detail', compact(
             'title','type','displayMode','seasons','selectedEpisode','previousEpisode',
             'nextEpisode','related','autoNext','playerEnabled','profileId',
-            'isWatchlisted','viewerAuthorized','privatePreviewIngest','playerPreferences','publicAsset'
+            'isWatchlisted','viewerAuthorized','privatePreviewIngest','playerPreferences','publicAsset','publicWatchId'
         ));
     }
 

@@ -116,9 +116,11 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $admin = User::factory()->create();
         $admin->forceFill(['role' => 'admin'])->save();
         $movie = $this->freeFilm();
+        $video = UploadedFile::fake()->create('auto.mp4', 4, 'video/mp4');
+        file_put_contents($video->getRealPath(), str_repeat('A', 4096));
         $this->actingAs($admin)->postJson('/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
-            'video' => UploadedFile::fake()->create('auto.mp4', 4, 'video/mp4'),
+            'video' => $video,
         ])->assertCreated()->assertJsonPath('automatic_publication_enabled', true);
         Queue::assertPushed(AutoPublishUploadedVideo::class, 1);
         $this->assertDatabaseHas('media_ingests', [
