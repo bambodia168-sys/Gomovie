@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\PrivateIngestPreviewController;
 use App\Http\Controllers\Admin\UploadStudioController;
 use App\Http\Controllers\Admin\UploadStudioWorkflowController;
 use App\Http\Controllers\Admin\OperationsController;
+use App\Http\Controllers\Admin\PlayerSettingsController;
 use App\Http\Controllers\Admin\TmdbController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\SessionController;
@@ -104,6 +105,9 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::post('/tmdb/preview', [TmdbController::class, 'preview'])->name('tmdb.preview');
     Route::post('/tmdb/import', [TmdbController::class, 'import'])->name('tmdb.import');
     Route::get('/operations', [OperationsController::class, 'index'])->name('operations.index');
+    Route::get('/player-settings', [PlayerSettingsController::class, 'edit'])->name('player-settings.edit');
+    Route::patch('/player-settings', [PlayerSettingsController::class, 'update'])
+        ->middleware('throttle:20,1')->name('player-settings.update');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
 });
