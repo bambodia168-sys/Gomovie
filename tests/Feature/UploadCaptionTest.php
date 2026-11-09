@@ -54,9 +54,11 @@ final class UploadCaptionTest extends TestCase
         $prefix = '/upload-studio/'.$id.'/captions';
         $this->actingAs($admin)->getJson($prefix)->assertOk()->assertJsonCount(0,'captions');
 
-        $this->post($prefix, [
+        $result = $this->post($prefix, [
             'language'=>'en','label'=>'English (CC)','caption'=>$this->vtt(),'is_default'=>'1',
-        ], ['Accept'=>'application/json'])->assertCreated()->assertJsonPath('ok',true);
+        ], ['Accept'=>'application/json']);
+        self::assertSame(201, $result->getStatusCode(), $result->getContent());
+        $result->assertJsonPath('ok',true);
         $row = DB::table('media_ingest_captions')->first();
         self::assertNotNull($row);
         self::assertSame('local',$row->disk);
