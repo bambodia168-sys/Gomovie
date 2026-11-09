@@ -171,12 +171,78 @@ for rel in (tmp/'paths').read_text().splitlines():
     blob=hashlib.sha1(('blob '+str(len(raw))+'\x00').encode()+raw).hexdigest()
     allowed={d.get(rel) for d in trees}
     if blob not in allowed:
+        if rel.startswith('resources/views/auth/') and rel.endswith('.blade.php'):
+            if len(raw)>1048576 or b'\x00' in raw:
+                raise SystemExit('BLOCKED_CUSTOM_AUTH_NOT_TEXT='+rel)
+            try: raw.decode('utf-8')
+            except UnicodeDecodeError: raise SystemExit('BLOCKED_CUSTOM_AUTH_NOT_UTF8='+rel)
+            with (tmp/'custom-auth-merges').open('a') as f_list:
+                f_list.write(rel+'\n')
+            print('CUSTOM_AUTH_REQUIRES_SAFE_MERGE='+rel)
+            continue
         print('BLOCKED_CUSTOM_FILE='+rel)
         print('CURRENT_BLOB='+blob)
         raise SystemExit(1)
     print('KNOWN_SOURCE='+rel)
 print('GOMOVIE_AAPANEL_PREFLIGHT=PASS')
 PY
+
+# A customized authentication page must be merged with the pinned baseline
+# and target without discarding local changes. The merge is prepared entirely
+# in the private temporary directory, including during --check.
+if [ -s "$TMP/custom-auth-merges" ]; then
+  echo "========== VERIFY AND PREPARE CUSTOM AUTHENTICATION MERGES =========="
+  while IFS= read -r f; do
+    for rev in "$BASE" "$SOURCE"; do
+      if [ "$rev" = "$BASE" ]; then dest="$TMP/auth-base/$f"; else dest="$TMP/auth-target/$f"; fi
+      mkdir -p "$(dirname "$dest")"
+      gh api -H "Accept: application/vnd.github.raw+json" \
+        "repos/$REPO/contents/$f?ref=$rev" > "$dest"
+      test -s "$dest"
+    done
+    python3 - "$TMP" "$BASE" "$SOURCE" "$f" <<'PY_AUTH_HASH'
+import hashlib,json,pathlib,sys
+tmp=pathlib.Path(sys.argv[1])
+base,target,rel=sys.argv[2:]
+for rev,folder in ((base,'auth-base'),(target,'auth-target')):
+    data=(tmp/folder/rel).read_bytes()
+    got=hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()
+    tree=json.loads((tmp/('tree-'+rev+'.json')).read_text())
+    expected=next((x['sha'] for x in tree['tree'] if x.get('path')==rel and x.get('type')=='blob'),None)
+    if got != expected: raise SystemExit('BLOCKED_AUTH_SOURCE_HASH='+rel)
+PY_AUTH_HASH
+    mkdir -p "$TMP/new/$(dirname "$f")"
+    if ! git merge-file -p -- "$APP/$f" "$TMP/auth-base/$f" "$TMP/auth-target/$f" > "$TMP/new/$f"; then
+      echo "BLOCKED_AUTH_MERGE_CONFLICT=$f"
+      echo "AUTH_MERGE_ACTION=Inspect live changes; no production files modified"
+      exit 1
+    fi
+    python3 - "$TMP" "$f" <<'PY_AUTH_VERIFY'
+import pathlib,re,sys
+tmp=pathlib.Path(sys.argv[1]); rel=sys.argv[2]
+merged=(tmp/'new'/rel).read_text(encoding='utf8')
+target=(tmp/'auth-target'/rel).read_text(encoding='utf8')
+if not merged or len(merged)>1048576:
+    raise SystemExit('BLOCKED_AUTH_MERGE_SIZE='+rel)
+if re.search(r'^(<<<<<<< |=======|>>>>>>> )',merged,re.M):
+    raise SystemExit('BLOCKED_AUTH_MERGE_MARKERS='+rel)
+if not re.search(r"@extends\s*\(\s*['\"]layouts\.auth['\"]",merged):
+    raise SystemExit('BLOCKED_AUTH_MERGE_LAYOUT='+rel)
+if not re.search(r"@section\s*\(\s*['\"]content['\"]",merged):
+    raise SystemExit('BLOCKED_AUTH_MERGE_CONTENT='+rel)
+slots=lambda txt:set(re.findall(r"StudioAppearance::text\(\s*'([^']+)'\s*,\s*'([^']+)'",txt))
+required=slots(target)
+if 'StudioAppearance::text' in target and not required:
+    raise SystemExit('BLOCKED_AUTH_MERGE_SLOT_PATTERN='+rel)
+if required-slots(merged):
+    raise SystemExit('BLOCKED_AUTH_MERGE_MISSING_APPEARANCE_SLOTS='+rel)
+if target.count('@csrf')>merged.count('@csrf'):
+    raise SystemExit('BLOCKED_AUTH_MERGE_CSRF='+rel)
+print('SAFE_AUTH_MERGE_READY='+rel)
+PY_AUTH_VERIFY
+  done < "$TMP/custom-auth-merges"
+fi
+
 if [ "$MODE" = "--check" ]; then
   echo "LIVE_FILES_CHANGED=NO"
   echo "DATABASE_CHANGED=NO"
@@ -194,10 +260,13 @@ echo "CI_PACKAGE_SHA256=VERIFIED"
 unzip -tqq "$ZIP"
 while IFS= read -r f; do
   if [ "$f" = "$AUTH" ]; then continue; fi
-  mkdir -p "$TMP/new/$(dirname "$f")"
-  unzip -p "$ZIP" "$f" > "$TMP/new/$f"
-  test -s "$TMP/new/$f"
-  case "$f" in *.blade.php) ;; *.php) "$PHP" -l "$TMP/new/$f" >/dev/null ;; esac
+  mkdir -p "$TMP/ci-source/$(dirname "$f")" "$TMP/new/$(dirname "$f")"
+  unzip -p "$ZIP" "$f" > "$TMP/ci-source/$f"
+  test -s "$TMP/ci-source/$f"
+  case "$f" in *.blade.php) ;; *.php) "$PHP" -l "$TMP/ci-source/$f" >/dev/null ;; esac
+  if [ ! -f "$TMP/new/$f" ]; then
+    cp "$TMP/ci-source/$f" "$TMP/new/$f"
+  fi
 done < "$TMP/paths"
 python3 - "$TMP" "$SOURCE" "$AUTH" <<'PY'
 import sys,pathlib,json,hashlib
@@ -206,7 +275,7 @@ tree=json.loads((tmp/('tree-'+sys.argv[2]+'.json')).read_text())
 refs={x['path']:x['sha'] for x in tree['tree'] if x.get('type')=='blob'}
 for p in (tmp/'paths').read_text().splitlines():
     if p==sys.argv[3]:continue
-    content=(tmp/'new'/p).read_bytes()
+    content=(tmp/'ci-source'/p).read_bytes()
     sha=hashlib.sha1(('blob '+str(len(content))+'\x00').encode()+content).hexdigest()
     if refs.get(p)!=sha:raise SystemExit('BLOCKED_CI_BLOB_MISMATCH='+p)
 print('CI_SOURCE_BLOBS=VERIFIED')
