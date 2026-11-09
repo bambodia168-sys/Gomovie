@@ -228,10 +228,12 @@ class BrowseController extends Controller
             }
         }
 
+        $playerPreferences = \App\Support\PlayerPreferences::current();
+
         return view('frontend.detail', compact(
             'title','type','displayMode','seasons','selectedEpisode','previousEpisode',
             'nextEpisode','related','autoNext','playerEnabled','profileId',
-            'isWatchlisted','viewerAuthorized','privatePreviewIngest'
+            'isWatchlisted','viewerAuthorized','privatePreviewIngest','playerPreferences'
         ));
     }
 
