@@ -142,6 +142,8 @@ done < <(files)
 echo "GITHUB_SOURCE_BLOBS=VERIFIED"
 
 echo "========== PREPARE NON-DESTRUCTIVE AUTH PATCH =========="
+# Prepare from the preserved copy so the staged file keeps original permissions.
+cp -p "$BACKUP/original/$AUTH" "$BACKUP/release/$AUTH"
 auth_plan "$BACKUP/original/$AUTH" "$BACKUP/release/$AUTH"
 test "$(git hash-object "$APP/$AUTH")" = "$ORIGINAL_AUTH_BLOB" || {
   echo "BLOCKED_AUTH_CHANGED_DURING_BACKUP"
