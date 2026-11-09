@@ -401,4 +401,50 @@ final class UploadStudioTest extends TestCase
             config()->set('gomovie.r2_enabled', false);
         }
     }
+
+    public function test_owner_can_delete_only_unprocessed_local_private_upload(): void
+    {
+        Storage::fake('local');
+        config()->set('gomovie.r2_enabled', false);
+        $owner=$this->admin();
+        $movie=$this->movie();
+        $this->actingAs($owner)->post('/upload-studio', [
+            'type'=>'movie','title_id'=>$movie->id,'video'=>$this->fakeVideo('delete-only.mp4'),
+        ], ['Accept'=>'application/json'])->assertCreated();
+        $ingest=DB::table('media_ingests')->first();
+        self::assertNotNull($ingest);
+        $this->getJson('/upload-studio/'.$ingest->id.'/status')
+            ->assertOk()->assertJsonPath('can_delete',true);
+        Storage::disk('local')->assertExists($ingest->object_key);
+
+        $this->deleteJson('/upload-studio/'.$ingest->id)
+            ->assertOk()->assertJsonPath('ok',true);
+        $this->assertDatabaseMissing('media_ingests',['id'=>$ingest->id]);
+        Storage::disk('local')->assertMissing($ingest->object_key);
+        $this->assertDatabaseHas('admin_audit_events',[
+            'resource_id'=>$ingest->id,'action'=>'media.private_ingest_deleted',
+        ]);
+        $this->assertDatabaseCount('content_rights',0);
+        $this->assertDatabaseCount('media_assets',0);
+    }
+
+    public function test_upload_cannot_be_deleted_after_cloud_mirror_or_processing_starts(): void
+    {
+        Storage::fake('local');
+        $owner=$this->admin();
+        $movie=$this->movie();
+        $this->actingAs($owner)->post('/upload-studio',[
+            'type'=>'movie','title_id'=>$movie->id,'video'=>$this->fakeVideo('keep-original.mp4'),
+        ], ['Accept'=>'application/json'])->assertCreated();
+        $ingest=DB::table('media_ingests')->first();
+        DB::table('media_ingests')->where('id',$ingest->id)->update([
+            'cloud_status'=>'ready','cloud_disk'=>'r2','cloud_object_key'=>'private/cloud-asset',
+        ]);
+        $this->getJson('/upload-studio/'.$ingest->id.'/status')
+            ->assertOk()->assertJsonPath('can_delete',false);
+        $this->deleteJson('/upload-studio/'.$ingest->id)->assertStatus(409);
+        $this->assertDatabaseHas('media_ingests',['id'=>$ingest->id]);
+        Storage::disk('local')->assertExists($ingest->object_key);
+    }
+
 }
