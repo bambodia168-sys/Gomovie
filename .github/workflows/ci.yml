@@ -54,6 +54,37 @@ jobs:
           assert 'GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED' not in source
           assert 'GOMOVIE_PUBLIC_HLS_ENABLED' not in source
           PY
+      - name: Verify isolated aaPanel media worker installer
+        run: |
+          bash -n support/media-worker-service.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          src = Path('support/media-worker-service.sh').read_text()
+          match = re.search(r"UNIT_TEXT=\"\$\(cat <<'SYSTEMD'\n(.*?)\nSYSTEMD", src, re.S)
+          assert match, 'Expected embedded systemd service unit'
+          unit = match.group(1)
+          for required in (
+              'User=www',
+              'Group=www',
+              'WorkingDirectory=/www/wwwroot/gomovie.tonsamith.com',
+              'UMask=0077',
+              'queue:work database_media --queue=gomovie-media',
+              '--timeout=7500',
+              'Restart=always',
+              'WantedBy=multi-user.target',
+          ):
+              assert required in unit, f'Missing safe unit setting: {required}'
+          assert 'RETRY_AFTER_SAFE=YES' in src
+          assert 'BLOCKED_EXISTING_CUSTOM_UNIT' in src
+          assert 'BLOCKED_EXISTING_MEDIA_WORKER' in src
+          assert 'NEW_SERVICE_ROLLBACK=COMPLETE' in src
+          assert 'PUBLICATION_ACTIVATED=NO' in src
+          assert 'GOMOVIE_MEDIA_WORKER_SERVICE=SUCCESS' in src
+          assert 'artisan migrate' not in src
+          assert 'GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED=' not in src
+          assert 'GOMOVIE_PUBLIC_HLS_ENABLED=' not in src
+          PY
       - name: Verify automatic-public-playback preflight remains read-only
         run: |
           bash -n support/automatic-public-playback-preflight.sh
