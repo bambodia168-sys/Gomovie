@@ -118,6 +118,60 @@ on_exit() {
 }
 trap on_exit EXIT
 
+# The previous failed release may have left this newly-created directory
+# root-owned with mode 0700. Do not alter it during --check. Only permit
+# automatic repair if it matches that exact, empty rollback remnant.
+APPEARANCE_VIEW_DIR="$APP/resources/views/admin/appearance"
+check_appearance_view_dir() {
+  local dir="$APPEARANCE_VIEW_DIR"
+  local parent="$APP/resources/views/admin"
+  test -d "$parent" && test ! -L "$parent" || {
+    echo "BLOCKED_APPEARANCE_PARENT=$parent"; return 1;
+  }
+  if [ -L "$dir" ]; then
+    echo "BLOCKED_APPEARANCE_DIRECTORY_SYMLINK=$dir"; return 1
+  fi
+  if [ ! -e "$dir" ]; then
+    echo "APPEARANCE_VIEW_DIRECTORY=NEW"; return 0
+  fi
+  test -d "$dir" || { echo "BLOCKED_APPEARANCE_DIRECTORY_TYPE=$dir"; return 1; }
+  if runuser -u www -- test -x "$dir"; then
+    echo "APPEARANCE_VIEW_DIRECTORY=ACCESSIBLE"; return 0
+  fi
+  if [ "$(stat -c '%u:%a' "$dir")" = "0:700" ] &&
+     [ -z "$(find "$dir" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+    echo "APPEARANCE_VIEW_DIRECTORY=SAFE_EMPTY_ROLLBACK_REMNANT"; return 0
+  fi
+  echo "BLOCKED_APPEARANCE_DIRECTORY_UNEXPECTED_PERMISSIONS=$dir"
+  return 1
+}
+check_appearance_view_dir
+
+# Create any missing source subdirectories with explicit traverse permissions.
+# Existing directories retain their ownership and mode. Reject symlinks.
+prepare_live_parent() {
+  local relative="$1" parent="${1%/*}" current="$APP" part
+  local -a parts
+  if [ "$parent" = "$relative" ]; then
+    echo "BLOCKED_SOURCE_PATH=$relative"; return 1
+  fi
+  IFS='/' read -r -a parts <<< "$parent"
+  for part in "${parts[@]}"; do
+    case "$part" in ''|'.'|'..')
+      echo "BLOCKED_SOURCE_PARENT_COMPONENT=$relative"; return 1 ;;
+    esac
+    current="$current/$part"
+    if [ -L "$current" ]; then
+      echo "BLOCKED_SOURCE_PARENT_SYMLINK=$current"; return 1
+    elif [ -e "$current" ]; then
+      test -d "$current" || { echo "BLOCKED_SOURCE_PARENT_TYPE=$current"; return 1; }
+    else
+      install -d -o root -g www -m 0755 "$current"
+      echo "CREATED_SOURCE_DIRECTORY=$current"
+    fi
+  done
+}
+
 echo "========== VERIFY EXACT RELEASE AND CI =========="
 test "$(gh api "repos/$REPO/commits/$SOURCE" --jq '.sha')" = "$SOURCE"
 test "$(gh api "repos/$REPO/actions/runs/$RUN" --jq '.head_sha')" = "$SOURCE"
@@ -495,11 +549,25 @@ cmp -s "$TMP/old/manifest.json" "$APP/public/build/manifest.json"
 
 echo "========== APPLY THREE ADDITIVE APPEARANCE MIGRATIONS =========="
 CHANGED=1
+# Repair only the known empty 0700 directory from the prior rollback,
+# or create the new directory with readable/traversable permissions.
+if [ ! -e "$APPEARANCE_VIEW_DIR" ]; then
+  install -d -o root -g www -m 0755 "$APPEARANCE_VIEW_DIR"
+  echo "APPEARANCE_VIEW_DIRECTORY=CREATED_0755"
+elif ! runuser -u www -- test -x "$APPEARANCE_VIEW_DIR"; then
+  test "$(stat -c '%u:%a' "$APPEARANCE_VIEW_DIR")" = "0:700"
+  test -z "$(find "$APPEARANCE_VIEW_DIR" -mindepth 1 -maxdepth 1 -print -quit)"
+  install -d -o root -g www -m 0755 "$APPEARANCE_VIEW_DIR"
+  echo "APPEARANCE_VIEW_DIRECTORY=REPAIRED_0755"
+fi
+runuser -u www -- test -x "$APPEARANCE_VIEW_DIR" || {
+  echo "BLOCKED_APPEARANCE_DIRECTORY_NOT_TRAVERSABLE"; exit 1;
+}
 for migration in \
   database/migrations/2026_11_09_000400_create_studio_appearance_tables.php \
   database/migrations/2026_11_09_000500_create_studio_content_slots_table.php \
   database/migrations/2026_11_09_000600_add_studio_typography_variants.php; do
-  mkdir -p "$APP/$(dirname "$migration")"
+  prepare_live_parent "$migration"
   install -o root -g www -m 0644 "$TMP/new/$migration" "$APP/$migration"
   ( cd "$APP" && runuser -u www -- "$PHP" artisan migrate --path="$migration" --force --no-interaction )
 done
@@ -522,7 +590,7 @@ done < <(find "$BUILD" -type f -print0)
 echo "========== INSTALL SELECTIVE STUDIO SOURCE =========="
 while IFS= read -r f; do
   case "$f" in database/migrations/*) continue;; esac
-  mkdir -p "$APP/$(dirname "$f")"
+  prepare_live_parent "$f"
   install -o root -g www -m 0644 "$TMP/new/$f" "$APP/$f"
 done < "$TMP/paths"
 test ! -e "$APP/public/build/manifest.json.gomovie-next"
@@ -530,6 +598,9 @@ install -o root -g www -m 0644 "$BUILD/manifest.json" "$APP/public/build/manifes
 mv -- "$APP/public/build/manifest.json.gomovie-next" "$APP/public/build/manifest.json"
 
 echo "========== LARAVEL AND WEBSITE SMOKE TESTS =========="
+runuser -u www -- test -r "$APPEARANCE_VIEW_DIR/index.blade.php" || {
+  echo "BLOCKED_APPEARANCE_TEMPLATE_UNREADABLE"; exit 1;
+}
 (
  cd "$APP"
  runuser -u www -- "$PHP" artisan optimize:clear --no-interaction
