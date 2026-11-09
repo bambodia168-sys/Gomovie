@@ -19,6 +19,53 @@ final class StudioAppearance
         'email-verification' => ['label'=>'Email verification','route'=>null,'eyebrow'=>null,'heading'=>'Check your inbox','description'=>'A secure verification link has been sent to your email address. Verify it before accessing your Gomovie account and personal library.'],
     ];
 
+    /**
+     * Stable, text-only frontend slots. Editing these never modifies route
+     * destinations, markup, pricing, access control, or layout structure.
+     */
+    public const SLOTS = [
+        'home-promo-description' => ['page'=>'Homepage','label'=>'Promo strip · subtitle','default'=>'Discover films · Explore series · Build your watchlist'],
+        'home-top-picks' => ['page'=>'Homepage','label'=>'Top Picks section heading','default'=>'Top Picks for You'],
+        'home-new-releases' => ['page'=>'Homepage','label'=>'New Releases section heading','default'=>'New Releases'],
+        'home-trending' => ['page'=>'Homepage','label'=>'Trending section heading','default'=>'Trending Now'],
+        'home-recently-added' => ['page'=>'Homepage','label'=>'Recently Added section heading','default'=>'Recently Added'],
+        'about-explore-heading' => ['page'=>'About','label'=>'Explore card · heading','default'=>'Explore'],
+        'about-explore-description' => ['page'=>'About','label'=>'Explore card · text','default'=>'Find movies, TV series and episode information in one catalog.'],
+        'about-library-heading' => ['page'=>'About','label'=>'Library card · heading','default'=>'Personal library'],
+        'about-library-description' => ['page'=>'About','label'=>'Library card · text','default'=>'Registered, verified viewers can save titles to their private lists.'],
+        'about-delivery-heading' => ['page'=>'About','label'=>'Delivery card · heading','default'=>'Responsible delivery'],
+        'about-delivery-description' => ['page'=>'About','label'=>'Delivery card · text','default'=>'Billing, private streaming and media processing are enabled only after independent acceptance.'],
+        'browse-movies-heading' => ['page'=>'Browse','label'=>'Movies group heading','default'=>'Movies'],
+        'browse-series-heading' => ['page'=>'Browse','label'=>'Series group heading','default'=>'TV Series'],
+        'header-home-label' => ['page'=>'Header','label'=>'Home navigation label','default'=>'Home'],
+        'header-movies-label' => ['page'=>'Header','label'=>'Movies navigation label','default'=>'Movies'],
+        'header-series-label' => ['page'=>'Header','label'=>'Series navigation label','default'=>'Series'],
+        'header-premium-label' => ['page'=>'Header','label'=>'Premium navigation label','default'=>'Premium'],
+        'header-free-label' => ['page'=>'Header','label'=>'Free navigation label','default'=>'Free'],
+        'header-about-label' => ['page'=>'Header','label'=>'About navigation label','default'=>'About'],
+        'footer-about-label' => ['page'=>'Footer','label'=>'About link label','default'=>'About Gomovie'],
+        'footer-browse-label' => ['page'=>'Footer','label'=>'Browse link label','default'=>'Explore catalog'],
+        'footer-publisher-label' => ['page'=>'Footer','label'=>'Publisher link label','default'=>'Publisher'],
+    ];
+
+    public static function slot(string $key): string
+    {
+        if (!isset(self::SLOTS[$key])) return '';
+
+        // Request-scoped lookup avoids stale static state in Octane and across tests.
+        $request = request();
+        $values = $request->attributes->get('gm.studio.slot.overrides');
+        if (!is_array($values)) {
+            $values = Schema::hasTable('studio_content_slots')
+                ? DB::table('studio_content_slots')->pluck('content','key')->all() : [];
+            $request->attributes->set('gm.studio.slot.overrides',$values);
+        }
+
+        return array_key_exists($key,$values)
+            ? (string)$values[$key]
+            : self::SLOTS[$key]['default'];
+    }
+
     public static function page(string $slug): ?object
     {
         // Read the authoritative row for each request. In long-lived workers,

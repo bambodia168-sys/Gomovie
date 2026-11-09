@@ -111,13 +111,13 @@
 
 <section class="gm-promo-strip" aria-label="Gomovie viewing">
   <span class="gm-promo-icon" aria-hidden="true">✦</span>
-  <div><strong>Gomovie <span>Stories</span></strong><p>Discover films · Explore series · Build your watchlist</p></div>
+  <div><strong>Gomovie <span>Stories</span></strong><p>{{ \App\Support\StudioAppearance::slot('home-promo-description') }}</p></div>
   <a href="{{ route('browse') }}" class="gm-button gm-button-gold">Explore titles <span aria-hidden="true">↗</span></a>
 </section>
 
 <section class="gm-content-section" aria-labelledby="gm-picks-title">
   <div class="gm-section-heading">
-    <h2 id="gm-picks-title"><span class="gm-section-marker"></span>Top Picks for You</h2>
+    <h2 id="gm-picks-title"><span class="gm-section-marker"></span>{{ \App\Support\StudioAppearance::slot('home-top-picks') }}</h2>
     <a href="{{ route('browse') }}" class="gm-view-all">View all <span aria-hidden="true">→</span></a>
   </div>
   @if($topPicks->isEmpty())
@@ -141,7 +141,7 @@
 
 <section class="gm-content-section" aria-labelledby="gm-releases-title">
   <div class="gm-section-heading">
-    <h2 id="gm-releases-title"><span class="gm-section-marker"></span>New Releases</h2>
+    <h2 id="gm-releases-title"><span class="gm-section-marker"></span>{{ \App\Support\StudioAppearance::slot('home-new-releases') }}</h2>
     <a class="gm-view-all" href="{{ route('browse') }}">View all <span aria-hidden="true">→</span></a>
   </div>
   @if($newReleases->isEmpty())
@@ -165,7 +165,7 @@
 @if($trending->isNotEmpty())
 <section class="gm-content-section" aria-labelledby="gm-trending-title">
   <div class="gm-section-heading">
-    <h2 id="gm-trending-title"><span class="gm-section-marker"></span>Trending Now <small>LAST 30 DAYS</small></h2>
+    <h2 id="gm-trending-title"><span class="gm-section-marker"></span>{{ \App\Support\StudioAppearance::slot('home-trending') }} <small>LAST 30 DAYS</small></h2>
     <a class="gm-view-all" href="{{ route('browse') }}">View all <span aria-hidden="true">→</span></a>
   </div>
   <div class="gm-content-rail">
@@ -178,7 +178,7 @@
 
 <section class="gm-content-section" aria-labelledby="gm-recent-title">
   <div class="gm-section-heading">
-    <h2 id="gm-recent-title"><span class="gm-section-marker"></span>Recently Added</h2>
+    <h2 id="gm-recent-title"><span class="gm-section-marker"></span>{{ \App\Support\StudioAppearance::slot('home-recently-added') }}</h2>
     <a class="gm-view-all" href="{{ route('browse') }}">View all <span aria-hidden="true">→</span></a>
   </div>
   @if($recentlyAdded->isEmpty())

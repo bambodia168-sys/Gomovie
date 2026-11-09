@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -30,7 +31,18 @@ final class AppearanceController extends Controller
             $query->where(fn ($q) => $q->where('slug','like','%'.$term.'%')
                 ->orWhere('heading','like','%'.$term.'%'));
         }
+        $slotRows = collect(StudioAppearance::SLOTS)
+            ->map(fn (array $item, string $key) => ['key'=>$key] + $item)
+            ->values();
+        $page=max(1,(int)$request->query('sections_page',1));
+        $editableSlots=new LengthAwarePaginator(
+            $slotRows->forPage($page,10)->values(),$slotRows->count(),10,$page,
+            ['path'=>$request->url(),'query'=>$request->query(),'pageName'=>'sections_page']
+        );
+
         return view('admin.appearance.index', [
+            'editableSlots'=>$editableSlots,
+            'slotOverrides'=>DB::table('studio_content_slots')->get()->keyBy('key'),
             'builtIns' => StudioAppearance::PAGES,
             'overrides' => DB::table('studio_pages')->where('is_custom',false)->get()->keyBy('slug'),
             'customPages' => $query->orderByDesc('id')->paginate(10)->withQueryString(),
@@ -52,11 +64,11 @@ final class AppearanceController extends Controller
         ]);
     }
 
-    private function audit(Request $request, string $action, int $id, array $changes): void
+    private function audit(Request $request, string $action, int $id, array $changes, string $resourceType='appearance_page'): void
     {
         DB::table('admin_audit_events')->insert([
             'actor_id'=>$request->user()->id, 'action'=>$action,
-            'resource_type'=>'appearance_page','resource_id'=>$id,
+            'resource_type'=>$resourceType,'resource_id'=>$id,
             'details'=>json_encode($changes,JSON_THROW_ON_ERROR),
             'ip_address'=>$request->ip(), 'created_at'=>now(),'updated_at'=>now(),
         ]);
@@ -123,6 +135,48 @@ final class AppearanceController extends Controller
                 $row->id,['slug'=>$row->slug]);
         });
         return back()->with('status',$row->is_custom?'Custom page deleted.':'Page restored to defaults.');
+    }
+
+    public function saveSlot(Request $request, string $slot): RedirectResponse
+    {
+        $this->guard($request,true);
+        abort_unless(array_key_exists($slot,StudioAppearance::SLOTS),404);
+        $values=$request->validate(['content'=>['required','string','max:300']]);
+        $content=trim($values['content']);
+        if ($content==='') return back()->withErrors(['content'=>'Enter visible text for this element.']);
+
+        DB::transaction(function () use ($request,$slot,$content): void {
+            $record=DB::table('studio_content_slots')->where('key',$slot)->first();
+            if ($record) {
+                DB::table('studio_content_slots')->where('id',$record->id)->update([
+                    'content'=>$content,'updated_by'=>$request->user()->id,'updated_at'=>now(),
+                ]);
+                $id=$record->id;
+            } else {
+                $id=DB::table('studio_content_slots')->insertGetId([
+                    'key'=>$slot,'content'=>$content,'updated_by'=>$request->user()->id,
+                    'created_at'=>now(),'updated_at'=>now(),
+                ]);
+            }
+            $this->audit($request,'appearance.slot.updated',$id,['slot'=>$slot], 'appearance_slot');
+        });
+
+        return back()->with('status','Frontend text saved.');
+    }
+
+    public function resetSlot(Request $request, string $slot): RedirectResponse
+    {
+        $this->guard($request,true);
+        abort_unless(array_key_exists($slot,StudioAppearance::SLOTS),404);
+
+        DB::transaction(function () use ($request,$slot): void {
+            $record=DB::table('studio_content_slots')->where('key',$slot)->first();
+            if (!$record) return;
+            DB::table('studio_content_slots')->where('id',$record->id)->delete();
+            $this->audit($request,'appearance.slot.reset',$record->id,['slot'=>$slot], 'appearance_slot');
+        });
+
+        return back()->with('status','Frontend text restored to the original.');
     }
 
     public function typography(Request $request): RedirectResponse

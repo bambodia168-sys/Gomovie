@@ -34,6 +34,63 @@
 @endforeach
 </tbody></table></div>
 </section>
+
+<section class="gm-studio-panel mb-6">
+  <div class="gm-studio-panel-head">
+    <div><h3>Frontend text elements</h3><small>Customize existing headings and labels without moving sections, changing links, or adding new visual blocks.</small></div>
+    <span class="gm-studio-pill">{{ $editableSlots->total() }} editable elements</span>
+  </div>
+  <div class="gm-studio-table-scroll">
+    <table class="gm-studio-table"><thead><tr><th>No.</th><th>Page area</th><th>Element</th><th>Current text</th><th>Status</th><th class="text-right">Actions</th></tr></thead>
+      <tbody>
+      @foreach($editableSlots as $item)
+      @php $slotRow=$slotOverrides->get($item['key']); @endphp
+      <tr>
+        <td>{{ ($editableSlots->firstItem()??1)+$loop->index }}</td>
+        <td>{{ $item['page'] }}</td>
+        <td>{{ $item['label'] }}</td>
+        <td class="gm-studio-muted">{{ \Illuminate\Support\Str::limit($slotRow?->content ?? $item['default'],80) }}</td>
+        <td><span class="gm-studio-pill {{ $slotRow?'is-ok':'is-warn' }}">{{ $slotRow?'Customized':'Default' }}</span></td>
+        <td class="text-right">
+          <button type="button" class="gm-studio-dots" data-studio-menu="slot-menu-{{ $item['key'] }}" aria-expanded="false" aria-label="Actions for {{ $item['label'] }}">@include('partials.studio-icon',['name'=>'dots'])</button>
+          <template id="slot-menu-{{ $item['key'] }}">
+            @if($canEdit)
+              <button type="button" role="menuitem" data-studio-open="slot-edit-{{ $item['key'] }}">@include('partials.studio-icon',['name'=>'edit']) Edit text</button>
+              @if($slotRow)
+              <form method="POST" action="{{ route('admin.appearance.sections.destroy',$item['key']) }}">@csrf @method('DELETE')
+                <button type="submit" role="menuitem" class="is-danger" data-studio-confirm="Restore this text element to its original value?">@include('partials.studio-icon',['name'=>'trash']) Restore default</button>
+              </form>
+              @endif
+            @else
+              <span class="gm-studio-muted px-3 py-2 text-xs">Read only</span>
+            @endif
+          </template>
+        </td>
+      </tr>
+      @endforeach
+      </tbody>
+    </table>
+  </div>
+  @include('partials.studio-pager',['paginator'=>$editableSlots,'id'=>'gm-text-slots-page'])
+</section>
+@if($canEdit)
+@foreach($editableSlots as $item)
+@php $slotRow=$slotOverrides->get($item['key']); @endphp
+<dialog class="gm-studio-modal" id="slot-edit-{{ $item['key'] }}" aria-labelledby="slot-heading-{{ $item['key'] }}">
+<form method="POST" action="{{ route('admin.appearance.sections.update',$item['key']) }}">@csrf @method('PUT')
+<div class="gm-studio-modal-heading"><h3 id="slot-heading-{{ $item['key'] }}">Edit {{ $item['label'] }}</h3><button type="button" class="gm-studio-button" data-studio-close aria-label="Close">×</button></div>
+<div class="gm-studio-modal-body">
+<p class="gm-studio-muted text-sm mb-3">{{ $item['page'] }} · text only. The frontend layout and links are not modified.</p>
+<label class="gm-studio-field"><span>Visible text</span>
+<textarea name="content" class="gm-studio-input" maxlength="300" rows="3" required>{{ $slotRow?->content ?? $item['default'] }}</textarea>
+</label>
+<p class="gm-studio-muted text-xs">No HTML or script formatting. Text is safely escaped on the public website.</p>
+</div>
+<div class="gm-studio-modal-actions"><button type="button" class="gm-studio-button" data-studio-close>Cancel</button><button type="submit" class="gm-studio-button is-primary">Save text</button></div>
+</form>
+</dialog>
+@endforeach
+@endif
 <section class="gm-studio-panel">
 <div class="gm-studio-panel-head"><div><h3>Custom frontend pages</h3><small>New pages use the existing frontend header/footer. Draft pages are not publicly accessible.</small></div>
 <form method="GET" action="{{ route('admin.appearance.index') }}" class="gm-page-actions">

@@ -141,6 +141,12 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::delete('/appearance/pages/{slug}', [AppearanceController::class,'destroy'])
         ->middleware('throttle:12,1')->where('slug','[a-z0-9]+(?:-[a-z0-9]+)*')
         ->name('appearance.pages.destroy');
+    Route::put('/appearance/sections/{slot}', [AppearanceController::class,'saveSlot'])
+        ->middleware('throttle:20,1')->where('slot','[a-z0-9-]+')
+        ->name('appearance.sections.update');
+    Route::delete('/appearance/sections/{slot}', [AppearanceController::class,'resetSlot'])
+        ->middleware('throttle:12,1')->where('slot','[a-z0-9-]+')
+        ->name('appearance.sections.destroy');
     Route::patch('/appearance/typography',[AppearanceController::class,'typography'])
         ->middleware('throttle:10,1')->name('appearance.typography.update');
     Route::post('/appearance/font',[AppearanceController::class,'uploadFont'])

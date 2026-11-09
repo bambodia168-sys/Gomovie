@@ -22,12 +22,12 @@
     <button class="gm-mobile-toggle" type="button" @click="mobileOpen=!mobileOpen"
       :aria-expanded="mobileOpen.toString()" aria-controls="gm-main-nav" aria-label="Toggle menu">☰</button>
     <nav id="gm-main-nav" class="gm-main-nav" :class="mobileOpen ? 'is-open' : ''" aria-label="Main navigation">
-      <a href="{{ route('home') }}" @class(['is-active'=>request()->routeIs('home')]) @if(request()->routeIs('home')) aria-current="page" @endif>Home</a>
-      <a href="{{ route('browse',['type'=>'movie']) }}" @class(['is-active'=>request()->routeIs('browse')&&request('type')==='movie'])>Movies</a>
-      <a href="{{ route('browse',['type'=>'series']) }}" @class(['is-active'=>request()->routeIs('browse')&&request('type')==='series'])>Series</a>
-      <a href="{{ route('browse',['access'=>'premium']) }}" class="gm-gold-nav">♛ Premium</a>
-      <a href="{{ route('browse',['access'=>'free']) }}">Free</a>
-      <a href="{{ route('about') }}" @class(['is-active'=>request()->routeIs('about')])>About</a>
+      <a href="{{ route('home') }}" @class(['is-active'=>request()->routeIs('home')]) @if(request()->routeIs('home')) aria-current="page" @endif>{{ \App\Support\StudioAppearance::slot('header-home-label') }}</a>
+      <a href="{{ route('browse',['type'=>'movie']) }}" @class(['is-active'=>request()->routeIs('browse')&&request('type')==='movie'])>{{ \App\Support\StudioAppearance::slot('header-movies-label') }}</a>
+      <a href="{{ route('browse',['type'=>'series']) }}" @class(['is-active'=>request()->routeIs('browse')&&request('type')==='series'])>{{ \App\Support\StudioAppearance::slot('header-series-label') }}</a>
+      <a href="{{ route('browse',['access'=>'premium']) }}" class="gm-gold-nav">♛ {{ \App\Support\StudioAppearance::slot('header-premium-label') }}</a>
+      <a href="{{ route('browse',['access'=>'free']) }}">{{ \App\Support\StudioAppearance::slot('header-free-label') }}</a>
+      <a href="{{ route('about') }}" @class(['is-active'=>request()->routeIs('about')])>{{ \App\Support\StudioAppearance::slot('header-about-label') }}</a>
     </nav>
     <form class="gm-header-search" role="search" method="GET" action="{{ route('browse') }}">
       <label class="sr-only" for="gm-search">Search movies or series</label>
@@ -49,7 +49,7 @@
 <footer class="gm-site-footer">
   <div class="gm-container gm-footer-inner">
     <a class="gm-brand gm-brand-small" href="{{ route('home') }}"><span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span><span class="gm-brand-copy"><strong>GO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span></a>
-    <nav aria-label="Footer"><a href="{{ route('about') }}">About Gomovie</a><a href="{{ route('browse') }}">Explore catalog</a><a href="https://tonsamith.com">Publisher</a></nav>
+    <nav aria-label="Footer"><a href="{{ route('about') }}">{{ \App\Support\StudioAppearance::slot('footer-about-label') }}</a><a href="{{ route('browse') }}">{{ \App\Support\StudioAppearance::slot('footer-browse-label') }}</a><a href="https://tonsamith.com">{{ \App\Support\StudioAppearance::slot('footer-publisher-label') }}</a></nav>
     <span>© {{ date('Y') }} Gomovie · Licensed media only</span>
   </div>
 </footer>

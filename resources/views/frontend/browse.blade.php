@@ -21,7 +21,7 @@
 </form>
 @if($type !== 'series')
 <section class="gm-content-section">
-  <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>Movies</h2><span class="gm-section-caption">Published movies</span></div>
+  <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>{{ \App\Support\StudioAppearance::slot('browse-movies-heading') }}</h2><span class="gm-section-caption">Published movies</span></div>
   @if($movies->isEmpty())
     <p class="gm-empty-state">No matching movies are available yet.</p>
   @else
@@ -32,7 +32,7 @@
 @endif
 @if($type !== 'movie')
 <section class="gm-content-section">
-  <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>TV Series</h2><span class="gm-section-caption">Published series</span></div>
+  <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>{{ \App\Support\StudioAppearance::slot('browse-series-heading') }}</h2><span class="gm-section-caption">Published series</span></div>
   @if($series->isEmpty())
     <p class="gm-empty-state">No matching TV series are available yet.</p>
   @else
