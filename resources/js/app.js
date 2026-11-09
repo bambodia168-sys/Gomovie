@@ -4,6 +4,7 @@ window.Alpine = Alpine;
 Alpine.start();
 
 import './player.js';
+import './studio.js';
 
 // Actual link-sharing action. Never rely on an inert or demo CTA.
 document.querySelectorAll('[data-share-url]').forEach((button) => {
