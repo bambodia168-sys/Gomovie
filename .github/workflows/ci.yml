@@ -158,6 +158,23 @@ jobs:
           assert "video.textTracks?.addEventListener?.('addtrack'" in js
           assert "'/api/v1/stream/' + type + '/' + titleId + '/token'" in js
           PY
+      - name: Test single speaker volume control
+        run: |
+          node --check resources/js/player.js
+          node --test tests/javascript/player-volume.test.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          markup=Path("resources/views/frontend/partials/modern-player-controls.blade.php").read_text()
+          css=Path("resources/css/app.css").read_text()
+          js=Path("resources/js/player.js").read_text()
+          assert markup.count("data-gm-menu-volume") == 1
+          assert markup.count("data-gm-volume-popover") == 1
+          assert "gm-settings-audio" not in markup
+          assert "gm-modern-volume-popover" in css
+          assert "data-gm-volume-popover" in js
+          assert "event.key === 'Escape'" in js
+          print("GOMOVIE_SINGLE_VOLUME_CONTROL=VERIFIED")
+          PY
       - name: Test premium fullscreen SVG control behavior
         run: |
           node --check resources/js/player.js
