@@ -40,6 +40,18 @@ jobs:
         run: bash -n support/upload-studio-upgrade.sh
       - name: Syntax check selective Studio feedback and artwork upgrade
         run: bash -n support/studio-feedback-artwork-upgrade.sh
+      - name: Verify automatic-public-playback preflight remains read-only
+        run: |
+          bash -n support/automatic-public-playback-preflight.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path('support/automatic-public-playback-preflight.sh').read_text()
+          assert 'GOMOVIE_AUTO_PUBLIC_PREFLIGHT=COMPLETE' in src
+          assert 'PUBLICATION_ACTIVATED=NO' in src
+          assert 'mode' not in src or '--apply' not in src
+          assert 'artisan migrate' not in src
+          assert 'mkdir -p' not in src and 'install -d' not in src
+          PY
       - name: Verify custom authentication layout is preserved by Studio recovery
         run: |
           bash -n support/studio-feedback-custom-auth-recovery.sh
