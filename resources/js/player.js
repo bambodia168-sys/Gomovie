@@ -685,10 +685,16 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
             if (playerIsFullscreen()) {
                 if (video.webkitDisplayingFullscreen && video.webkitExitFullscreen) {
                     video.webkitExitFullscreen();
-                } else if (document.exitFullscreen) {
-                    await document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
+                } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+                    // WebKit must use its paired exit method even when the
+                    // standard API exists on document but is not active.
                     document.webkitExitFullscreen();
+                } else if (document.fullscreenElement && document.exitFullscreen) {
+                    await document.exitFullscreen();
+                } else if (document.mozFullScreenElement && document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msFullscreenElement && document.msExitFullscreen) {
+                    document.msExitFullscreen();
                 } else {
                     tell('Exit fullscreen is unavailable in this browser.');
                     return;
