@@ -54,6 +54,29 @@ jobs:
           assert 'GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED' not in source
           assert 'GOMOVIE_PUBLIC_HLS_ENABLED' not in source
           PY
+      - name: Verify guarded production auto-publication activation script
+        run: |
+          bash -n support/automatic-public-production-activation.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('support/automatic-public-production-activation.sh').read_text()
+          blade = Path('resources/views/frontend/detail.blade.php').read_text()
+          service = Path('app/Services/Media/AutomaticPublicationService.php').read_text()
+          assert 'PRODUCTION_ACTIVATION_PREFLIGHT=PASS' in source
+          assert 'PRODUCTION_AUTOMATIC_PUBLICATION_ACTIVATION=SUCCESS' in source
+          assert 'PRODUCTION_AUTOMATIC_PUBLICATION_DISABLED=SUCCESS' in source
+          assert 'PRODUCTION_ACTIVATION_ROLLBACK=ATTEMPTED' in source
+          assert 'config:cache' in source and 'systemctl restart "$SERVICE"' in source
+          assert 'GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED' in source
+          assert 'GOMOVIE_PUBLIC_HLS_ENABLED' in source
+          assert 'GOMOVIE_TRANSCODING_ENABLED' in source
+          assert 'DATABASE_SCHEMA_CHANGED=NO' in source
+          assert 'artisan migrate' not in source
+          assert 'data-public-hls-url=' in blade
+          assert "route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false)" in blade
+          assert '|| !$this->hasDocumentedRights($kind, $titleId)' in service
+          assert '$argv[1]!=="--disable"' in source
+          PY
       - name: Verify one-shot real auto-publication acceptance remains isolated
         run: |
           bash -n support/real-auto-publication-acceptance.sh
