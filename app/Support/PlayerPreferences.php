@@ -11,7 +11,7 @@ final class PlayerPreferences
         'accent' => 'crimson',
         'density' => 'comfortable',
         'seek_seconds' => 10,
-        'auto_hide_seconds' => 4,
+        'auto_hide_seconds' => 1,
         'show_volume' => true,
         'show_speed' => true,
         'show_captions' => true,
@@ -53,8 +53,8 @@ final class PlayerPreferences
             ? $out['density'] : 'comfortable';
         $out['seek_seconds'] = in_array((int) $out['seek_seconds'], [5, 10, 15, 30], true)
             ? (int) $out['seek_seconds'] : 10;
-        $out['auto_hide_seconds'] = in_array((int) $out['auto_hide_seconds'], [0, 3, 4, 5, 8], true)
-            ? (int) $out['auto_hide_seconds'] : 4;
+        $out['auto_hide_seconds'] = in_array((int) $out['auto_hide_seconds'], [0, 1, 2], true)
+            ? (int) $out['auto_hide_seconds'] : 1;
         foreach (['show_volume', 'show_speed', 'show_captions', 'show_pip', 'show_fullscreen'] as $key) {
             $out[$key] = (bool) $out[$key];
         }
