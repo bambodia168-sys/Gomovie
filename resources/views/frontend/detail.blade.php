@@ -26,7 +26,20 @@
         @if($still)<img class="gm-player-background" src="{{ $still }}" alt="" loading="eager" decoding="async">@endif
         <div class="gm-player-vignette" aria-hidden="true"></div>
         <span class="gm-player-aspect-label">{{ $portrait ? '▯ Portrait · 9:16' : '▭ Widescreen · 16:9' }}</span>
-        @if($playerEnabled && $profileId)
+        @if($privatePreviewIngest && !$playerEnabled)
+          <div class="gm-player-live" data-gomovie-private-preview>
+            <video controls playsinline preload="metadata"
+                   aria-label="Private administrator preview of uploaded video"
+                   @if($still) poster="{{ $still }}" @endif>
+              <source src="{{ route('admin.media.ingest-preview', ['ingest' => $privatePreviewIngest->id]) }}"
+                      type="{{ $privatePreviewIngest->mime }}">
+              Your browser cannot play this uploaded format.
+            </video>
+            <span style="position:absolute;top:14px;right:14px;z-index:5;pointer-events:none;padding:7px 11px;border-radius:9px;background:#16131de8;border:1px solid #ec46617a;color:#ffadbd;font-size:11px;font-weight:800;letter-spacing:.04em">
+              PRIVATE ADMIN PREVIEW
+            </span>
+          </div>
+        @elseif($playerEnabled && $profileId)
         <div data-gomovie-player data-profile-id="{{ $profileId }}"
              data-next-url="{{ $autoNext['url'] ?? '' }}"
              data-next-title="{{ $autoNext['title'] ?? '' }}"
@@ -70,6 +83,12 @@
         @endif
       </section>
     </div>
+    @if($privatePreviewIngest && !$playerEnabled)
+      <p class="gm-muted" style="font-size:12px;line-height:1.6;margin:12px 0 0">
+        This video is a private administrator preview of the original upload. It has not been published
+        or cleared for public streaming. Some MP4/WebM codecs may require conversion for browser playback.
+      </p>
+    @endif
 
     @if($playerEnabled && $profileId)
       <section class="gm-watch-player-tools" aria-label="Playback options" data-gomovie-player-tools>
