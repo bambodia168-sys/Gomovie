@@ -216,12 +216,21 @@ final class PlayerSettingsTest extends TestCase
             ->assertSee('data-gm-ad-skip')
             ->assertSee('data-gm-volume-percent')
             ->assertSee('data-gm-menu-volume')
+            ->assertSee('data-gm-volume-toggle')
+            ->assertSee('data-gm-volume-popover')
+            ->assertDontSee('gm-settings-audio')
             ->assertDontSee('data-gm-volume"')
             ->assertDontSee('gm-mode-switch')
             ->assertSee('PRIVATE ADMIN PREVIEW');
 
         $html = $response->getContent();
         self::assertIsString($html);
+        self::assertSame(1, substr_count($html, 'data-gm-menu-volume'),
+            'The player must render exactly one volume slider.');
+        self::assertSame(1, substr_count($html, 'data-gm-volume-popover'),
+            'There must be exactly one volume popover.');
+        self::assertStringNotContainsString('gm-settings-audio', $html,
+            'The Gear menu must not contain a duplicate volume control.');
         $titlePos = strpos($html, '<h2>'.$movie->title.'</h2>');
         $metaPos = strpos($html, 'gm-watch-tags');
         self::assertNotFalse($titlePos);
