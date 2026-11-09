@@ -70,7 +70,6 @@ test "$(id -u)" = 0
 test -d "$APP" && test ! -L "$APP"
 test -f "$APP/.env" && test ! -L "$APP/.env"
 test -f "$APP/artisan"
-test -f "$APP/vendor/autoload.php" && test ! -L "$APP/vendor/autoload.php"
 test -f "$APP/storage/app/private/.gomovie-installed"
 test -f "$APP/vendor/autoload.php" && test ! -L "$APP/vendor/autoload.php"
 test -f "$APP/bootstrap/app.php" && test ! -L "$APP/bootstrap/app.php"
