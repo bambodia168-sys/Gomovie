@@ -18,7 +18,7 @@ use Throwable;
  */
 final class PrivateVideoIntake
 {
-    public function store(string $kind, int $titleId, UploadedFile $video, int $uploaderId, ?string $ip): int
+    public function store(string $kind, int $titleId, UploadedFile $video, int $uploaderId, ?string $ip, bool $autoPublish = true): int
     {
         abort_unless(in_array($kind, ['movie', 'episode'], true), 422);
         $extension = match ($video->getMimeType()) {
@@ -104,7 +104,7 @@ final class PrivateVideoIntake
             }
         }
 
-        if (config('gomovie.automatic_publication_enabled') === true
+        if ($autoPublish && config('gomovie.automatic_publication_enabled') === true
             && config('gomovie.public_hls_enabled') === true) {
             try {
                 AutoPublishUploadedVideo::dispatch($id);
