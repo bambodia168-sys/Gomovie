@@ -10,7 +10,7 @@
 </div>
 <div class="gm-studio-metrics mb-6">
  <div class="gm-studio-metric"><small>Seasons</small><strong>{{ $seasons->total() }}</strong></div>
- <div class="gm-studio-metric"><small>Episodes</small><strong>{{ $series->episodes()->count() }}</strong></div>
+ <div class="gm-studio-metric"><small>Episodes</small><strong>{{ \App\Models\Episode::query()->whereHas('season', fn ($query) => $query->where('series_id', $series->id))->count() }}</strong></div>
  <div class="gm-studio-metric"><small>Published series</small><strong class="text-lg! capitalize">{{ $series->status }}</strong></div>
  <div class="gm-studio-metric"><small>Per table</small><strong class="text-lg!">10 rows</strong></div>
 </div>
