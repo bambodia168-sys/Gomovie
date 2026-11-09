@@ -338,7 +338,6 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     currentStep = n;
     steps.forEach(b => { b.setAttribute('aria-current', Number(b.dataset.step) === n ? 'step' : 'false'); b.disabled = !ingestId && Number(b.dataset.step) > 1; });
     panels.forEach(p => p.hidden = Number(p.dataset.panel) !== n);
-    syncForms();
     if (n === 5) refreshStatus();
     document.querySelector('.steps')?.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
@@ -494,7 +493,14 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
         if (xhr.status === 419) reason = 'Your session expired. Refresh and retry.';
         message('gm-upload-feedback',reason,'error');
       }
-      busy(false);xhr = null;
+      busy(false);
+      if (ingestId) {
+        target.disabled = true;
+        search.disabled = true;
+        videoFile.disabled = true;
+        types.forEach(t => { t.disabled = true; });
+      }
+      xhr = null;
     };
     xhr.onerror = () => { message('gm-upload-feedback','Connection lost. Please retry.','error');busy(false);xhr=null; };
     xhr.ontimeout = () => { message('gm-upload-feedback','Upload timed out. Please retry.','error');busy(false);xhr=null; };
