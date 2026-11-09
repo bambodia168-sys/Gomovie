@@ -108,13 +108,22 @@
           </div>
         </div>
         @if($playerPreferences['show_fullscreen'])
-          <button type="button" class="gm-modern-btn gm-modern-fullscreen-btn" data-fullscreen-player
-                  title="Fullscreen" aria-label="Toggle fullscreen">
-            <svg class="gm-icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3M21 16v3a2 2 0 0 1-2 2h-3"/>
+          <button type="button" class="gm-modern-btn gm-modern-fullscreen-btn"
+                  data-fullscreen-player data-fullscreen-state="windowed"
+                  title="Enter fullscreen" aria-label="Enter fullscreen" aria-pressed="false">
+            {{-- Custom diagonal-expand glyph inside a rounded cinematic frame.
+                 Distinct from the browser's native corner-bracket icon. --}}
+            <svg class="gm-fullscreen-glyph gm-icon-expand" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.95"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <rect class="gm-fullscreen-frame" x="2.8" y="2.8" width="18.4" height="18.4" rx="5" stroke-width="1.25" opacity=".58"/>
+              <path d="M9.8 9.8 17.3 6.7m0 0h-4.6m4.6 0v4.6M14.2 14.2l-7.5 3.1m0 0h4.6m-4.6 0v-4.6"/>
             </svg>
-            <svg class="gm-icon-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.95" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 9h4a2 2 0 0 0 2-2V3M21 9h-4a2 2 0 0 1-2-2V3M3 15h4a2 2 0 0 1 2 2v4M21 15h-4a2 2 0 0 0-2 2v4"/>
+            <svg class="gm-fullscreen-glyph gm-icon-collapse" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.95"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <rect class="gm-fullscreen-frame" x="2.8" y="2.8" width="18.4" height="18.4" rx="5" stroke-width="1.25" opacity=".58"/>
+              <path d="M6.5 6.5 10.2 10.2m0 0V6.5m0 3.7H6.5M17.5 17.5l-3.7-3.7m0 0v3.7m0-3.7h3.7"/>
             </svg>
           </button>
         @endif
