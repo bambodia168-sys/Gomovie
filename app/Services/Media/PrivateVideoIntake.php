@@ -39,6 +39,17 @@ final class PrivateVideoIntake
         $stored = $video->storeAs(dirname($path), basename($path), 'local');
         abort_unless($stored === $path, 503, 'Private upload failed.');
 
+        // Trust the actual bytes written to private storage, not only client
+        // or uploaded-file size metadata (which can be inconsistent).
+        $storedPath = $disk->path($path);
+        $actualSize = is_file($storedPath) ? filesize($storedPath) : false;
+        $storedHash = is_file($storedPath) ? hash_file('sha256', $storedPath) : false;
+        if (!is_int($actualSize) || $actualSize < 1 || $actualSize > 134217728
+            || !is_string($storedHash) || !hash_equals($hash, $storedHash)) {
+            $disk->delete($path);
+            abort(422, 'The private upload failed its integrity check.');
+        }
+
         $r2Enabled = config('gomovie.r2_enabled') === true
             && is_string(config('gomovie.r2_bucket')) && config('gomovie.r2_bucket') !== ''
             && preg_match('#\Ahttps://[a-f0-9]{32}\.r2\.cloudflarestorage\.com/?\z#D',
@@ -47,7 +58,7 @@ final class PrivateVideoIntake
             && filled(config('filesystems.disks.r2.secret'));
 
         try {
-            $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $r2Enabled): int {
+            $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $actualSize, $r2Enabled): int {
                 $id = DB::table('media_ingests')->insertGetId([
                     'ingestable_type' => $kind,
                     'ingestable_id' => $titleId,
@@ -56,7 +67,7 @@ final class PrivateVideoIntake
                     'object_key' => $path,
                     'original_name' => Str::limit($video->getClientOriginalName(), 255, ''),
                     'mime' => $video->getMimeType(),
-                    'size_bytes' => $video->getSize(),
+                    'size_bytes' => $actualSize,
                     'sha256' => $hash,
                     'status' => 'quarantined',
                     'cloud_status' => $r2Enabled ? 'pending' : 'local_only',
@@ -68,7 +79,7 @@ final class PrivateVideoIntake
                     'action' => 'media.private_ingest_staged',
                     'resource_type' => 'media_ingest',
                     'resource_id' => $id,
-                    'details' => json_encode(['size_bytes' => $video->getSize(), 'cloud_mirror_queued' => $r2Enabled], JSON_THROW_ON_ERROR),
+                    'details' => json_encode(['size_bytes' => $actualSize, 'cloud_mirror_queued' => $r2Enabled], JSON_THROW_ON_ERROR),
                     'ip_address' => $ip,
                     'created_at' => now(),
                     'updated_at' => now(),
