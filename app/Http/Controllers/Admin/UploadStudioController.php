@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 final class UploadStudioController extends Controller
 {
@@ -86,7 +87,20 @@ final class UploadStudioController extends Controller
                 'regex:/\A[a-zA-Z0-9][a-zA-Z0-9:._\/-]+\z/D'],
             'rights_confirmed' => ['accepted'],
         ]);
-        $review->approve($ingest, $request->user(), $data['rights_reference'], $request->ip());
+        try {
+            $review->approve($ingest, $request->user(), $data['rights_reference'], $request->ip());
+        } catch (HttpExceptionInterface $exception) {
+            if (!in_array($exception->getStatusCode(), [409, 422, 503], true)) {
+                throw $exception;
+            }
+            return redirect()->route('admin.upload-studio.review', $ingest)
+                ->withErrors(['approval' => $exception->getMessage()
+                    ?: 'The upload checks could not be completed. The video remains private.']);
+        } catch (Throwable $exception) {
+            report($exception);
+            return redirect()->route('admin.upload-studio.review', $ingest)
+                ->withErrors(['approval' => 'The security or rights check could not be completed. The video remains private. Contact the site administrator.']);
+        }
 
         // The upload is deliberately simple. Once an administrator has
         // approved a clean, licensed ingest and the operator has enabled
