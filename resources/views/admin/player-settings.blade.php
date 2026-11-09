@@ -46,7 +46,7 @@
         </label>
         <label class="block text-sm font-semibold">Hide controls after
           <select name="auto_hide_seconds" class="mt-2 w-full rounded-xl border border-white/15 bg-zinc-950 px-3 py-3 text-sm text-white">
-            @foreach([0,3,4,5,8] as $seconds)
+            @foreach([0,1,2] as $seconds)
               <option value="{{ $seconds }}" @selected((int) old('auto_hide_seconds',$preferences['auto_hide_seconds'])===$seconds)>{{ $seconds ? $seconds.' seconds' : 'Never' }}</option>
             @endforeach
           </select>
@@ -106,7 +106,7 @@
     if(input.checked && colors[input.value])preview.style.backgroundColor=colors[input.value];
   }));
   document.getElementById('gm-player-reset')?.addEventListener('click',()=>{
-    const values={accent:'crimson',density:'comfortable',seek_seconds:'10',auto_hide_seconds:'4'};
+    const values={accent:'crimson',density:'comfortable',seek_seconds:'10',auto_hide_seconds:'1'};
     Object.entries(values).forEach(([name,value])=>{
       const input=form.querySelector('[name="'+name+'"][value="'+value+'"]') ||
         form.querySelector('select[name="'+name+'"]');
