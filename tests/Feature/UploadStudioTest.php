@@ -48,22 +48,31 @@ final class UploadStudioTest extends TestCase
 
     public function test_upload_studio_requires_verified_admin_and_is_simple_to_use(): void
     {
+        $this->get('/upload-studio')->assertRedirect(route('login'));
+
         $viewer = User::factory()->create();
-        $this->actingAs($viewer)->get('/dashboard/upload-studio')->assertForbidden();
-        $this->actingAs($viewer)->post('/dashboard/upload-studio', [])->assertForbidden();
+        $this->actingAs($viewer)->get('/upload-studio')->assertForbidden();
+        $this->actingAs($viewer)->post('/upload-studio', [])->assertForbidden();
 
         $editor = User::factory()->create();
         $editor->forceFill(['role' => 'editor'])->save();
-        $this->actingAs($editor)->get('/dashboard/upload-studio')->assertForbidden();
+        $this->actingAs($editor)->get('/upload-studio')->assertForbidden();
 
         $movie = $this->movie();
         $this->actingAs($this->admin())
-            ->get('/dashboard/upload-studio')->assertOk()
+            ->get('/upload-studio')->assertOk()
             ->assertSee('Upload your video')
             ->assertSee('gm-upload-studio-form')
             ->assertSee('gm-upload-progress')
-            ->assertSee('Cloudflare R2')
+            ->assertSee('name="type"', false)
+            ->assertSee('name="title_id"', false)
+            ->assertSee('name="video"', false)
+            ->assertSee('const payload = new FormData(form);', false)
+            ->assertDontSee('MANAGEMENT STUDIO')
+            ->assertDontSee('Cloudflare R2')
             ->assertSee($movie->title);
+        $this->get('/dashboard/upload-studio')->assertRedirect(route('upload-studio.index'));
+        $this->post('/upload-studio', [])->assertSessionHasErrors(['type', 'title_id', 'video']);
     }
 
     public function test_upload_is_private_quarantined_and_does_not_grant_media_rights(): void
@@ -73,7 +82,7 @@ final class UploadStudioTest extends TestCase
         $movie = $this->movie();
         $this->actingAs($this->admin());
 
-        $this->postJson('/dashboard/upload-studio', [
+        $this->postJson('/upload-studio', [
             'type' => 'movie',
             'title_id' => $movie->id,
             'video' => $this->fakeVideo('licensed-qa.mp4'),
@@ -102,7 +111,7 @@ final class UploadStudioTest extends TestCase
     {
         Storage::fake('local');
         $this->actingAs($this->admin());
-        $this->postJson('/dashboard/upload-studio', [
+        $this->postJson('/upload-studio', [
             'type' => 'movie', 'title_id' => 99999,
             'video' => UploadedFile::fake()->create('not-video.txt', 1, 'text/plain'),
         ])->assertUnprocessable()->assertJsonValidationErrors('video');
@@ -114,7 +123,7 @@ final class UploadStudioTest extends TestCase
         Storage::fake('local');
         $movie = $this->movie();
         $this->actingAs($this->admin());
-        $this->postJson('/dashboard/upload-studio', [
+        $this->postJson('/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
             'video' => $this->fakeVideo('review.mp4'),
         ])->assertCreated();
@@ -142,7 +151,7 @@ final class UploadStudioTest extends TestCase
         $movie = $this->movie();
         $this->actingAs($this->admin());
         try {
-            $this->postJson('/dashboard/upload-studio', [
+            $this->postJson('/upload-studio', [
                 'type' => 'movie', 'title_id' => $movie->id,
                 'video' => $this->fakeVideo('approval.mp4'),
             ])->assertCreated();
@@ -189,7 +198,7 @@ final class UploadStudioTest extends TestCase
         $movie = $this->movie();
 
         try {
-            $this->postJson('/dashboard/upload-studio', [
+            $this->postJson('/upload-studio', [
                 'type' => 'movie',
                 'title_id' => $movie->id,
                 'video' => $this->fakeVideo('queued-original.mp4'),
@@ -227,7 +236,7 @@ final class UploadStudioTest extends TestCase
         Storage::fake('local');
         $movie = $this->movie();
         $this->actingAs($this->admin());
-        $this->postJson('/dashboard/upload-studio', [
+        $this->postJson('/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
             'video' => $this->fakeVideo('reject.mp4'),
         ])->assertCreated();
@@ -254,7 +263,7 @@ final class UploadStudioTest extends TestCase
 
         $movie = $this->movie();
         $this->actingAs($this->admin());
-        $this->postJson('/dashboard/upload-studio', [
+        $this->postJson('/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
             'video' => $this->fakeVideo('cloud.mp4'),
         ])->assertCreated();
