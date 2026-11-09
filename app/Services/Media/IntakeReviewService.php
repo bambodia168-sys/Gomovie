@@ -28,6 +28,12 @@ final class IntakeReviewService
             ->where('id', $ingest->ingestable_id)->first();
         abort_unless($target, 404);
 
+        $binary = (string) config('gomovie.malware_scanner_binary');
+        abort_unless(str_starts_with($binary, '/')
+            && basename($binary) === 'clamscan'
+            && is_file($binary) && is_executable($binary), 503,
+            'Malware scanner is not installed or configured. Upload remains safely quarantined.');
+
         $path = (string) $ingest->object_key;
         abort_unless($ingest->disk === 'local' &&
             preg_match('#\Aingests/[0-9]{4}/[0-9]{2}/[0-9a-f-]{36}\.(mp4|mov|mkv|webm)\z#iD', $path),
@@ -40,12 +46,6 @@ final class IntakeReviewService
             && is_file($real) && filesize($real) === (int) $ingest->size_bytes
             && hash_equals((string) $ingest->sha256, (string) hash_file('sha256', $real)),
             422, 'Private uploaded video failed integrity validation.');
-
-        $binary = (string) config('gomovie.malware_scanner_binary');
-        abort_unless(str_starts_with($binary, '/')
-            && basename($binary) === 'clamscan'
-            && is_file($binary) && is_executable($binary), 503,
-            'Malware scanner is not installed or configured. Upload remains safely quarantined.');
 
         $scan = new Process([$binary, '--no-summary', '--infected', $real]);
         $scan->setTimeout(300);
