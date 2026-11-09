@@ -246,7 +246,7 @@
 .gm-catalog-floating-menu a,.gm-catalog-floating-menu button{width:100%;display:flex;align-items:center;gap:10px;border:0;border-radius:7px;background:transparent;padding:11px 12px;font-size:12px;color:#f6f0f7;text-align:left;text-decoration:none;cursor:pointer}
 .gm-catalog-floating-menu a:hover,.gm-catalog-floating-menu button:hover,.gm-catalog-floating-menu a:focus-visible,.gm-catalog-floating-menu button:focus-visible{background:#423142}
 .gm-catalog-floating-menu [data-kind=remove]{color:#ffadb4}
-.gm-catalog-floating-menu .gm-catalog-menu-icon{width:16px;text-align:center;color:#e4bdbd}
+.gm-catalog-floating-menu .gm-catalog-menu-icon{width:17px;height:17px;flex:none;color:#e4bdbd}
 .gm-catalog-notice{position:fixed;top:20px;right:20px;z-index:1100;max-width:min(390px,calc(100vw - 40px));border:1px solid #387654;border-radius:12px;background:#112a20;padding:13px 17px;box-shadow:0 12px 38px #0008;color:#bdf1cf;font-size:12px}
 .gm-catalog-notice[hidden]{display:none}
 @media(max-width:680px){
@@ -312,10 +312,14 @@ document.addEventListener('DOMContentLoaded', function () {
   let activeTrigger = null;
   let noticeTimer = null;
   function showNotice(message) {
+    if (window.GomovieFeedback?.success) {
+      window.GomovieFeedback.success(message);
+      return;
+    }
     notice.textContent = message;
     notice.hidden = false;
     window.clearTimeout(noticeTimer);
-    noticeTimer = window.setTimeout(() => notice.hidden = true, 3000);
+    noticeTimer = window.setTimeout(() => notice.hidden = true, 5000);
   }
   function closeMenu() {
     menu.hidden = true;
@@ -323,14 +327,44 @@ document.addEventListener('DOMContentLoaded', function () {
     if (activeTrigger) activeTrigger.setAttribute('aria-expanded','false');
     activeTrigger = null;
   }
+  // Reuse semantic SVG icons in every catalog action menu. No font glyph fallbacks.
+  function iconSvg(name) {
+    const paths = {
+      edit: ['path','M4 17 17 4l3 3-13 13-4 1z'],
+      preview: ['path','M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z'],
+      trash: ['path','M4 7h16m-14 0 1 14h10l1-14M9 7V4h6v3m-5 4v6m4-6v6'],
+      copy: ['path','M8 8h12v12H8zM4 16H3V4h12v1'],
+    };
+    const namespace = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(namespace,'svg');
+    svg.setAttribute('viewBox','0 0 24 24');
+    svg.setAttribute('width','17');
+    svg.setAttribute('height','17');
+    svg.setAttribute('fill','none');
+    svg.setAttribute('stroke','currentColor');
+    svg.setAttribute('stroke-width','1.8');
+    svg.setAttribute('stroke-linecap','round');
+    svg.setAttribute('stroke-linejoin','round');
+    svg.setAttribute('aria-hidden','true');
+    const entry = paths[name] ?? paths.preview;
+    const path = document.createElementNS(namespace,entry[0]);
+    path.setAttribute('d',entry[1]);
+    svg.append(path);
+    if (name === 'preview') {
+      const circle = document.createElementNS(namespace,'circle');
+      circle.setAttribute('cx','12');
+      circle.setAttribute('cy','12');
+      circle.setAttribute('r','3');
+      svg.append(circle);
+    }
+    return svg;
+  }
   function link(label, symbol, href) {
     const el = document.createElement('a');
     el.setAttribute('role','menuitem');
     el.href = href;
-    const ico = document.createElement('span');
-    ico.className = 'gm-catalog-menu-icon';
-    ico.setAttribute('aria-hidden','true');
-    ico.textContent = symbol;
+    const ico = iconSvg(symbol);
+    ico.classList.add('gm-catalog-menu-icon');
     el.append(ico, document.createTextNode(label));
     menu.append(el);
   }
@@ -339,10 +373,8 @@ document.addEventListener('DOMContentLoaded', function () {
     el.type = 'button';
     el.setAttribute('role','menuitem');
     if (kind) el.dataset.kind = kind;
-    const ico = document.createElement('span');
-    ico.className = 'gm-catalog-menu-icon';
-    ico.setAttribute('aria-hidden','true');
-    ico.textContent = symbol;
+    const ico = iconSvg(symbol);
+    ico.classList.add('gm-catalog-menu-icon');
     el.append(ico, document.createTextNode(label));
     el.addEventListener('click', callback);
     menu.append(el);
@@ -351,10 +383,10 @@ document.addEventListener('DOMContentLoaded', function () {
     closeMenu();
     activeTrigger = trigger;
     trigger.setAttribute('aria-expanded','true');
-    link('Edit', '✎', trigger.dataset.editUrl);
-    link('Preview', '◉', trigger.dataset.previewUrl);
+    link('Edit', 'edit', trigger.dataset.editUrl);
+    link('Preview', 'preview', trigger.dataset.previewUrl);
     if (trigger.dataset.removeId) {
-      button('Remove', '×', () => {
+      button('Remove', 'trash', () => {
         const form = document.getElementById(trigger.dataset.removeId);
         if (form && window.confirm('Archive this title and remove it from the public catalog? No data will be deleted.')) {
           form.requestSubmit();
@@ -362,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function () {
         closeMenu();
       }, 'remove');
     }
-    button('Copy Link', '⧉', async () => {
+    button('Copy Link', 'copy', async () => {
       const value = trigger.dataset.copyUrl;
       try {
         if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
