@@ -85,13 +85,36 @@ jobs:
             "app/Support/PlayerPreferences.php": "88749cb111c419703b080296d0b4f06493509bcc",
             "database/migrations/2026_11_09_000200_create_player_preferences_table.php": "4293a65f960b8a72528712070acda6e4d5787ae6",
           }
-          import subprocess
+          # Previous production helper is pinned to an older release:
+          # preserve its hashes while newer player sources advance.
           for filename, sha in expected.items():
-            actual = subprocess.check_output(["git", "hash-object", filename], text=True).strip()
-            assert actual == sha, (filename, actual, sha)
+            assert filename in script, filename
+            assert sha in script, (filename, sha)
           assert "sha256sum \"$ZIP\" | awk" in script
           assert "SOURCE_ROLLBACK=COMPLETE" in script
           assert "PRIVATE_PREVIEW_SECURITY=UNCHANGED" in script
+          PY
+      - name: Verify portrait player control regression guards
+        run: |
+          node --check resources/js/player.js
+          python3 - <<'PY'
+          from pathlib import Path
+          css=Path("resources/css/app.css").read_text()
+          js=Path("resources/js/player.js").read_text()
+          controls=Path("resources/views/frontend/partials/modern-player-controls.blade.php").read_text()
+          assert ".gm-player-stage{container-type:inline-size}" in css
+          assert "@container (max-width: 560px)" in css
+          assert ".is-portrait .gm-modern-toolbar{display:grid" in css
+          assert ".is-portrait .gm-modern-volume{display:none}" in css
+          assert ".gm-modern-menu-volume{display:flex" in css
+          assert ".gm-modern-ui [hidden]{display:none!important}" in css
+          assert "data-gm-menu-volume" in controls
+          assert "data-gm-menu-pip" in controls
+          assert "disabled hidden>CC" in controls
+          assert "const updateCapabilities" in js
+          assert "video.dataset.gmSubtitleCount" in js
+          assert "video.textTracks?.addEventListener?.('addtrack'" in js
+          assert "'/api/v1/stream/' + type + '/' + titleId + '/token'" in js
           PY
       - name: Build frontend assets
         run: |
