@@ -72,6 +72,8 @@ test -f "$APP/.env" && test ! -L "$APP/.env"
 test -f "$APP/artisan"
 test -f "$APP/vendor/autoload.php" && test ! -L "$APP/vendor/autoload.php"
 test -f "$APP/storage/app/private/.gomovie-installed"
+test -f "$APP/vendor/autoload.php" && test ! -L "$APP/vendor/autoload.php"
+test -f "$APP/bootstrap/app.php" && test ! -L "$APP/bootstrap/app.php"
 test -x "$PHP"
 test -x "$MYSQLDUMP"
 for command_name in gh git curl gzip php runuser; do command -v "$command_name" >/dev/null; done
@@ -129,6 +131,7 @@ echo "GITHUB_SOURCE=VERIFIED"
 echo "========== SECURE DATABASE BACKUP (MYSQL) =========="
 APP_PATH="$APP" BACKUP_PATH="$BACKUP" "$PHP" <<'PHP'
 <?php
+require_once getenv('APP_PATH').'/vendor/autoload.php';
 require_once getenv('APP_PATH').'/vendor/autoload.php';
 $app=require getenv('APP_PATH').'/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
