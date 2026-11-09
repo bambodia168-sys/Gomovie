@@ -677,41 +677,50 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .gm-modern-player.is-idle:not(.is-keyboard) .gm-modern-center-play{pointer-events:auto}
 
 
-/* Gomovie Premium Player v1.2.1 — exclusive fullscreen SVG control.
-   Distinctive double-diagonal arrows, framed state indicator, no font or native glyph.
-   Dataset states work even where :fullscreen is not supported (Safari/iOS). */
+/* Gomovie Premium Player v1.2.2 — compact fullscreen control.
+   No nested frame: match adjacent gear and audio icons at every player width. */
 .gm-modern-player .gm-modern-fullscreen-btn{
   position:relative;
   display:grid;
   place-items:center;
-  width:44px;
-  min-width:44px;
-  height:44px;
-  border:1px solid #f79db54f;
-  border-radius:12px;
-  background:linear-gradient(145deg,#ff618212,#1e19305c);
-  color:#fef5fa;
-  isolation:isolate;
-  transition:background-color .18s,border-color .18s,box-shadow .18s,transform .18s;
+  flex:0 0 auto;
+  width:40px;
+  min-width:40px;
+  height:40px;
+  min-height:40px;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:11px;
+  background:transparent;
+  color:#f8f8fc;
+  box-shadow:none;
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease;
 }
-.gm-modern-player .gm-modern-fullscreen-btn:hover{
+.gm-modern-player .gm-modern-fullscreen-btn:hover,
+.gm-modern-player .gm-modern-fullscreen-btn[data-fullscreen-state="expanded"]{
+  background:#ffffff19;
+  border-color:#ffffff24;
   color:#fff;
-  border-color:var(--gm-player-accent,#f33060);
-  background:linear-gradient(145deg,#f3306038,#21192b);
-  box-shadow:0 0 0 2px #f3306020,0 5px 18px #0005;
+  box-shadow:none;
 }
-.gm-modern-player .gm-modern-fullscreen-btn:active{transform:scale(.96)}
+.gm-modern-player .gm-modern-fullscreen-btn:active{
+  background:#ffffff26;
+  transform:none;
+}
 .gm-modern-player .gm-modern-fullscreen-btn:focus-visible{
   outline:2px solid var(--gm-player-accent,#f33060);
-  outline-offset:3px;
+  outline-offset:2px;
 }
 .gm-modern-player .gm-modern-fullscreen-btn svg.gm-fullscreen-glyph{
   display:block;
-  width:29px!important;
-  height:29px!important;
+  flex:none;
+  width:21px!important;
+  height:21px!important;
+  max-width:21px;
+  max-height:21px;
   fill:none;
   stroke:currentColor;
-  stroke-width:1.95;
+  stroke-width:1.9;
   stroke-linecap:round;
   stroke-linejoin:round;
   overflow:visible;
@@ -725,15 +734,7 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 .gm-modern-player .gm-modern-fullscreen-btn[data-fullscreen-state="expanded"] .gm-icon-collapse{
   display:block!important;
 }
-.gm-modern-player .gm-modern-fullscreen-btn[data-fullscreen-state="expanded"]{
-  border-color:var(--gm-player-accent,#f33060);
-  background:linear-gradient(145deg,#f3306049,#321527a8);
-  color:#fff;
-}
-.gm-modern-player.is-custom-fullscreen .gm-modern-bottom{
-  z-index:12;
-}
-/* WebKit fullscreen support uses the player stage, not a native controls overlay. */
+.gm-modern-player.is-custom-fullscreen .gm-modern-bottom{z-index:12}
 .gm-player-stage:-webkit-full-screen{
   width:100vw!important;
   height:100vh!important;
@@ -744,8 +745,19 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 }
 .gm-player-stage:-webkit-full-screen .gm-modern-player{inset:0}
 .gm-player-stage:-webkit-full-screen .gm-player-live video{object-fit:contain}
+@container (max-width:560px){
+  .gm-modern-player .gm-modern-fullscreen-btn{
+    width:44px;
+    min-width:44px;
+    height:44px;
+    min-height:44px;
+  }
+}
 @media (hover:none){
-  .gm-modern-player .gm-modern-fullscreen-btn{min-width:44px;min-height:44px}
+  .gm-modern-player .gm-modern-fullscreen-btn{
+    min-width:44px;
+    min-height:44px;
+  }
 }
 @media (prefers-reduced-motion:reduce){
   .gm-modern-player .gm-modern-fullscreen-btn{transition:none}
