@@ -129,6 +129,10 @@ jobs:
           assert "video.textTracks?.addEventListener?.('addtrack'" in js
           assert "'/api/v1/stream/' + type + '/' + titleId + '/token'" in js
           PY
+      - name: Test premium fullscreen SVG control behavior
+        run: |
+          node --check resources/js/player.js
+          node --test tests/javascript/player-fullscreen.test.mjs
       - name: Verify premium player UX and protected ad integration contract
         run: |
           node --check resources/js/player.js
