@@ -10,7 +10,7 @@ if [ "$#" -ne 1 ] || { [ "$1" != "--check" ] && [ "$1" != "--apply" ]; }; then
 fi
 MODE="$1"
 REPO="bambodia168-sys/Gomovie"
-SOURCE="2f2dee2ca2ef7ea37e52a1cb43b2d457e25cd015"
+SOURCE="c7f5ae31c577b83e25f080927af99e63f6748cd3"
 APP="/www/wwwroot/gomovie.tonsamith.com"
 PHP="/www/server/php/85/bin/php"
 NEW_PARTIAL="resources/views/partials/feedback.blade.php"
@@ -44,7 +44,7 @@ new_blob() {
     resources/views/layouts/admin.blade.php) echo 49be5e487d23e79f7c91e3cb4a19b68b916e9b4e;;
     resources/views/layouts/app.blade.php) echo a1af8f5afcd6ac7a8f7bcd237ff00d334197b7dd;;
     resources/views/layouts/auth.blade.php) echo 33518588ec4eaf1cd0ed6f3baff86de3501526c0;;
-    resources/views/admin/upload-studio.blade.php) echo ac084e694581a2ee03d7e2000ae0f2ce772b6369;;
+    resources/views/admin/upload-studio.blade.php) echo dfec39a9af4b7f5812d3c090473d3322c964e614;;
     *) return 1;;
   esac
 }
