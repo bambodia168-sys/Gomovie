@@ -171,9 +171,23 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->get(route('public-hls.show', ['asset' => $asset, 'path' => '480p/segment_00000.ts']))
             ->assertOk()->assertHeader('Content-Type', 'video/mp2t');
         $this->get('/watch/movie/'.$movie->slug)->assertOk()
-            ->assertSee('data-public-hls-url=', false)->assertSee('Watch now');
+            ->assertSee('data-public-hls-url="/hls/'.$asset.'/master.m3u8"', false)
+            ->assertSee('Watch now');
         $this->assertDatabaseHas('media_ingests', ['id' => $id, 'status' => 'encoded']);
         $this->assertDatabaseHas('admin_audit_events', ['action' => 'media.auto_publication_ready']);
+
+        // A rights record with its evidence reference removed must not keep
+        // previously published media accessible, even when status remains active.
+        DB::table('content_rights')->where('licensable_type', 'movie')
+            ->where('licensable_id', $movie->id)->update(['rights_reference' => null]);
+        $this->get($manifest)->assertNotFound();
+        $this->get('/watch/movie/'.$movie->slug)->assertOk()
+            ->assertDontSee('data-public-hls-url=');
+        DB::table('content_rights')->where('licensable_type', 'movie')
+            ->where('licensable_id', $movie->id)->update([
+                'rights_reference' => 'QA-ORIGINAL-WORLDWIDE-1',
+            ]);
+        $this->get($manifest)->assertOk();
 
         Storage::disk('local')->put($prefix.'/480p/segment_00000.ts', 'TAMPERED SEGMENT');
         $this->get(route('public-hls.show', ['asset' => $asset, 'path' => '480p/segment_00000.ts']))

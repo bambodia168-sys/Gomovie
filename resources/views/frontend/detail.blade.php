@@ -20,7 +20,7 @@
         <div class="gm-player-vignette" aria-hidden="true"></div>
         @if($publicAsset)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
-               data-gomovie-player data-public-hls-url="{{ route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8']) }}"
+               data-gomovie-player data-public-hls-url="{{ route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false) }}"
                data-profile-id="0" data-modern-player
                data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
                data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"

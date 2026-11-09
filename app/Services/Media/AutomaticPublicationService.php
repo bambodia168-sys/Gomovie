@@ -34,7 +34,8 @@ final class AutomaticPublicationService
         if (!$this->publicEnabled() || !in_array($kind, ['movie', 'episode'], true) || $titleId < 1) {
             return null;
         }
-        if (!app(GlobalRights::class)->allows($kind, $titleId)) return null;
+        if (!app(GlobalRights::class)->allows($kind, $titleId)
+            || !$this->hasDocumentedRights($kind, $titleId)) return null;
         $target = $this->eligibleTitle($kind, $titleId, true);
         if (!$target) return null;
         return DB::table('media_assets as assets')
