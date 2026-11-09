@@ -422,12 +422,15 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     const fullscreen = ui.querySelector('[data-fullscreen-player]');
     const settingsButton = ui.querySelector('[data-gm-settings-toggle]');
     const settingsPanel = ui.querySelector('[data-gm-settings]');
+    // Position the popup relative to the complete player, not the small Gear
+    // button, so portrait mode cannot clip its left half.
+    if (settingsPanel) ui.appendChild(settingsPanel);
     const feedback = ui.querySelector('[data-gm-feedback]');
     const secure = root.hasAttribute('data-gomovie-player');
     const seekSeconds = [5, 10, 15, 30].includes(Number(root.dataset.seekSeconds))
         ? Number(root.dataset.seekSeconds) : 10;
-    const hideSeconds = [0, 3, 4, 5, 8].includes(Number(root.dataset.hideSeconds))
-        ? Number(root.dataset.hideSeconds) : 4;
+    const hideSeconds = [0, 1, 2].includes(Number(root.dataset.hideSeconds))
+        ? Number(root.dataset.hideSeconds) : 1;
 
     let idleTimer = null;
     let feedbackTimer = null;
@@ -778,7 +781,10 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     });
     document.addEventListener('pointerdown', event => {
         if (settingsPanel && !settingsPanel.hidden
-            && !event.target.closest('.gm-modern-settings-wrap')) closeSettings();
+            && !event.target.closest('.gm-modern-settings-wrap, [data-gm-settings]')) {
+            closeSettings();
+            scheduleIdle();
+        }
         if (volumePanel && !volumePanel.hidden
             && !event.target.closest('.gm-modern-volume-wrap')) {
             closeVolume();
@@ -792,7 +798,13 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         scheduleIdle();
     }, {passive: true});
     root.addEventListener('pointermove', scheduleIdle);
-    root.addEventListener('pointerleave', scheduleIdle);
+    root.addEventListener('pointerleave', () => {
+        if (!hideSeconds || hasKeyboardFocus() || activeAd
+            || (settingsPanel && !settingsPanel.hidden)
+            || (volumePanel && !volumePanel.hidden)) return;
+        showControls();
+        root.classList.add('is-idle');
+    });
     ui.addEventListener('keydown', event => {
         if (event.key === 'Escape' && volumePanel && !volumePanel.hidden) {
             event.preventDefault();
