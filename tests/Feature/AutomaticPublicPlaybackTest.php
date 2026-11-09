@@ -285,6 +285,9 @@ final class AutomaticPublicPlaybackTest extends TestCase
             ->assertNotFound();
         $this->get(route('public-hls.show', ['asset' => $asset, 'path' => '480p/other.ts']))
             ->assertNotFound();
+        config()->set('gomovie.automatic_publication_enabled', false);
+        $this->get(route('public-hls.show', ['asset' => $asset, 'path' => 'master.m3u8']))
+            ->assertOk();
         config()->set('gomovie.public_hls_enabled', false);
         $this->get(route('public-hls.show', ['asset' => $asset, 'path' => 'master.m3u8']))
             ->assertNotFound();

@@ -18,7 +18,7 @@ final class PublicHlsController extends Controller
      */
     public function __invoke(Request $request, int $asset, string $path, AutomaticPublicationService $auto): Response
     {
-        abort_unless($request->isMethod('GET') && $auto->enabled(), 404);
+        abort_unless($request->isMethod('GET') && $auto->publicEnabled(), 404);
         abort_unless((bool) preg_match(
             '#\A(?:master\.m3u8|[0-9]{3,4}p/(?:index\.m3u8|segment_[0-9]{5}\.ts))\z#D', $path
         ), 404);

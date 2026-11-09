@@ -21,13 +21,17 @@ final class AutomaticPublicationService
 {
     public function enabled(): bool
     {
-        return config('gomovie.automatic_publication_enabled') === true
-            && config('gomovie.public_hls_enabled') === true;
+        return config('gomovie.automatic_publication_enabled') === true && $this->publicEnabled();
+    }
+
+    public function publicEnabled(): bool
+    {
+        return config('gomovie.public_hls_enabled') === true;
     }
 
     public function readyAsset(string $kind, int $titleId): ?object
     {
-        if (!$this->enabled() || !in_array($kind, ['movie', 'episode'], true) || $titleId < 1) {
+        if (!$this->publicEnabled() || !in_array($kind, ['movie', 'episode'], true) || $titleId < 1) {
             return null;
         }
         if (!app(GlobalRights::class)->allows($kind, $titleId)) return null;
