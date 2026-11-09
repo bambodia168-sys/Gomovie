@@ -304,6 +304,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
           <div class="bottom-actions">
             <button class="btn" type="button" data-prev="4">← Back</button>
             <button class="btn" type="button" id="gm-refresh-status">Refresh status</button>
+            <button class="btn caption-item-delete" type="button" id="gm-delete-private-upload" hidden>Delete private upload</button>
             <span class="push"></span>
             <a href="{{ route('admin.media.index') }}" class="btn btn-primary">Open Media Library →</a>
           </div>
@@ -788,6 +789,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
       const data=await response.json();
       if(!response.ok || data.ok !== true)throw new Error(firstError(data,'Unable to check upload status.'));
       setUploadStatus(data.public ? 'public' : data.status);
+      el('gm-delete-private-upload').hidden = !data.can_delete;
       const watch = el('gm-public-watch');
       watch.hidden = !(data.public && data.watch_url);
       if (data.public && data.watch_url) watch.href = data.watch_url;
@@ -801,6 +803,19 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
       else clearMessage('gm-finish-feedback');
     } catch(error) {message('gm-finish-feedback',error.message,'error');}
   }
+  el('gm-delete-private-upload').addEventListener('click',async () => {
+    if (!ingestId || !window.confirm(
+        'Permanently delete this unprocessed local video and its private captions? This cannot be undone.')) return;
+    const button=el('gm-delete-private-upload');
+    button.disabled=true;
+    try {
+      await requestJson('/upload-studio/' + encodeURIComponent(ingestId),'DELETE',{});
+      window.location.assign(form.dataset.uploadBase);
+    } catch(error) {
+      message('gm-finish-feedback',error.message,'error');
+      button.disabled=false;
+    }
+  });
   el('gm-refresh-status').addEventListener('click',refreshStatus);
   if (ingestId && (resumeType === 'movie' || resumeType === 'episode')) {
     const radio=types.find(t => t.value===resumeType);if(radio)radio.checked=true;
