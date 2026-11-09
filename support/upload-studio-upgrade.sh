@@ -70,6 +70,7 @@ test "$(id -u)" = 0
 test -d "$APP" && test ! -L "$APP"
 test -f "$APP/.env" && test ! -L "$APP/.env"
 test -f "$APP/artisan"
+test -f "$APP/vendor/autoload.php" && test ! -L "$APP/vendor/autoload.php"
 test -f "$APP/storage/app/private/.gomovie-installed"
 test -x "$PHP"
 test -x "$MYSQLDUMP"
@@ -128,6 +129,7 @@ echo "GITHUB_SOURCE=VERIFIED"
 echo "========== SECURE DATABASE BACKUP (MYSQL) =========="
 APP_PATH="$APP" BACKUP_PATH="$BACKUP" "$PHP" <<'PHP'
 <?php
+require_once getenv('APP_PATH').'/vendor/autoload.php';
 $app=require getenv('APP_PATH').'/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $conn=config('database.connections.'.config('database.default'));
