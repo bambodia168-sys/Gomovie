@@ -49,19 +49,19 @@ final class UploadStudioTest extends TestCase
 
     public function test_upload_studio_requires_verified_admin_and_is_simple_to_use(): void
     {
-        $this->get('/upload-studio')->assertRedirect(route('login'));
+        $this->get('/upload-studio/advanced')->assertRedirect(route('login'));
 
         $viewer = User::factory()->create();
-        $this->actingAs($viewer)->get('/upload-studio')->assertForbidden();
+        $this->actingAs($viewer)->get('/upload-studio/advanced')->assertForbidden();
         $this->actingAs($viewer)->post('/upload-studio', [])->assertForbidden();
 
         $editor = User::factory()->create();
         $editor->forceFill(['role' => 'editor'])->save();
-        $this->actingAs($editor)->get('/upload-studio')->assertForbidden();
+        $this->actingAs($editor)->get('/upload-studio/advanced')->assertForbidden();
 
         $movie = $this->movie();
         $this->actingAs($this->admin())
-            ->get('/upload-studio')->assertOk()
+            ->get('/upload-studio/advanced')->assertOk()
             ->assertSee('Upload a video')
             ->assertSee('gm-upload-studio-form')
             ->assertSee('gm-upload-progress')
@@ -181,7 +181,7 @@ final class UploadStudioTest extends TestCase
     {
         $this->actingAs($this->admin());
         $this->movie();
-        $this->get('/upload-studio')->assertOk()
+        $this->get('/upload-studio/advanced')->assertOk()
             ->assertSee('File &amp; Ingest', false)
             ->assertSee('Details &amp; Meta', false)
             ->assertSee('Poster &amp; Assets', false)
@@ -209,7 +209,7 @@ final class UploadStudioTest extends TestCase
 
         $id = (int) DB::table('media_ingests')->value('id');
         $this->assertDatabaseHas('media_ingests', ['id'=>$id,'status'=>'quarantined']);
-        $this->get('/upload-studio?upload='.$id)->assertOk()
+        $this->get('/upload-studio/advanced?upload='.$id)->assertOk()
             ->assertSee('data-resume-id="'.$id.'"', false);
 
         $this->patchJson('/upload-studio/'.$id.'/details', [
@@ -269,7 +269,7 @@ final class UploadStudioTest extends TestCase
         ])->assertCreated();
         $id=(int) DB::table('media_ingests')->value('id');
         $other=$this->admin();
-        $this->actingAs($other)->get('/upload-studio?upload='.$id)->assertNotFound();
+        $this->actingAs($other)->get('/upload-studio/advanced?upload='.$id)->assertNotFound();
         $this->actingAs($other)->get('/upload-studio/'.$id.'/status')->assertNotFound();
         $this->actingAs($other)->patchJson('/upload-studio/'.$id.'/details',[
             'title'=>'Unauthorized change',
@@ -338,7 +338,7 @@ final class UploadStudioTest extends TestCase
             'still_path'=>'artwork/episode/qa-still.png',
         ]);
 
-        $this->actingAs($this->admin())->get('/upload-studio')->assertOk()
+        $this->actingAs($this->admin())->get('/upload-studio/advanced')->assertOk()
             ->assertSee('data-art-poster="https://image.tmdb.org/t/p/w342/qa-poster.jpg"', false)
             ->assertSee('data-art-backdrop="https://image.tmdb.org/t/p/w780/qa-backdrop.jpg"', false)
             ->assertSee('data-art-still=', false)
@@ -352,7 +352,7 @@ final class UploadStudioTest extends TestCase
         $this->actingAs($this->admin())->withSession([
             'status' => 'Video uploaded successfully. You can finish now or add optional details.',
         ]);
-        $this->get('/upload-studio')->assertOk()
+        $this->get('/upload-studio/advanced')->assertOk()
             ->assertSee('window.GomovieFeedback', false)
             ->assertSee('gm-feedback-success')
             ->assertSee('Video uploaded successfully. You can finish now or add optional details.');
