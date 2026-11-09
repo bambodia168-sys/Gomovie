@@ -3,7 +3,7 @@
 @section('content')
 <div class="mb-7 flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-3xl font-bold">Media Library</h2><p class="mt-2 text-sm text-zinc-400">Licensed artwork and private video staging. Uploading video never activates playback.</p></div>
 @if(in_array(auth()->user()->role,['admin','super_admin'],true))
-<a href="{{ route('admin.upload-studio.index') }}" class="rounded-xl bg-[#E50914] px-5 py-3 text-sm font-bold text-white hover:bg-red-600">↑ Upload a video</a>
+<a href="{{ route('upload-studio.index') }}" class="rounded-xl bg-[#E50914] px-5 py-3 text-sm font-bold text-white hover:bg-red-600">↑ Upload a video</a>
 @endif
 </div>
 <div class="grid gap-6 xl:grid-cols-2">
@@ -21,7 +21,7 @@
   <h3 class="mb-3 text-lg font-semibold">Upload Studio</h3>
   <p class="mb-5 text-sm leading-6 text-zinc-400">Upload a video in one step, view its progress and check private storage status. Security and rights review happen separately.</p>
   @if(in_array(auth()->user()->role,['admin','super_admin'],true))
-    <a href="{{ route('admin.upload-studio.index') }}" class="inline-flex rounded-xl bg-[#E50914] px-5 py-3 text-sm font-semibold text-white">Open Upload Studio →</a>
+    <a href="{{ route('upload-studio.index') }}" class="inline-flex rounded-xl bg-[#E50914] px-5 py-3 text-sm font-semibold text-white">Open Upload Studio →</a>
   @else
     <p class="text-sm text-zinc-400">Private video upload requires administrator access.</p>
   @endif
