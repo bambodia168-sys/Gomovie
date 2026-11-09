@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\UploadStudioController;
+use App\Http\Controllers\Admin\UploadStudioWorkflowController;
 use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\TmdbController;
 use App\Http\Controllers\Admin\UserController;
@@ -57,6 +58,14 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->group(function (): v
     Route::get('/upload-studio', [UploadStudioController::class, 'index'])->name('upload-studio.index');
     Route::post('/upload-studio', [UploadStudioController::class, 'upload'])
         ->middleware('throttle:12,1')->name('upload-studio.upload');
+    Route::get('/upload-studio/{ingest}/status', [UploadStudioWorkflowController::class, 'state'])
+        ->whereNumber('ingest')->name('upload-studio.status');
+    Route::patch('/upload-studio/{ingest}/details', [UploadStudioWorkflowController::class, 'details'])
+        ->middleware('throttle:20,1')->whereNumber('ingest')->name('upload-studio.details');
+    Route::post('/upload-studio/{ingest}/artwork', [UploadStudioWorkflowController::class, 'artwork'])
+        ->middleware('throttle:12,1')->whereNumber('ingest')->name('upload-studio.artwork');
+    Route::patch('/upload-studio/{ingest}/access', [UploadStudioWorkflowController::class, 'access'])
+        ->middleware('throttle:20,1')->whereNumber('ingest')->name('upload-studio.access');
 });
 
 Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')->name('admin.')->group(function (): void {
