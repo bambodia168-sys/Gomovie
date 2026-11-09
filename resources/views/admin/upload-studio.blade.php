@@ -109,7 +109,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
 <main class="workspace">
   <span class="kicker">Gomovie Studio</span>
   <h1 class="heading">Upload Studio</h1>
-  <p class="subheading">Upload first. Add details and artwork only if you need them.</p>
+  <p class="subheading">Upload a video first. Add details and artwork only if you need them.</p>
   <nav class="steps" aria-label="Upload Studio stages">
     <button type="button" class="step" data-step="1" aria-current="step"><span class="step-number">1</span>File &amp; Ingest</button>
     <button type="button" class="step" data-step="2" disabled><span class="step-number">2</span>Details &amp; Meta</button>
