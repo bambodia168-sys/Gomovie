@@ -132,7 +132,6 @@ echo "========== SECURE DATABASE BACKUP (MYSQL) =========="
 APP_PATH="$APP" BACKUP_PATH="$BACKUP" "$PHP" <<'PHP'
 <?php
 require_once getenv('APP_PATH').'/vendor/autoload.php';
-require_once getenv('APP_PATH').'/vendor/autoload.php';
 $app=require getenv('APP_PATH').'/bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $conn=config('database.connections.'.config('database.default'));
