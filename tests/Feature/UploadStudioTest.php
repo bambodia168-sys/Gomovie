@@ -127,7 +127,6 @@ final class UploadStudioTest extends TestCase
         file_put_contents($tmp.'/clamscan', "#!/bin/sh\nexit 0\n");
         chmod($tmp.'/clamscan', 0700);
 
-        Storage::fake('local');
         $movie = $this->movie();
         $this->actingAs($this->admin());
         try {
@@ -135,16 +134,8 @@ final class UploadStudioTest extends TestCase
                 'type' => 'movie', 'title_id' => $movie->id,
                 'video' => UploadedFile::fake()->create('approval.mp4', 5, 'video/mp4'),
             ])->assertCreated();
-            // The service's private-root containment check is exercised
-            // using the real local disk for approval below, not a fake path.
             $upload = DB::table('media_ingests')->first();
             $disk = Storage::disk('local');
-            $source = $disk->get($upload->object_key);
-
-            config()->set('filesystems.disks.local.root', storage_path('app/private'));
-            Storage::forgetDisk('local');
-            $disk = Storage::disk('local');
-            $disk->put($upload->object_key, $source);
             try {
                 config()->set('gomovie.malware_scanner_binary', $tmp.'/clamscan');
                 $this->post('/dashboard/upload-studio/1/approve', [
@@ -208,6 +199,9 @@ final class UploadStudioTest extends TestCase
 
         $ingest = DB::table('media_ingests')->first();
         self::assertSame('pending', $ingest->cloud_status);
+        self::assertSame((int) $ingest->size_bytes,
+            (int) Storage::disk('local')->size($ingest->object_key),
+            'Local source size must match the recorded ingest size.');
         Queue::assertPushed(MirrorPrivateIngestToR2::class, fn ($job) =>
             $job->connection === 'database_media' && $job->queue === 'gomovie-media');
         $this->assertDatabaseCount('media_assets', 0);
