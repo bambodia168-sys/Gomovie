@@ -68,6 +68,8 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->group(function (): v
         ->middleware('throttle:12,1')->name('upload-studio.upload');
     Route::get('/upload-studio/{ingest}/status', [UploadStudioWorkflowController::class, 'state'])
         ->whereNumber('ingest')->name('upload-studio.status');
+    Route::delete('/upload-studio/{ingest}', [UploadStudioWorkflowController::class, 'destroy'])
+        ->middleware('throttle:10,1')->whereNumber('ingest')->name('upload-studio.destroy');
     Route::patch('/upload-studio/{ingest}/details', [UploadStudioWorkflowController::class, 'details'])
         ->middleware('throttle:20,1')->whereNumber('ingest')->name('upload-studio.details');
     Route::post('/upload-studio/{ingest}/artwork', [UploadStudioWorkflowController::class, 'artwork'])
