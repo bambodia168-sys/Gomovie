@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\TranscodeApprovedIngest;
 use App\Models\Episode;
 use App\Models\Movie;
 use App\Services\Media\IntakeReviewService;
@@ -11,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -93,8 +95,26 @@ final class UploadStudioController extends Controller
         ]);
         $review->approve($ingest, $request->user(), $data['rights_reference'], $request->ip());
 
+        // The upload is deliberately simple. Once an administrator has
+        // approved a clean, licensed ingest and the operator has enabled
+        // the private encoding service, enqueue it automatically. Encoding
+        // NEVER creates a public video or a ready playback asset.
+        $message = 'Upload approved. Video remains private.';
+        if (config('gomovie.transcoding_enabled') === true) {
+            try {
+                app(\App\Services\Media\TranscodeGate::class)->validate($ingest);
+                TranscodeApprovedIngest::dispatch($ingest);
+                $message = 'Upload approved. Private video processing has been queued.';
+            } catch (Throwable $exception) {
+                report($exception);
+                $message = 'Upload approved, but processing could not be queued. Check System Health.';
+            }
+        } else {
+            $message = 'Upload approved. Private processing will be available after setup.';
+        }
+
         return redirect()->route('admin.upload-studio.review', $ingest)
-            ->with('status', 'Upload approved for PRIVATE processing. It is not publicly playable.');
+            ->with('status', $message);
     }
 
     public function reject(Request $request, int $ingest, IntakeReviewService $review): RedirectResponse

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\MirrorPrivateIngestToR2;
+use App\Jobs\TranscodeApprovedIngest;
 use App\Models\Movie;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -163,12 +164,59 @@ final class UploadStudioTest extends TestCase
                 $this->assertDatabaseCount('media_assets', 0);
                 self::assertFalse(config('gomovie.edge_enabled'));
                 $this->assertDatabaseHas('admin_audit_events', ['action' => 'media.intake_approved']);
+                // The kill switch remains off: approval does not queue encoding.
+                self::assertFalse(config('gomovie.transcoding_enabled'));
             } finally {
                 $disk->delete($upload->object_key);
             }
         } finally {
             @unlink($tmp.'/clamscan');
             @rmdir($tmp);
+        }
+    }
+
+
+    public function test_approved_video_queues_private_encoding_automatically_only_when_enabled(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $scannerFolder = sys_get_temp_dir().'/gomovie-clam-queue-'.Str::uuid();
+        mkdir($scannerFolder, 0700, true);
+        file_put_contents($scannerFolder.'/clamscan', "#!/bin/sh\nexit 0\n");
+        chmod($scannerFolder.'/clamscan', 0700);
+
+        $this->actingAs($this->admin());
+        $movie = $this->movie();
+
+        try {
+            $this->postJson('/dashboard/upload-studio', [
+                'type' => 'movie',
+                'title_id' => $movie->id,
+                'video' => $this->fakeVideo('queued-original.mp4'),
+            ])->assertCreated();
+            $ingest = DB::table('media_ingests')->first();
+            config()->set('gomovie.malware_scanner_binary', $scannerFolder.'/clamscan');
+            config()->set('gomovie.transcoding_enabled', true);
+
+            $this->post('/dashboard/upload-studio/'.$ingest->id.'/approve', [
+                'rights_reference' => 'TEST-PRIVATE-QA-2026',
+                'rights_confirmed' => 1,
+            ])->assertRedirect();
+
+            Queue::assertPushed(TranscodeApprovedIngest::class, fn ($job) =>
+                $job->ingestId === (int) $ingest->id
+                && $job->connection === 'database_media'
+                && $job->queue === 'gomovie-media'
+            );
+            $this->assertDatabaseHas('media_ingests', [
+                'id' => $ingest->id, 'status' => 'approved',
+            ]);
+            $this->assertDatabaseCount('media_assets', 0);
+            self::assertFalse(config('gomovie.edge_enabled'));
+        } finally {
+            @unlink($scannerFolder.'/clamscan');
+            @rmdir($scannerFolder);
         }
     }
 
