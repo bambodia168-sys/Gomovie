@@ -83,7 +83,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <a href="{{ route('admin.dashboard') }}" class="brand"><em>GO</em>MOVIE</a>
   <nav class="nav" aria-label="Upload links">
     <a href="{{ route('admin.media.index') }}">Media Library</a>
-    <a href="{{ route('upload-studio.advanced') }}">Advanced editor</a>
     <a href="{{ route('admin.dashboard') }}">Dashboard</a>
   </nav>
 </div></header>
@@ -99,7 +98,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
         <form id="quick-upload-form" method="post" enctype="multipart/form-data"
               action="{{ route('upload-studio.quick') }}" data-max="{{ $maxUploadBytes }}"
               data-status-template="{{ url('/upload-studio/__id__/status') }}"
-              data-resume="{{ $ingestId ?? '' }}">
+              data-resume="{{ $ingestId ?? '' }}" data-resume-access="{{ $resumeAccess ?? '' }}">
           @csrf
           <div class="field">
             <label class="label" for="video-title">Video title</label>
@@ -177,7 +176,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
         <div class="side-item"><b>2. Automatic processing</b><p>Gomovie checks the file and prepares streaming. You don't manage the technical steps.</p></div>
         <div class="side-item"><b>3. Watch or keep private</b><p>Free videos become public when ready; private and paid drafts stay private.</p></div>
       </div>
-      <div class="notice">Only upload videos you own or are authorized to use. You can edit details later, and permissions can be revoked. Paid checkout is not active.</div>
+      <div class="notice">Only upload videos you own or are authorized to use. You can edit details later, and permissions can be revoked. Paid checkout is not active.
+        <p style="margin:12px 0 0"><a href="{{ route('upload-studio.advanced') }}" style="text-decoration:underline">Advanced editor</a> for existing titles and optional artwork.</p>
+      </div>
     </aside>
   </div>
 </main>
@@ -195,7 +196,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   const statusTemplate=form.dataset.statusTemplate;
   const resume=Number(form.dataset.resume||0);
   let ingest=resume>0?resume:0;
-  let requestedAccess='';
+  let requestedAccess=form.dataset.resumeAccess||'';
   let timer=null;
   let xhr=null;
 
