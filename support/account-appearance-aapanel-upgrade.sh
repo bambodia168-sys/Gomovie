@@ -186,7 +186,7 @@ for rel in (tmp/'paths').read_text().splitlines():
             out.write(rel+'\n')
         continue
     print('KNOWN_SOURCE='+rel)
-print('GOMOVIE_AAPANEL_PREFLIGHT=PASS')
+print('GOMOVIE_AAPANEL_SCAN=COMPLETE')
 PY
 
 # A customized authentication page must be merged with the pinned baseline
@@ -215,9 +215,100 @@ for rev,folder in ((base,'auth-base'),(target,'auth-target')):
 PY_AUTH_HASH
     mkdir -p "$TMP/new/$(dirname "$f")"
     if ! git merge-file -p -- "$APP/$f" "$TMP/auth-base/$f" "$TMP/auth-target/$f" > "$TMP/new/$f"; then
-      echo "BLOCKED_CUSTOM_MERGE_CONFLICT=$f"
-      echo "$f" >> "$TMP/merge-conflicts"
-      continue
+      # Authentication pages often have intentionally customized form markup.
+      # Apply ONLY the target's Appearance text slots to existing live elements;
+      # never replace form markup, buttons, inputs, routes or layout attributes.
+      if [[ "$f" != resources/views/auth/*.blade.php ]]; then
+        echo "BLOCKED_CUSTOM_MERGE_CONFLICT=$f"
+        echo "$f" >> "$TMP/merge-conflicts"
+        continue
+      fi
+      echo "AUTH_MERGE_CONFLICT=TRYING_TEXT_ONLY_OVERLAY:$f"
+      if ! python3 - "$APP/$f" "$TMP/auth-target/$f" "$TMP/new/$f" <<'PY_AUTH_OVERLAY'
+import sys, pathlib, re, html
+live_path, target_path, dest_path = map(pathlib.Path, sys.argv[1:])
+original=live_path.read_text(encoding='utf-8')
+target=target_path.read_text(encoding='utf-8')
+rel=str(live_path)
+def stop(reason):
+    raise SystemExit('BLOCKED_AUTH_OVERLAY_'+reason+'='+live_path.name)
+if len(original)>1048576 or '\x00' in original:
+    stop('SIZE')
+slots=re.findall(r"StudioAppearance::text\(\s*'([^']+)'\s*,\s*'([^']+)'",target)
+slot_map={field:page for page,field in slots}
+if len(slot_map)!=len(slots) or not {'seo_title','heading','description'}<=set(slot_map):
+    stop('TARGET_SLOTS')
+if len(set(slot_map.values()))!=1:
+    stop('TARGET_PAGE_ID')
+page=next(iter(slot_map.values()))
+if not re.fullmatch('[a-z0-9-]+',page):
+    stop('PAGE_ID')
+def quote(text):
+    if '\r' in text or '\n' in text or '\x00' in text:
+        stop('MULTILINE_TEXT')
+    return "'"+text.replace('\\','\\\\').replace("'","\\'")+"'"
+section_pattern=r"(?m)^@section\(\s*(['\"])(?P<name>title|description)\1\s*,\s*(['\"])(?P<value>.*?)\3\s*\)[ \t]*$"
+def section(doc,field,may_insert):
+    matches=[m for m in re.finditer(section_pattern,doc) if m.group('name')==field]
+    if len(matches)>1:
+        stop('DUPLICATE_'+field.upper())
+    if matches:
+        m=matches[0]
+        key='seo_title' if field=='title' else 'seo_description'
+        arg=quote(html.unescape(m.group('value')))
+        replacement="@section('"+field+"',\\App\\Support\\StudioAppearance::text("+quote(page)+","+quote(key)+","+arg+"))"
+        return doc[:m.start()]+replacement+doc[m.end():]
+    if not may_insert:
+        stop('MISSING_'+field.upper())
+    if re.search(r"@section\(\s*['\"]"+re.escape(field)+r"['\"]\s*,",doc):
+        stop('DYNAMIC_'+field.upper())
+    line=next((line for line in target.splitlines() if line.startswith("@section('description',") and 'StudioAppearance::text' in line),None)
+    if line is None: stop('TARGET_DESCRIPTION')
+    mark="@section('content')"
+    if doc.count(mark)!=1: stop('CONTENT_SECTION')
+    return doc.replace(mark,line+'\n'+mark,1)
+modified=section(original,'title',False)
+if 'seo_description' in slot_map:
+    modified=section(modified,'description',True)
+def replace_content(doc,tag,css_class,field):
+    pat=re.compile(r'(<'+tag+r'\b[^>]*>)(.*?)(</'+tag+r'\s*>)',re.S|re.I)
+    found=[]
+    for m in pat.finditer(doc):
+        cls=re.search(r'\bclass\s*=\s*(["\'])(.*?)\1',m.group(1),re.S)
+        if cls and css_class in cls.group(2).split():
+            found.append(m)
+    if len(found)!=1:
+        stop('MISSING_OR_DUPLICATE_'+field.upper())
+    m=found[0]
+    inner=m.group(2)
+    if re.search(r'<|>|\{\{|\}\}|@(?:if|php|include|foreach|endif)',inner):
+        stop('COMPLEX_'+field.upper())
+    left=inner[:len(inner)-len(inner.lstrip())]
+    right=inner[len(inner.rstrip()):]
+    fallback=html.unescape(inner.strip())
+    if not fallback: stop('EMPTY_'+field.upper())
+    expression='{{ \\App\\Support\\StudioAppearance::text('+quote(page)+','+quote(field)+','+quote(fallback)+') }}'
+    new_tag=m.group(1)+left+expression+right+m.group(3)
+    return doc[:m.start()]+new_tag+doc[m.end():]
+modified=replace_content(modified,'h1','gm-auth-title','heading')
+modified=replace_content(modified,'p','gm-auth-subtitle','description')
+actual=set(re.findall(r"StudioAppearance::text\(\s*'([^']+)'\s*,\s*'([^']+)'",modified))
+if set(slots)-actual: stop('MISSING_SLOTS')
+if original.count('@csrf')!=modified.count('@csrf'): stop('CSRF_CHANGED')
+if original.count('<form')!=modified.count('<form') or original.count('</form>')!=modified.count('</form>'):
+    stop('FORM_STRUCTURE')
+if not re.search(r"@extends\(\s*['\"]layouts\.auth['\"]\s*\)",modified):
+    stop('LAYOUT')
+if re.search(r'^(<<<<<<<|=======|>>>>>>>)',modified,re.M):
+    stop('CONFLICT_MARKERS')
+dest_path.write_text(modified,encoding='utf-8')
+print('SAFE_AUTH_TEXT_ONLY_OVERLAY_READY='+live_path.name)
+PY_AUTH_OVERLAY
+      then
+        echo "BLOCKED_AUTH_OVERLAY_NEEDS_REVIEW=$f"
+        echo "$f" >> "$TMP/merge-conflicts"
+        continue
+      fi
     fi
     if ! python3 - "$TMP" "$APP" "$f" <<'PY_AUTH_VERIFY'
 import pathlib,re,sys
