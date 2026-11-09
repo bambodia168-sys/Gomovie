@@ -2,6 +2,7 @@
 # Gomovie premium player v1.2.3: remove duplicate Gear volume and retain one speaker slider.
 # Verified CI-compiled Vite assets and only three pinned player source files.
 # No migrations, database writes, uploaded media changes, or stream grants.
+# Preflight accepts the player.js blob verified in fullscreen release 390a3e3281ea1a84a413b07d3b2d2085171e085e.
 set -Eeuo pipefail
 umask 077
 
@@ -28,7 +29,7 @@ files() {
 old_blob() {
   case "$1" in
     resources/css/app.css) echo 166cb5da92f9504bec19d8c72f2a2d836f33d213;;
-    resources/js/player.js) echo 2335c85f5ed5068411e13c97bc9e93456604345f;;
+    resources/js/player.js) echo dde44b7f1284dbe8794fd1c7573606731710ea9e;;
     resources/views/frontend/partials/modern-player-controls.blade.php) echo d5bd3da4446f068b33b3f9f8ad0daa43b7a0f1e2;;
     *) return 1;;
   esac
