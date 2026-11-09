@@ -477,6 +477,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     submit.hidden = true;
     el('gm-side-resume-wrap').hidden = false;
     el('gm-side-resume').href = form.dataset.uploadBase + '?upload=' + encodeURIComponent(ingestId);
+    void refreshCaptions();
   }
   function setProgress(value) {
     el('gm-upload-progress-wrap').hidden = false;
@@ -512,6 +513,121 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     return body;
   }
   function urlFor(suffix) { return '/upload-studio/' + encodeURIComponent(ingestId) + '/' + suffix; }
+
+  // Real per-upload WebVTT CRUD. Upload once; captions are always optional.
+  const captionsPane = el('gm-caption-manager');
+  const captionList = el('gm-caption-list');
+  const captionFile = el('gm-caption-file');
+  const captionSave = el('gm-caption-upload');
+  function captionRow(item, canEdit) {
+    const row = document.createElement('div');
+    row.className = 'caption-item';
+    const lang = document.createElement('strong');
+    lang.textContent = item.language.toUpperCase();
+    const name = document.createElement('input');
+    name.className = 'control';
+    name.value = item.label;
+    name.maxLength = 80;
+    name.setAttribute('aria-label', 'Label for ' + item.language + ' captions');
+    name.disabled = !canEdit;
+    const status = document.createElement('small');
+    status.textContent = item.is_default ? 'Default' : 'Available';
+    const preview = document.createElement('a');
+    preview.className = 'btn';
+    preview.href = item.file_url;
+    preview.target = '_blank';
+    preview.rel = 'noopener noreferrer';
+    preview.textContent = 'View .vtt';
+    row.append(lang, name, status, preview);
+    if (canEdit) {
+      const rename = document.createElement('button');
+      rename.type = 'button';rename.className='btn';rename.textContent='Save label';
+      rename.addEventListener('click', async () => {
+        rename.disabled = true;
+        try {
+          await requestJson(urlFor('captions/' + item.id),'PATCH',{
+            label:name.value.trim(),is_default:Boolean(item.is_default),
+          });
+          await refreshCaptions();
+        } catch(error){message('gm-caption-feedback',error.message,'error');rename.disabled=false;}
+      });
+      const defaultButton = document.createElement('button');
+      defaultButton.type = 'button'; defaultButton.className = 'btn';
+      defaultButton.textContent = item.is_default ? 'Default ✓' : 'Make default';
+      defaultButton.disabled = Boolean(item.is_default);
+      defaultButton.addEventListener('click', async() => {
+        defaultButton.disabled=true;
+        try {
+          await requestJson(urlFor('captions/' + item.id),'PATCH',{
+            label:name.value.trim(),is_default:true,
+          });
+          await refreshCaptions();
+        } catch(error){message('gm-caption-feedback',error.message,'error');defaultButton.disabled=false;}
+      });
+      const remove = document.createElement('button');
+      remove.type='button';remove.className='btn caption-item-delete';remove.textContent='Delete';
+      remove.setAttribute('aria-label','Delete '+item.language+' captions');
+      remove.addEventListener('click', async () => {
+        if (!window.confirm('Delete this subtitle file? The uploaded video will not be deleted.')) return;
+        remove.disabled=true;
+        try {
+          await requestJson(urlFor('captions/' + item.id),'DELETE',{});
+          await refreshCaptions();
+          window.GomovieFeedback?.show('Caption deleted.','success');
+        } catch(error){message('gm-caption-feedback',error.message,'error');remove.disabled=false;}
+      });
+      row.append(rename,defaultButton,remove);
+    }
+    return row;
+  }
+  async function refreshCaptions() {
+    captionsPane.hidden = !ingestId;
+    if (!ingestId) return;
+    try {
+      const response = await fetch(urlFor('captions'),{
+        credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store',
+      });
+      const result = await response.json();
+      if (!response.ok || result.ok !== true) throw new Error(firstError(result,'Captions unavailable.'));
+      captionList.replaceChildren();
+      if (!result.captions.length) {
+        const empty = document.createElement('small');
+        empty.textContent = 'No captions uploaded yet.';
+        captionList.append(empty);
+      } else result.captions.forEach(item => captionList.append(captionRow(item,result.can_edit)));
+      captionSave.disabled = !result.can_edit;
+      captionFile.disabled = !result.can_edit;
+      el('gm-caption-language').disabled = !result.can_edit;
+      el('gm-caption-label').disabled = !result.can_edit;
+      el('gm-caption-default').disabled = !result.can_edit;
+      clearMessage('gm-caption-feedback');
+    } catch(error) {
+      message('gm-caption-feedback',error.message,'error');
+    }
+  }
+  captionSave.addEventListener('click',async() => {
+    if (!ingestId) return;
+    const file=captionFile.files?.[0];
+    if (!file || !/\.vtt$/i.test(file.name) || file.size < 11 || file.size > 262144)
+      return message('gm-caption-feedback','Choose a valid .vtt subtitle file up to 256 KB.','error');
+    const payload = new FormData();
+    payload.append('language',el('gm-caption-language').value);
+    payload.append('label',el('gm-caption-label').value.trim());
+    payload.append('is_default',el('gm-caption-default').checked ? '1' : '0');
+    payload.append('caption',file);
+    captionSave.disabled=true;
+    try {
+      const data = await requestJson(urlFor('captions'),'POST',payload,true);
+      captionFile.value='';
+      await refreshCaptions();
+      message('gm-caption-feedback',data.message,'ok');
+    } catch(error) {
+      message('gm-caption-feedback',error.message,'error');
+      captionSave.disabled=false;
+    }
+  });
+  el('gm-caption-refresh').addEventListener('click',() => void refreshCaptions());
+
 
   types.forEach(type => type.addEventListener('change',() => {
     if (ingestId) return;
