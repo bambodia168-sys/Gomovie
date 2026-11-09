@@ -38,6 +38,8 @@ jobs:
         run: bash -n support/watch-page-upgrade.sh
       - name: Syntax check selective aaPanel Upload Studio updater
         run: bash -n support/upload-studio-upgrade.sh
+      - name: Syntax check selective Studio feedback and artwork upgrade
+        run: bash -n support/studio-feedback-artwork-upgrade.sh
       - name: Syntax check read-only Upload Studio live audit
         run: |
           bash -n support/upload-studio-live-audit.sh

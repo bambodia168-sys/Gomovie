@@ -10,7 +10,7 @@ if [ "$#" -ne 1 ] || { [ "$1" != "--check" ] && [ "$1" != "--apply" ]; }; then
 fi
 MODE="$1"
 REPO="bambodia168-sys/Gomovie"
-SOURCE="6fbd6a9b7ca9138a380266aa9abcba4d9160f3f0"
+SOURCE="2f2dee2ca2ef7ea37e52a1cb43b2d457e25cd015"
 APP="/www/wwwroot/gomovie.tonsamith.com"
 PHP="/www/server/php/85/bin/php"
 NEW_PARTIAL="resources/views/partials/feedback.blade.php"
@@ -18,6 +18,7 @@ NEW_PARTIAL="resources/views/partials/feedback.blade.php"
 files() {
   printf '%s\n' \
     resources/views/partials/feedback.blade.php \
+    app/Http/Controllers/Admin/UploadStudioController.php \
     resources/views/layouts/admin.blade.php \
     resources/views/layouts/app.blade.php \
     resources/views/layouts/auth.blade.php \
@@ -27,6 +28,7 @@ files() {
 old_blob() {
   case "$1" in
     resources/views/partials/feedback.blade.php) echo NEW;;
+    app/Http/Controllers/Admin/UploadStudioController.php) echo 9b702c7e2a5bed3a2c156745c5583b92e86c7767;;
     resources/views/layouts/admin.blade.php) echo 23ed146c494703d71e993e6bc39cbd1a94059577;;
     resources/views/layouts/app.blade.php) echo 686241416399ff90fba3baaff3aa6312e6cea5f3;;
     resources/views/layouts/auth.blade.php) echo 724f61b452739b4a952b7113435e210a9fbccb34;;
@@ -38,6 +40,7 @@ old_blob() {
 new_blob() {
   case "$1" in
     resources/views/partials/feedback.blade.php) echo 1753be3765dcd3f95060506747670451aa1d1435;;
+    app/Http/Controllers/Admin/UploadStudioController.php) echo d7ad7165e6ca85e76000fb9382a7aae90d67e5e3;;
     resources/views/layouts/admin.blade.php) echo 49be5e487d23e79f7c91e3cb4a19b68b916e9b4e;;
     resources/views/layouts/app.blade.php) echo a1af8f5afcd6ac7a8f7bcd237ff00d334197b7dd;;
     resources/views/layouts/auth.blade.php) echo 33518588ec4eaf1cd0ed6f3baff86de3501526c0;;
@@ -96,6 +99,7 @@ while IFS= read -r relative; do
   gh api -H "Accept: application/vnd.github.raw+json" \
     "repos/$REPO/contents/$relative?ref=$SOURCE" > "$BACKUP/release/$relative"
   test "$(git hash-object "$BACKUP/release/$relative")" = "$(new_blob "$relative")"
+  case "$relative" in *.php) "$PHP" -l "$BACKUP/release/$relative" >/dev/null;; esac
 done < <(files)
 echo "SOURCE_BLOBS=VERIFIED"
 
@@ -104,7 +108,7 @@ COMPLETE=0
 rollback() {
   if [ "$CHANGED" -eq 1 ] && [ "$COMPLETE" -eq 0 ]; then
     set +e
-    echo "========== RESTORE ALL ORIGINAL BLADE FILES =========="
+    echo "========== RESTORE ORIGINAL APPLICATION FILES =========="
     while IFS= read -r relative; do
       if [ -f "$BACKUP/original/$relative" ]; then
         cp -p "$BACKUP/original/$relative" "$APP/$relative"
@@ -113,12 +117,12 @@ rollback() {
       fi
     done < <(files)
     ( cd "$APP" && runuser -u www -- "$PHP" artisan view:clear ) >/dev/null 2>&1
-    echo "BLADE_ROLLBACK=COMPLETE"
+    echo "SOURCE_ROLLBACK=COMPLETE"
   fi
 }
 trap rollback EXIT
 
-echo "========== INSTALL ONLY FIVE BLADE FILES =========="
+echo "========== INSTALL ONLY SIX SELECTIVE SOURCE FILES =========="
 CHANGED=1
 while IFS= read -r relative; do
   install -o root -g www -m 0644 "$BACKUP/release/$relative" "$APP/$relative"
