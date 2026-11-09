@@ -117,6 +117,7 @@ final class AppearanceStudioTest extends TestCase
     {
         $this->actingAs($this->user('super_admin'));
         Movie::create(['title'=>'Dashboard Test Movie','slug'=>'dashboard-test-movie','status'=>'draft']);
+        User::factory()->create(['name'=>'Editable Account']);
         $this->get('/dashboard')->assertOk()->assertSee('gm-studio-sidebar')
             ->assertSee('gm-studio-pager')->assertSee('Appearance');
         $this->get('/dashboard/users')->assertOk()
