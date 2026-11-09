@@ -171,18 +171,20 @@ for rel in (tmp/'paths').read_text().splitlines():
     blob=hashlib.sha1(('blob '+str(len(raw))+'\x00').encode()+raw).hexdigest()
     allowed={d.get(rel) for d in trees}
     if blob not in allowed:
-        if rel.startswith('resources/views/auth/') and rel.endswith('.blade.php'):
+        if (rel.startswith('resources/views/auth/') or rel.startswith('resources/views/frontend/')) and rel.endswith('.blade.php'):
             if len(raw)>1048576 or b'\x00' in raw:
                 raise SystemExit('BLOCKED_CUSTOM_AUTH_NOT_TEXT='+rel)
             try: raw.decode('utf-8')
             except UnicodeDecodeError: raise SystemExit('BLOCKED_CUSTOM_AUTH_NOT_UTF8='+rel)
             with (tmp/'custom-auth-merges').open('a') as f_list:
                 f_list.write(rel+'\n')
-            print('CUSTOM_AUTH_REQUIRES_SAFE_MERGE='+rel)
+            print('CUSTOM_VIEW_REQUIRES_SAFE_MERGE='+rel)
             continue
         print('BLOCKED_CUSTOM_FILE='+rel)
         print('CURRENT_BLOB='+blob)
-        raise SystemExit(1)
+        with (tmp/'unsupported-custom').open('a') as out:
+            out.write(rel+'\n')
+        continue
     print('KNOWN_SOURCE='+rel)
 print('GOMOVIE_AAPANEL_PREFLIGHT=PASS')
 PY
@@ -191,7 +193,7 @@ PY
 # and target without discarding local changes. The merge is prepared entirely
 # in the private temporary directory, including during --check.
 if [ -s "$TMP/custom-auth-merges" ]; then
-  echo "========== VERIFY AND PREPARE CUSTOM AUTHENTICATION MERGES =========="
+  echo "========== VERIFY AND PREPARE CUSTOM VIEW MERGES =========="
   while IFS= read -r f; do
     for rev in "$BASE" "$SOURCE"; do
       if [ "$rev" = "$BASE" ]; then dest="$TMP/auth-base/$f"; else dest="$TMP/auth-target/$f"; fi
@@ -213,21 +215,23 @@ for rev,folder in ((base,'auth-base'),(target,'auth-target')):
 PY_AUTH_HASH
     mkdir -p "$TMP/new/$(dirname "$f")"
     if ! git merge-file -p -- "$APP/$f" "$TMP/auth-base/$f" "$TMP/auth-target/$f" > "$TMP/new/$f"; then
-      echo "BLOCKED_AUTH_MERGE_CONFLICT=$f"
-      echo "AUTH_MERGE_ACTION=Inspect live changes; no production files modified"
-      exit 1
+      echo "BLOCKED_CUSTOM_MERGE_CONFLICT=$f"
+      echo "$f" >> "$TMP/merge-conflicts"
+      continue
     fi
-    python3 - "$TMP" "$f" <<'PY_AUTH_VERIFY'
+    if ! python3 - "$TMP" "$APP" "$f" <<'PY_AUTH_VERIFY'
 import pathlib,re,sys
-tmp=pathlib.Path(sys.argv[1]); rel=sys.argv[2]
+tmp=pathlib.Path(sys.argv[1]); app=pathlib.Path(sys.argv[2]); rel=sys.argv[3]
 merged=(tmp/'new'/rel).read_text(encoding='utf8')
 target=(tmp/'auth-target'/rel).read_text(encoding='utf8')
+original=(app/rel).read_text(encoding='utf8')
 if not merged or len(merged)>1048576:
     raise SystemExit('BLOCKED_AUTH_MERGE_SIZE='+rel)
 if re.search(r'^(<<<<<<< |=======|>>>>>>> )',merged,re.M):
     raise SystemExit('BLOCKED_AUTH_MERGE_MARKERS='+rel)
-if not re.search(r"@extends\s*\(\s*['\"]layouts\.auth['\"]",merged):
-    raise SystemExit('BLOCKED_AUTH_MERGE_LAYOUT='+rel)
+layout='layouts.app' if rel.startswith('resources/views/frontend/') else 'layouts.auth'
+if not re.search(r"@extends\s*\(\s*['\"]"+re.escape(layout)+r"['\"]",merged):
+    raise SystemExit('BLOCKED_VIEW_MERGE_LAYOUT='+rel)
 if not re.search(r"@section\s*\(\s*['\"]content['\"]",merged):
     raise SystemExit('BLOCKED_AUTH_MERGE_CONTENT='+rel)
 slots=lambda txt:set(re.findall(r"StudioAppearance::text\(\s*'([^']+)'\s*,\s*'([^']+)'",txt))
@@ -238,10 +242,48 @@ if required-slots(merged):
     raise SystemExit('BLOCKED_AUTH_MERGE_MISSING_APPEARANCE_SLOTS='+rel)
 if target.count('@csrf')>merged.count('@csrf'):
     raise SystemExit('BLOCKED_AUTH_MERGE_CSRF='+rel)
-print('SAFE_AUTH_MERGE_READY='+rel)
+if rel.startswith('resources/views/frontend/'):
+    # The release may update text and URLs, but must not change HTML
+    # element structure, CSS classes, IDs, or interactive data attributes.
+    def tag_signature(text):
+        return re.findall(r'<\s*/?\s*[A-Za-z][A-Za-z0-9:-]*\b',text)
+    def class_signature(text):
+        return re.findall(r'\bclass="[^"]*"',text)
+    def id_signature(text):
+        return re.findall(r'\bid="[^"]*"',text)
+    def hook_signature(text):
+        return re.findall(r'\bdata-[a-zA-Z0-9-]+',text)
+    for label,signature in (
+        ('TAGS',tag_signature),('CLASSES',class_signature),
+        ('IDS',id_signature),('DATA_HOOKS',hook_signature)
+    ):
+        if signature(original)!=signature(merged):
+            raise SystemExit('BLOCKED_FRONTEND_STRUCTURE_'+label+'='+rel)
+print('SAFE_CUSTOM_VIEW_MERGE_READY='+rel)
 PY_AUTH_VERIFY
+    then
+      echo "$f" >> "$TMP/merge-conflicts"
+      continue
+    fi
   done < "$TMP/custom-auth-merges"
 fi
+
+if [ -s "$TMP/unsupported-custom" ] || [ -s "$TMP/merge-conflicts" ]; then
+  echo "========== ALL DEPLOYMENT CONFLICTS =========="
+  if [ -s "$TMP/unsupported-custom" ]; then
+    echo "UNSUPPORTED_FILES:"
+    cat "$TMP/unsupported-custom"
+  fi
+  if [ -s "$TMP/merge-conflicts" ]; then
+    echo "MERGE_CONFLICTS_OR_STRUCTURE_CHANGES:"
+    cat "$TMP/merge-conflicts"
+  fi
+  echo "PREFLIGHT=BLOCKED"
+  echo "LIVE_FILES_CHANGED=NO"
+  echo "DATABASE_CHANGED=NO"
+  exit 1
+fi
+echo "GOMOVIE_AAPANEL_PREFLIGHT=PASS"
 
 if [ "$MODE" = "--check" ]; then
   echo "LIVE_FILES_CHANGED=NO"
