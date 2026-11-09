@@ -1,8 +1,22 @@
 @extends('layouts.admin')
 @section('title', $title ? 'Edit title' : 'New title')
 @section('content')
-<div class="mb-7 flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-3xl font-bold">{{ $title ? 'Edit' : 'Create' }} {{ $type === 'movies' ? 'movie' : 'series' }}</h2><p class="mt-2 text-sm text-zinc-400">Write and publish catalog metadata. Playback remains subject to verified distribution rights.</p></div>
-<a href="{{ route('admin.catalog.index',$type) }}" class="text-sm text-[#F5C518]">← All {{ $type }}</a></div>
+<div class="gm-page-heading">
+<div><p class="text-xs uppercase tracking-widest text-amber-300">Catalog / {{ ucfirst($type) }}</p><h2>{{ $title ? 'Edit' : 'Create' }} {{ $type === 'movies' ? 'movie' : 'series' }}</h2><p>Write and publish catalog metadata. Playback remains subject to verified distribution rights.</p></div>
+<div class="gm-page-actions">
+<a href="{{ route('admin.catalog.index',$type) }}" class="gm-studio-button">@include('partials.studio-icon',['name'=>'grid']) All {{ $type }}</a>
+@if($title)
+  @if($type==='series')<a href="{{ route('admin.seasons.index',$title) }}" class="gm-studio-button">@include('partials.studio-icon',['name'=>'series']) Seasons & episodes</a>@endif
+  <a href="{{ route('admin.media.index') }}" class="gm-studio-button">@include('partials.studio-icon',['name'=>'media']) Media Library</a>
+  @if($title->status==='published')<a href="{{ route('watch.show',[$type==='movies'?'movie':'series',$title->slug]) }}" class="gm-studio-button" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) View page</a>@endif
+@endif
+<button type="submit" form="title-form" class="gm-studio-button is-primary">@include('partials.studio-icon',['name'=>'check']) {{ $title ? 'Save changes' : 'Create title' }}</button>
+@if($title && in_array(auth()->user()->role,['admin','super_admin'],true) && $title->status==='draft')
+  <form method="POST" action="{{ route('admin.catalog.destroy',[$type,$title->id]) }}">@csrf @method('DELETE')
+    <button class="gm-studio-button is-danger" type="submit" data-studio-confirm="Delete this draft permanently?">@include('partials.studio-icon',['name'=>'trash']) Delete draft</button>
+  </form>
+@endif
+</div></div>
 <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
 <form id="title-form" action="{{ $title ? route('admin.catalog.update',[$type,$title->id]) : route('admin.catalog.store',$type) }}" method="POST" class="min-w-0 space-y-6">
 @csrf @if($title) @method('PUT') @endif
@@ -61,19 +75,9 @@
     <div><label for="is_premium" class="mb-2 block text-sm text-zinc-300">Visibility tier</label><select id="is_premium" name="is_premium" form="title-form" class="w-full rounded-xl border border-white/15 bg-zinc-950 px-4 py-3">
       <option value="1" @selected((string)old('is_premium',(int)($title?->is_premium ?? true))==='1')>Premium</option>
       <option value="0" @selected((string)old('is_premium',(int)($title?->is_premium ?? true))==='0')>Free</option></select></div>
-    <button type="submit" form="title-form" class="w-full rounded-xl bg-[#E50914] px-4 py-3 font-semibold hover:bg-red-700">{{ $title ? 'Save changes' : 'Create title' }}</button>
     <p class="text-xs leading-5 text-zinc-500">Published catalog metadata does not grant stream access. Distribution rights and media assets are checked separately.</p>
   </section>
-  @if($title)
-    @if($type==='series')<a href="{{ route('admin.seasons.index',$title) }}" class="block rounded-xl border border-white/20 p-4 text-center text-sm font-semibold hover:bg-white/5">Manage seasons & episodes</a>@endif
-    <a href="{{ route('admin.media.index') }}" class="block rounded-xl border border-[#F5C518]/30 p-4 text-center text-sm font-medium text-[#F5C518] hover:bg-white/5">Open Media Library</a>
-    @if($title->status==='published')<a href="{{ route('watch.show',[$type === 'movies' ? 'movie' : 'series',$title->slug]) }}" class="block text-center text-sm text-[#F5C518]">View published page</a>@endif
-    @if(in_array(auth()->user()->role,['admin','super_admin'],true) && $title->status === 'draft')
-      <form method="POST" action="{{ route('admin.catalog.destroy',[$type,$title->id]) }}" onsubmit="return confirm('Delete this draft permanently?');">@csrf @method('DELETE')
-        <button type="submit" class="w-full rounded-xl border border-red-600/40 p-3 text-sm text-red-300 hover:bg-red-950/30">Delete draft</button>
-      </form>
-    @endif
-  @endif
+
 </aside>
 </div>
 @endsection
