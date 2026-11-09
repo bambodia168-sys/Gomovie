@@ -233,12 +233,23 @@ class BrowseController extends Controller
             }
         }
 
+        $privatePreviewCaptions = collect();
+        if ($privatePreviewIngest && !$playerEnabled && !$publicAsset
+            && \Illuminate\Support\Facades\Schema::hasTable('media_ingest_captions')) {
+            // Return only subtitle metadata for a privately authorized preview.
+            // The file route independently rechecks ownership, hash and status.
+            $privatePreviewCaptions = DB::table('media_ingest_captions')
+                ->where('media_ingest_id', $privatePreviewIngest->id)
+                ->orderByDesc('is_default')->orderBy('language')
+                ->get(['id', 'language', 'label', 'is_default']);
+        }
+
         $playerPreferences = \App\Support\PlayerPreferences::current();
 
         return view('frontend.detail', compact(
             'title','type','displayMode','seasons','selectedEpisode','previousEpisode',
             'nextEpisode','related','autoNext','playerEnabled','profileId',
-            'isWatchlisted','viewerAuthorized','privatePreviewIngest','playerPreferences','publicAsset','publicWatchId'
+            'isWatchlisted','viewerAuthorized','privatePreviewIngest','privatePreviewCaptions','playerPreferences','publicAsset','publicWatchId'
         ));
     }
 
