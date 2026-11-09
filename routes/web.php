@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\PrivateIngestPreviewController;
 use App\Http\Controllers\Admin\UploadStudioController;
 use App\Http\Controllers\Admin\UploadStudioWorkflowController;
+use App\Http\Controllers\Admin\UploadCaptionController;
 use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\PlayerSettingsController;
 use App\Http\Controllers\Admin\TmdbController;
@@ -71,6 +72,18 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->group(function (): v
         ->middleware('throttle:20,1')->whereNumber('ingest')->name('upload-studio.details');
     Route::post('/upload-studio/{ingest}/artwork', [UploadStudioWorkflowController::class, 'artwork'])
         ->middleware('throttle:12,1')->whereNumber('ingest')->name('upload-studio.artwork');
+    // Caption management is limited to the uploader's own private ingest;
+    // there is no unauthenticated subtitle or source-media route.
+    Route::get('/upload-studio/{ingest}/captions', [UploadCaptionController::class, 'index'])
+        ->whereNumber('ingest')->name('upload-studio.captions.index');
+    Route::post('/upload-studio/{ingest}/captions', [UploadCaptionController::class, 'store'])
+        ->middleware('throttle:12,1')->whereNumber('ingest')->name('upload-studio.captions.store');
+    Route::patch('/upload-studio/{ingest}/captions/{caption}', [UploadCaptionController::class, 'update'])
+        ->middleware('throttle:20,1')->whereNumber('ingest')->whereNumber('caption')->name('upload-studio.captions.update');
+    Route::delete('/upload-studio/{ingest}/captions/{caption}', [UploadCaptionController::class, 'destroy'])
+        ->middleware('throttle:20,1')->whereNumber('ingest')->whereNumber('caption')->name('upload-studio.captions.destroy');
+    Route::get('/upload-studio/{ingest}/captions/{caption}/file', [UploadCaptionController::class, 'file'])
+        ->middleware('throttle:120,1')->whereNumber('ingest')->whereNumber('caption')->name('upload-studio.captions.file');
     Route::patch('/upload-studio/{ingest}/access', [UploadStudioWorkflowController::class, 'access'])
         ->middleware('throttle:20,1')->whereNumber('ingest')->name('upload-studio.access');
 });
