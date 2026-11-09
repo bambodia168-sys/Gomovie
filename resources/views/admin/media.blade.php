@@ -19,7 +19,7 @@
 </section>
 <section class="rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
   <h3 class="mb-3 text-lg font-semibold">Upload Studio</h3>
-  <p class="mb-5 text-sm leading-6 text-zinc-400">Upload a video in one step, view its progress and check private storage status. Security and rights review happen separately.</p>
+  <p class="mb-5 text-sm leading-6 text-zinc-400">Choose a movie or TV episode, select a video, and upload. Your file is saved privately.</p>
   @if(in_array(auth()->user()->role,['admin','super_admin'],true))
     <a href="{{ route('upload-studio.index') }}" class="inline-flex rounded-xl bg-[#E50914] px-5 py-3 text-sm font-semibold text-white">Open Upload Studio →</a>
   @else
@@ -28,11 +28,29 @@
 </section>
 </div>
 <section class="mt-7 rounded-2xl border border-white/10 bg-zinc-900/60">
-  <div class="border-b border-white/10 px-6 py-5"><h3 class="font-semibold">Video quarantine register</h3></div>
-  <div class="overflow-x-auto"><table class="w-full min-w-[640px] text-left text-sm"><thead class="text-xs uppercase text-zinc-500"><tr><th class="p-5">File</th><th class="p-5">Uploader</th><th class="p-5">Size</th><th class="p-5">Status</th><th class="p-5">Review</th><th class="p-5">Private staging</th><th class="p-5">Action</th></tr></thead>
-    <tbody class="divide-y divide-white/10">@forelse($assets as $asset)<tr><td class="p-5">{{ $asset->original_name }}</td><td class="p-5 text-zinc-400">{{ $asset->uploader }}</td><td class="p-5 text-zinc-400">{{ number_format($asset->size_bytes / 1048576, 1) }} MB</td><td class="p-5 text-[#F5C518]">{{ $asset->status }}</td><td class="p-5 text-xs text-zinc-400">{{ $asset->review_status ?? 'Not reviewed' }}</td><td class="p-5 text-xs text-zinc-400">{{ $asset->staging_status ?? 'Not staged' }}</td><td class="p-5 text-xs">@if(in_array(auth()->user()->role,['admin','super_admin'],true))<a class="font-semibold text-rose-300 hover:underline" href="{{ route('admin.upload-studio.review', $asset->id) }}">Manage →</a>@else<span class="text-zinc-500">—</span>@endif</td></tr>@empty<tr><td colspan="7" class="p-7 text-center text-zinc-500">No video uploads yet.</td></tr>@endforelse</tbody>
-  </table></div>
-</section><div class="mt-6">{{ $assets->links() }}</div>
+  <div class="border-b border-white/10 px-6 py-5"><h3 class="font-semibold">Uploaded videos</h3></div>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[580px] text-left text-sm">
+      <thead class="text-xs uppercase text-zinc-500">
+        <tr><th class="p-5">Video</th><th class="p-5">Uploaded by</th><th class="p-5">Size</th><th class="p-5">Status</th><th class="p-5">Uploaded</th></tr>
+      </thead>
+      <tbody class="divide-y divide-white/10">
+        @forelse($assets as $asset)
+          <tr>
+            <td class="p-5 font-semibold break-words">{{ $asset->original_name }}</td>
+            <td class="p-5 text-zinc-400">{{ $asset->uploader }}</td>
+            <td class="p-5 text-zinc-400">{{ number_format($asset->size_bytes / 1048576, 1) }} MB</td>
+            <td class="p-5 text-zinc-300">{{ $asset->status === 'quarantined' ? 'Saved privately' : ucfirst($asset->status) }}</td>
+            <td class="p-5 text-zinc-400">{{ $asset->created_at }}</td>
+          </tr>
+        @empty
+          <tr><td colspan="5" class="p-7 text-center text-zinc-500">No uploaded videos yet.</td></tr>
+        @endforelse
+      </tbody>
+    </table>
+  </div>
+</section>
+<div class="mt-6">{{ $assets->links() }}</div>
 <section class="mt-7 rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
   <h3 class="font-semibold">Import TMDB metadata as a draft</h3>
   <p class="mt-2 text-xs text-zinc-400">Requires a configured API token. Metadata is not evidence of distribution rights.</p>
