@@ -14,7 +14,7 @@ MODE="$1"
 SRC="$2"
 APP="/www/wwwroot/gomovie.tonsamith.com"
 PHP="/www/server/php/85/bin/php"
-EXPECTED_PHP_BLOB="3a136f71d212047a3a38fa64adf55952369a82e2"
+EXPECTED_PHP_BLOB="ab3e259f70308e699d7df43c33a9f85eb29c4f0e"
 UNIT="gomovie-media-worker.service"
 
 echo "========== GOMOVIE REAL AUTOMATIC PUBLICATION ACCEPTANCE =========="
@@ -137,6 +137,8 @@ cleanup() {
     echo "PUBLICATION_ACTIVATED_GLOBALLY=NO"
     echo "EXISTING_PRODUCTION_VIDEOS=UNCHANGED"
     echo "SYSTEMD_WORKER=UNCHANGED"
+  else
+    echo "GOMOVIE_REAL_AUTO_PUBLIC_ACCEPTANCE=FAILED"
   fi
   exit "$result"
 }
@@ -145,9 +147,15 @@ trap cleanup EXIT
 echo "========== CREATE ORIGINAL MP4, TEST TITLE AND DOCUMENTED QA RIGHTS =========="
 (
   cd "$APP"
-  runuser -u www -- "$PHP" "$QA/acceptance.php" check "$QA"
-  runuser -u www -- "$PHP" "$QA/acceptance.php" setup "$QA"
-)
+  if ! runuser -u www -- "$PHP" "$QA/acceptance.php" check "$QA"; then
+    echo "QA_APP_PREFLIGHT=FAILED"
+    exit 65
+  fi
+  if ! runuser -u www -- "$PHP" "$QA/acceptance.php" setup "$QA"; then
+    echo "QA_UPLOAD_SETUP=FAILED"
+    exit 66
+  fi
+) || exit 67
 
 echo "========== IDENTIFY UNIQUE QA QUEUE =========="
 QUEUE="$(cd "$APP" && runuser -u www -- "$PHP" "$QA/acceptance.php" queue "$QA")"
@@ -162,24 +170,30 @@ echo "========== RUN REAL AUTOMATIC-PUBLICATION QUEUE JOB =========="
   cd "$APP"
   # Normal production worker consumes only gomovie-media. This one-off worker
   # consumes only the QA job and receives flags solely as process environment.
-  timeout --signal=TERM --kill-after=10s 220s \
+  if ! timeout --signal=TERM --kill-after=10s 220s \
     runuser -u www -- env \
       GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED=true \
       GOMOVIE_PUBLIC_HLS_ENABLED=true \
       GOMOVIE_TRANSCODING_ENABLED=true \
       "$PHP" artisan queue:work database_media \
-        --queue="$QUEUE" --once --tries=1 --timeout=180 --sleep=0 --no-interaction
-)
+        --queue="$QUEUE" --once --tries=1 --timeout=180 --sleep=0 --no-interaction; then
+    echo "QA_ISOLATED_QUEUE_WORKER=FAILED"
+    exit 68
+  fi
+) || exit 69
 
 echo "========== VERIFY REAL SCAN, HLS, GUEST ROUTE AND RIGHTS REVOCATION =========="
 (
   cd "$APP"
-  runuser -u www -- env \
+  if ! runuser -u www -- env \
     GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED=true \
     GOMOVIE_PUBLIC_HLS_ENABLED=true \
     GOMOVIE_TRANSCODING_ENABLED=true \
-    "$PHP" "$QA/acceptance.php" verify "$QA"
-)
+    "$PHP" "$QA/acceptance.php" verify "$QA"; then
+    echo "QA_AUTOMATIC_PUBLICATION_VERIFICATION=FAILED"
+    exit 70
+  fi
+) || exit 71
 
 echo "========== RECHECK GLOBAL CONFIG AND PRODUCTION WORKER =========="
 systemctl is-active --quiet "$UNIT"
