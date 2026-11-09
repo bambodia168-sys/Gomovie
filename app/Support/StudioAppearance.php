@@ -17,17 +17,12 @@ final class StudioAppearance
         'forgot-password' => ['label'=>'Password recovery','route'=>'password.request','eyebrow'=>null,'heading'=>'Reset password','description'=>''],
     ];
 
-    private static array $pages = [];
-    private static ?object $typography = null;
-    private static bool $typographyConfigured = false;
-
     public static function page(string $slug): ?object
     {
-        if (!array_key_exists($slug, self::$pages)) {
-            self::$pages[$slug] = Schema::hasTable('studio_pages')
-                ? DB::table('studio_pages')->where('slug', $slug)->first() : null;
-        }
-        return self::$pages[$slug];
+        // Read the authoritative row for each request. In long-lived workers,
+        // PHP static properties could otherwise show stale edits or deleted pages.
+        return Schema::hasTable('studio_pages')
+            ? DB::table('studio_pages')->where('slug', $slug)->first() : null;
     }
 
     public static function text(string $page, string $field, ?string $fallback = null): string
@@ -45,22 +40,18 @@ final class StudioAppearance
 
     public static function typography(): object
     {
-        if (self::$typography === null) {
-            $saved = Schema::hasTable('studio_typography')
-                ? DB::table('studio_typography')->where('id', 1)->first() : null;
-            self::$typographyConfigured = $saved !== null;
-            self::$typography = $saved
-                ?? (object) ['family'=>'Instrument Sans','base_size'=>16,'heading_scale'=>100,'weight'=>600,'custom_font_key'=>null];
-        }
-        return self::$typography;
+        return (Schema::hasTable('studio_typography')
+            ? DB::table('studio_typography')->where('id', 1)->first() : null)
+            ?? (object) ['family'=>'Instrument Sans','base_size'=>16,'heading_scale'=>100,'weight'=>600,'custom_font_key'=>null];
     }
 
     public static function css(): string
     {
         $data = self::typography();
-        // Never change the existing public visual design until the site owner
-        // explicitly saves a typography override.
-        if (!self::$typographyConfigured) return '';
+        // Never change the existing public visual design until a typography
+        // override exists. Query fresh so updates become visible immediately.
+        if (!Schema::hasTable('studio_typography')
+            || !DB::table('studio_typography')->where('id',1)->exists()) return '';
         $families = [
             'Instrument Sans'=>'"Instrument Sans",sans-serif',
             'Inter'=>'Inter,Arial,sans-serif', 'Arial'=>'Arial,sans-serif',
