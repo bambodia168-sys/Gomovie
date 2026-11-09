@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 /**
  * A compact operator decision, not an automatic legal-rights determination.
@@ -47,9 +48,16 @@ final class IntakeReviewService
             && hash_equals((string) $ingest->sha256, (string) hash_file('sha256', $real)),
             422, 'Private uploaded video failed integrity validation.');
 
-        $scan = new Process([$binary, '--no-summary', '--infected', $real]);
-        $scan->setTimeout(300);
-        $scan->run();
+        // Scan failures must be a controlled fail-closed result, not HTTP 500.
+        // Never approve or license content when the scanner cannot finish.
+        try {
+            $scan = new Process([$binary, '--no-summary', '--infected', $real]);
+            $scan->setTimeout(300);
+            $scan->run();
+        } catch (Throwable $exception) {
+            report($exception);
+            abort(503, 'The security scanner could not complete. The upload remains private.');
+        }
         $exit = $scan->getExitCode();
         if ($exit === 1) {
             DB::transaction(function () use ($id, $operator, $ip): void {
