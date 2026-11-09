@@ -85,6 +85,31 @@ class LibraryController extends Controller
         return back()->with('status', $data['action']==='add'
             ? 'Saved to My List.' : 'Removed from My List.');
     }
+    /**
+     * Clear only the currently authenticated viewer's selected profile.
+     * This never modifies public catalog, shared assets, or other profiles.
+     */
+    public function clear(Request $request, string $section): RedirectResponse
+    {
+        abort_unless(in_array($section,['watchlist','history'],true),404);
+        $data=$request->validate(['profile_id'=>['required','integer','min:1']]);
+        $profile=UserProfile::query()->where('user_id',$request->user()->id)
+            ->findOrFail((int)$data['profile_id']);
+
+        $deleted=DB::transaction(function () use ($request,$section,$profile): int {
+            $query=DB::table($section==='watchlist'?'watchlists':'watch_history')
+                ->where('user_profile_id',$profile->id);
+            if ($section==='history') {
+                $query->where('user_id',$request->user()->id);
+            }
+            return $query->delete();
+        });
+
+        return redirect()->route('account.library',[
+            'section'=>$section,'profile_id'=>$profile->id,
+        ])->with('status',$deleted.' '.($section==='watchlist'?'saved title(s) removed from My List.':'watch-history entry/entries removed.'));
+    }
+
     public function removeHistory(Request $request, int $record): RedirectResponse
     {
         $profileId=$request->validate([

@@ -64,6 +64,9 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::patch('/account/profiles/{profileId}',[SettingsController::class,'updateProfile'])->name('account.profiles.update');
         Route::delete('/account/profiles/{profileId}',[SettingsController::class,'removeProfile'])->name('account.profiles.destroy');
         Route::delete('/account/history/{record}',[LibraryController::class,'removeHistory'])->name('account.history.destroy');
+        Route::delete('/account/library/{section}/clear',[LibraryController::class,'clear'])
+            ->middleware('throttle:10,1')->where('section','watchlist|history')
+            ->name('account.library.clear');
     });
 });
 

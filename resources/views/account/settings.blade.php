@@ -8,10 +8,10 @@
 @if($profiles->count()<5)<button type="button" class="gm-studio-button is-primary" data-studio-open="gm-new-profile-dialog">@include('partials.studio-icon',['name'=>'plus']) Add profile</button>@endif
 </div></div>
 <div class="grid gap-5 lg:grid-cols-2">
-<section class="gm-studio-panel"><div class="gm-studio-panel-head"><div><h3>Personal details</h3><small>Verified account identity</small></div><button type="button" class="gm-studio-button" data-studio-open="gm-identity-dialog">Edit</button></div>
+<section class="gm-studio-panel"><div class="gm-studio-panel-head"><div><h3>Personal details</h3><small>Verified account identity</small></div></div>
 <div class="gm-studio-panel-body"><div class="mb-4"><p class="gm-studio-muted text-xs">Full name</p><p class="mt-1 font-semibold">{{ auth()->user()->name }}</p></div><div><p class="gm-studio-muted text-xs">Email address</p><p class="mt-1 font-semibold break-all">{{ auth()->user()->email }}</p></div><span class="gm-studio-pill {{ auth()->user()->hasVerifiedEmail()?'is-ok':'is-warn' }} mt-4">{{ auth()->user()->hasVerifiedEmail()?'Verified email':'Pending verification' }}</span></div>
 </section>
-<section class="gm-studio-panel"><div class="gm-studio-panel-head"><div><h3>Security</h3><small>Password and sign-in protection</small></div><button type="button" class="gm-studio-button" data-studio-open="gm-password-dialog">Update</button></div>
+<section class="gm-studio-panel"><div class="gm-studio-panel-head"><div><h3>Security</h3><small>Password and sign-in protection</small></div></div>
 <div class="gm-studio-panel-body"><p class="text-sm text-zinc-300">Use at least 12 characters with letters and numbers.</p><p class="text-sm mt-3 gm-studio-muted">Changing the password revokes existing API tokens.</p></div>
 </section>
 </div>

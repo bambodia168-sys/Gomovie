@@ -3,7 +3,14 @@
 @section('account_content')
 <div class="gm-page-heading">
   <div><p class="text-xs uppercase tracking-widest text-rose-300">Personal library</p><h1>{{ $section==='watchlist'?'My List':'Watch history' }}</h1><p>Private titles and viewing progress for the selected profile.</p></div>
-  <div class="gm-page-actions"><a class="gm-studio-button" href="{{ route('browse') }}">@include('partials.studio-icon',['name'=>'external']) Explore titles</a></div>
+  <div class="gm-page-actions">
+    <a class="gm-studio-button" href="{{ route('browse') }}">@include('partials.studio-icon',['name'=>'external']) Explore titles</a>
+    @if($records->total()>0)
+    <button type="button" class="gm-studio-button is-danger" data-studio-open="account-clear-dialog">
+      @include('partials.studio-icon',['name'=>'trash']) {{ $section==='watchlist'?'Clear My List':'Clear watch history' }}
+    </button>
+    @endif
+  </div>
 </div>
 <div class="gm-studio-subnav">
 <a href="{{ route('account.library',['section'=>'watchlist','profile_id'=>$profile->id]) }}" @class(['is-current'=>$section==='watchlist'])>My List</a>
@@ -51,4 +58,24 @@
 </div>
 @include('partials.studio-pager',['paginator'=>$records,'id'=>'account-library-go'])
 </section>
+@if($records->total()>0)
+<dialog class="gm-studio-modal" id="account-clear-dialog" aria-labelledby="account-clear-dialog-title">
+<form method="POST" action="{{ route('account.library.clear',['section'=>$section]) }}">
+@csrf @method('DELETE')
+<input type="hidden" name="profile_id" value="{{ $profile->id }}">
+<div class="gm-studio-modal-heading">
+  <h3 id="account-clear-dialog-title">Clear {{ $section==='watchlist'?'My List':'watch history' }}?</h3>
+  <button type="button" class="gm-studio-button" data-studio-close aria-label="Close">×</button>
+</div>
+<div class="gm-studio-modal-body">
+  <p class="text-sm gm-studio-muted">This removes {{ $section==='watchlist'?'all saved titles':'all watch-history entries' }} for <strong>{{ $profile->name }}</strong> only.</p>
+  <p class="text-sm gm-studio-muted mt-2">Other profiles, other accounts, catalog titles and media files are not affected.</p>
+</div>
+<div class="gm-studio-modal-actions">
+  <button type="button" class="gm-studio-button" data-studio-close>Cancel</button>
+  <button type="submit" class="gm-studio-button is-danger">Confirm clear</button>
+</div>
+</form>
+</dialog>
+@endif
 @endsection
