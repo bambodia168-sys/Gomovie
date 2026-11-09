@@ -762,3 +762,76 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion:reduce){
   .gm-modern-player .gm-modern-fullscreen-btn{transition:none}
 }
+
+
+/* Gomovie Premium Player v1.2.3 — one volume control beside the speaker.
+   The Gear menu no longer contains a duplicate Audio section. */
+.gm-modern-volume-wrap{
+  position:relative;
+  z-index:13;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+.gm-modern-volume-icon[aria-expanded="true"]{
+  background:#ffffff1c;
+  border-color:#ffffff33;
+  color:var(--gm-player-accent,#f33060);
+}
+.gm-modern-volume-popover{
+  position:absolute;
+  right:50%;
+  bottom:calc(100% + 13px);
+  transform:translateX(50%);
+  z-index:14;
+  width:86px;
+  min-height:199px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:space-between;
+  gap:9px;
+  padding:12px 9px;
+  background:linear-gradient(155deg,#202334f8,#0b0c17fd);
+  color:#f8f6fb;
+  border:1px solid #ffffff36;
+  border-radius:15px;
+  box-shadow:0 20px 48px #000a,0 0 0 1px #ffffff0c;
+  backdrop-filter:blur(16px);
+}
+.gm-modern-volume-popover[hidden]{display:none!important}
+.gm-modern-volume-popover>span{
+  font-size:11px;
+  letter-spacing:.04em;
+  font-weight:800;
+}
+.gm-modern-volume-popover .gm-volume-vertical-track{
+  width:50px;
+  height:118px;
+}
+.gm-modern-volume-popover output{
+  color:#f0eaf0;
+  font-size:11px;
+  font-weight:750;
+  font-variant-numeric:tabular-nums;
+}
+.gm-modern-volume-popover input[type="range"]:focus-visible{
+  outline:2px solid var(--gm-player-accent,#f33060);
+  outline-offset:4px;
+}
+@container (max-width:560px){
+  .gm-modern-volume-popover{
+    left:0;
+    right:auto;
+    transform:none;
+  }
+}
+.is-portrait .gm-modern-volume-popover{
+  left:0;
+  right:auto;
+  transform:none;
+}
+@media(prefers-reduced-motion:reduce){
+  .gm-modern-volume-icon{transition:none}
+}
