@@ -40,6 +40,20 @@ jobs:
         run: bash -n support/upload-studio-upgrade.sh
       - name: Syntax check selective Studio feedback and artwork upgrade
         run: bash -n support/studio-feedback-artwork-upgrade.sh
+      - name: Syntax and release-safety check for automatic public playback installer
+        run: |
+          bash -n support/automatic-public-playback-upgrade.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path('support/automatic-public-playback-upgrade.sh').read_text()
+          assert 'AUTOMATIC_PUBLICATION_CODE=INSTALLED' in source
+          assert 'LIVE_AUTOMATIC_PUBLICATION=DISABLED_PENDING_HOST_ACCEPTANCE' in source
+          assert 'MYSQL_BACKUP=VERIFIED' in source
+          assert 'SOURCE_ROLLBACK=COMPLETE' in source
+          assert 'UNACTIVATED_PUBLIC_HLS_HTTP' in source
+          assert 'GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED' not in source
+          assert 'GOMOVIE_PUBLIC_HLS_ENABLED' not in source
+          PY
       - name: Verify automatic-public-playback preflight remains read-only
         run: |
           bash -n support/automatic-public-playback-preflight.sh
