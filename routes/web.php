@@ -52,7 +52,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 });
 
 // Standalone uploader: outside the dashboard layout, with the same staff and
-// administrator access controls. Review/approval remains in the dashboard.
+// administrator access controls. Uploads remain private.
 Route::middleware(['auth', 'active', 'verified', 'staff'])->group(function (): void {
     Route::get('/upload-studio', [UploadStudioController::class, 'index'])->name('upload-studio.index');
     Route::post('/upload-studio', [UploadStudioController::class, 'upload'])
@@ -79,12 +79,12 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::delete('/series/{series}/seasons/{season}/episodes/{episode}', [EpisodeStudioController::class, 'destroyEpisode'])->name('episodes.destroy');
     Route::get('/upload-studio', fn () => redirect()->route('upload-studio.index'))
         ->name('upload-studio.legacy');
-    Route::get('/upload-studio/{ingest}', [UploadStudioController::class, 'review'])
-        ->whereNumber('ingest')->name('upload-studio.review');
-    Route::post('/upload-studio/{ingest}/approve', [UploadStudioController::class, 'approve'])
-        ->middleware('throttle:6,1')->whereNumber('ingest')->name('upload-studio.approve');
-    Route::post('/upload-studio/{ingest}/reject', [UploadStudioController::class, 'reject'])
-        ->middleware('throttle:6,1')->whereNumber('ingest')->name('upload-studio.reject');
+    // Old links remain navigable; the former approval page and POST actions
+    // are removed. No video is approved or published by this redirect.
+    Route::get('/upload-studio/{ingest}', function (\Illuminate\Http\Request $request, int $ingest) {
+        abort_unless(in_array($request->user()?->role, ['admin', 'super_admin'], true), 403);
+        return redirect()->route('admin.media.index');
+    })->whereNumber('ingest')->name('upload-studio.legacy-review');
     Route::get('/media', [MediaController::class, 'index'])->name('media.index');
     Route::post('/media/artwork', [MediaController::class, 'artwork'])->name('media.artwork');
     Route::post('/media/ingests', [MediaController::class, 'ingest'])->name('media.ingest');
