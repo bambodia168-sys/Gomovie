@@ -16,11 +16,21 @@ class EpisodeStudioController extends Controller
 {
     public function index(Series $series): View
     {
-        return view('admin.series.episodes', [
-            'series'=>$series,
-            'seasons'=>$series->seasons()->orderBy('season_number')
-                ->with(['episodes'=>fn($query)=>$query->orderBy('episode_number')])->get(),
-        ]);
+        // Each season and its episodes have independent, bounded pagination.
+        // Keeping per-season page names prevents one table from jumping the others.
+        $seasons = $series->seasons()->withCount('episodes')
+            ->orderBy('season_number')->orderBy('id')
+            ->paginate(10, ['*'], 'seasons_page')->withQueryString();
+
+        $episodePages = [];
+        foreach ($seasons as $season) {
+            $episodePages[$season->id] = $season->episodes()
+                ->orderBy('episode_number')->orderBy('id')
+                ->paginate(10, ['*'], 'episodes_'.$season->id)
+                ->withQueryString();
+        }
+
+        return view('admin.series.episodes', compact('series', 'seasons', 'episodePages'));
     }
 
     public function storeSeason(Request $request,Series $series): RedirectResponse
