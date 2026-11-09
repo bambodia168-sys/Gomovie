@@ -667,3 +667,11 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
   .gm-center-ring,.gm-modern-center-play,.gm-center-spinner{animation:none!important}
   .gm-modern-bottom{transition:none}
 }
+
+
+/* A paused video keeps its large Play button but hides inactive bottom chrome. */
+.gm-modern-player.is-idle:not(.is-keyboard) .gm-modern-bottom,
+.gm-modern-player.is-idle:not(.is-keyboard):focus-within .gm-modern-bottom{
+  opacity:0!important;transform:translateY(15px)!important;pointer-events:none!important
+}
+.gm-modern-player.is-idle:not(.is-keyboard) .gm-modern-center-play{pointer-events:auto}
