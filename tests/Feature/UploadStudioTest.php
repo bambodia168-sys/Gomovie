@@ -76,8 +76,7 @@ final class UploadStudioTest extends TestCase
             'type' => 'movie',
             'title_id' => $movie->id,
             'video' => $this->fakeVideo('licensed-qa.mp4'),
-        ])->assertCreated()->assertJsonPath('ok', true)
-            ->assertJsonPath('upload_id', 1);
+        ])->assertCreated()->assertJsonPath('ok', true);
 
         $upload = DB::table('media_ingests')->first();
         self::assertNotNull($upload);
@@ -119,13 +118,14 @@ final class UploadStudioTest extends TestCase
             'video' => $this->fakeVideo('review.mp4'),
         ])->assertCreated();
 
+        $id = (int) DB::table('media_ingests')->latest('id')->value('id');
         config()->set('gomovie.malware_scanner_binary', '/nonexistent/clamscan');
-        $this->post('/dashboard/upload-studio/1/approve', [
+        $this->post('/dashboard/upload-studio/'.$id.'/approve', [
             'rights_reference' => 'QA-TEST-RIGHTS-1', 'rights_confirmed' => 1,
         ])->assertStatus(503);
-        $this->assertDatabaseHas('media_ingests', ['id' => 1, 'status' => 'quarantined']);
+        $this->assertDatabaseHas('media_ingests', ['id' => $id, 'status' => 'quarantined']);
         $this->assertDatabaseCount('content_rights', 0);
-        $this->get('/dashboard/upload-studio/1')->assertOk()
+        $this->get('/dashboard/upload-studio/'.$id)->assertOk()
             ->assertSee('Review video')->assertSee('ClamAV');
     }
 
@@ -149,11 +149,11 @@ final class UploadStudioTest extends TestCase
             $disk = Storage::disk('local');
             try {
                 config()->set('gomovie.malware_scanner_binary', $tmp.'/clamscan');
-                $this->post('/dashboard/upload-studio/1/approve', [
+                $this->post('/dashboard/upload-studio/'.$upload->id.'/approve', [
                     'rights_reference' => 'QA-TEST-RIGHTS-1', 'rights_confirmed' => 1,
                 ])->assertRedirect();
                 $this->assertDatabaseHas('media_ingests', [
-                    'id' => 1, 'status' => 'approved', 'security_scan_status' => 'clean',
+                    'id' => $upload->id, 'status' => 'approved', 'security_scan_status' => 'clean',
                     'rights_review_status' => 'verified',
                 ]);
                 $this->assertDatabaseHas('content_rights', [
@@ -182,10 +182,11 @@ final class UploadStudioTest extends TestCase
             'video' => $this->fakeVideo('reject.mp4'),
         ])->assertCreated();
 
-        $this->post('/dashboard/upload-studio/1/reject', [
+        $id = (int) DB::table('media_ingests')->latest('id')->value('id');
+        $this->post('/dashboard/upload-studio/'.$id.'/reject', [
             'reason' => 'Wrong uploaded video for this title.',
         ])->assertRedirect();
-        $this->assertDatabaseHas('media_ingests', ['id' => 1, 'status' => 'rejected']);
+        $this->assertDatabaseHas('media_ingests', ['id' => $id, 'status' => 'rejected']);
         $this->assertDatabaseHas('admin_audit_events', ['action' => 'media.intake_rejected']);
         $this->assertDatabaseCount('media_assets', 0);
         $this->assertDatabaseCount('content_rights', 0);
