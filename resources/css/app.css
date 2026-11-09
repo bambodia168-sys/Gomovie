@@ -494,3 +494,74 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion:reduce){
   .gm-modern-center-play,.gm-modern-bottom,.gm-modern-btn{transition:none}
 }
+
+
+/* Modern player portrait-control fix: lay out by player width, not viewport width.
+   9:16 is 385px wide even on a 1400px desktop; global @media rules missed it. */
+.gm-player-stage{container-type:inline-size}
+.gm-modern-ui [hidden]{display:none!important}
+.gm-modern-menu-volume,.gm-modern-menu-pip{display:none}
+.gm-modern-menu-volume input{width:100%;accent-color:var(--gm-player-accent)}
+.gm-modern-menu-pip{width:100%;min-height:42px;margin-top:12px;border:1px solid #ffffff32;border-radius:9px;background:#1c2232;color:#f5f5fa;font-size:12px;font-weight:700;cursor:pointer}
+.gm-modern-menu-pip:hover{background:#343c50}
+.gm-modern-btn:disabled,.gm-modern-menu-pip:disabled{opacity:.5;cursor:not-allowed}
+.gm-modern-center-play{width:67px;height:67px}
+.gm-modern-center-play svg{width:29px;height:29px}
+.gm-modern-player .gm-modern-time{flex:none}
+.gm-modern-settings-wrap{z-index:11}
+.gm-modern-settings{right:0;max-width:min(275px,calc(100cqw - 24px));width:245px}
+.gm-modern-player.is-idle.is-playing .gm-modern-bottom:focus-within{opacity:1;transform:none;pointer-events:auto}
+.gm-modern-player:focus-within .gm-modern-bottom{opacity:1;transform:none;pointer-events:auto}
+.gm-modern-timeline{min-height:16px;background-clip:content-box;padding-block:5px;touch-action:pan-y}
+.gm-modern-timeline::-webkit-slider-thumb{width:15px;height:15px}
+.gm-modern-timeline::-moz-range-thumb{width:11px;height:11px}
+.gm-modern-settings select{min-height:40px}
+.gm-modern-player .gm-modern-pip:not([hidden]){display:grid}
+
+/* Native browser touch targets are sized for narrow portrait surfaces. */
+@container (max-width: 560px) {
+  .gm-modern-bottom{padding:28px 12px 13px;gap:8px;min-height:142px}
+  .gm-modern-toolbar{display:grid;grid-template-columns:minmax(0,1fr);row-gap:7px}
+  .gm-modern-group,.gm-modern-trailing{width:100%;margin-left:0;display:flex;align-items:center;justify-content:space-between;gap:3px;min-width:0}
+  .gm-modern-btn,.gm-modern-player.is-compact .gm-modern-btn{width:44px;height:44px;min-width:42px;min-height:44px}
+  .gm-modern-btn.gm-modern-skip{width:44px;height:44px}
+  .gm-modern-time,.gm-modern-player.is-compact .gm-modern-time{font-size:12px;margin-left:auto;letter-spacing:0}
+  .gm-modern-volume,.gm-modern-player.is-compact .gm-modern-volume{display:none}
+  .gm-modern-menu-volume{display:flex;align-items:center;justify-content:space-between;gap:13px;min-height:40px}
+  .gm-modern-menu-volume input{max-width:140px;min-width:70px}
+  .gm-modern-pip:not([hidden]){display:none!important}
+  .gm-modern-menu-pip:not([hidden]){display:block}
+  .gm-modern-settings{right:0;width:min(250px,calc(100cqw - 24px));padding:13px}
+  .gm-modern-center-play{width:62px;height:62px}
+  .gm-modern-center-play svg{width:27px;height:27px}
+  .gm-modern-player.is-compact .gm-modern-bottom{padding:24px 12px 11px;gap:6px}
+  .gm-modern-message{bottom:150px;max-width:calc(100% - 30px)}
+}
+
+/* Explicit portrait fallback for browsers without CSS container queries. */
+.is-portrait .gm-modern-toolbar{display:grid;grid-template-columns:minmax(0,1fr);row-gap:7px}
+.is-portrait .gm-modern-group,.is-portrait .gm-modern-trailing{width:100%;margin-left:0;justify-content:space-between;gap:3px;min-width:0}
+.is-portrait .gm-modern-bottom{padding:28px 12px 13px;gap:8px;min-height:142px}
+.is-portrait .gm-modern-btn,.is-portrait .gm-modern-player.is-compact .gm-modern-btn{width:44px;height:44px;min-width:42px;min-height:44px}
+.is-portrait .gm-modern-btn.gm-modern-skip{width:44px;height:44px}
+.is-portrait .gm-modern-volume{display:none}
+.is-portrait .gm-modern-menu-volume{display:flex;align-items:center;justify-content:space-between;gap:13px;min-height:40px}
+.is-portrait .gm-modern-menu-volume input{max-width:140px;min-width:70px}
+.is-portrait .gm-modern-pip:not([hidden]){display:none!important}
+.is-portrait .gm-modern-menu-pip:not([hidden]){display:block}
+.is-portrait .gm-modern-settings{right:0;width:min(250px,calc(100% - 24px))}
+.is-portrait .gm-modern-time{margin-left:auto;font-size:12px}
+.is-portrait .gm-modern-center-play{width:62px;height:62px}
+.is-portrait .gm-modern-message{bottom:150px}
+
+/* Extremely narrow embeds still keep primary playback actions usable. */
+@container (max-width: 310px) {
+  .gm-modern-bottom{padding-inline:7px}
+  .gm-modern-btn,.gm-modern-btn.gm-modern-skip{width:38px;min-width:38px}
+  .gm-modern-time{font-size:10px}
+  .gm-modern-trailing{gap:1px}
+  .gm-modern-settings{max-width:calc(100cqw - 14px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .gm-modern-center-play,.gm-modern-bottom{transition:none}
+}
