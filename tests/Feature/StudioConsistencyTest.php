@@ -67,10 +67,12 @@ final class StudioConsistencyTest extends TestCase
         $this->actingAs($unverified)->get('/email/verify')->assertOk()
             ->assertSee('Mail confirmation pending')
             ->assertSee('Resend verification email');
-        $this->actingAs($this->superAdmin())->get('/reset-password/example-token')
+        // Password reset is guest-only. Sign out before loading its form.
+        $this->post('/logout')->assertRedirect();
+        $this->get('/reset-password/example-token')
             ->assertOk()->assertSee('Create another secure password')
             ->assertSee('name="token"',false);
-        $this->get('/dashboard/appearance')->assertOk()
+        $this->actingAs($this->superAdmin())->get('/dashboard/appearance')->assertOk()
             ->assertSee('Email verification')
             ->assertSee('Reset password form');
         $this->get('/watch/movie/not-a-published-title')->assertNotFound();
