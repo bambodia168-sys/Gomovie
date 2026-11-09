@@ -82,6 +82,21 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+      - name: Verify private preview route using full JSON route metadata
+        run: |
+          php artisan route:list --path=dashboard/media/ingests --json | php -r '
+          $routes = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+          foreach ($routes as $route) {
+              if (($route["name"] ?? "") === "admin.media.ingest-preview"
+                  && ($route["uri"] ?? "") === "dashboard/media/ingests/{ingest}/preview"
+                  && in_array("GET", explode("|", (string) ($route["method"] ?? "")), true)) {
+                  echo "PRIVATE_PREVIEW_ROUTE=VERIFIED\\n";
+                  exit(0);
+              }
+          }
+          fwrite(STDERR, "PRIVATE_PREVIEW_ROUTE=NOT_FOUND\\n");
+          exit(1);
+          '
       - name: Run fresh database migration
         env:
           DB_CONNECTION: sqlite
