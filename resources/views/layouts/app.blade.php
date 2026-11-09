@@ -9,6 +9,7 @@
 <title>@yield('title','Discover') — Gomovie</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')
+<style>{!! \App\Support\StudioAppearance::css() !!}</style>
 </head>
 <body class="gm-site min-h-screen text-white antialiased">
 <a href="#main-content" class="gm-skip">Skip to content</a>

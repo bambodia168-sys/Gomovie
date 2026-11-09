@@ -1,10 +1,11 @@
 @extends('layouts.app')
-@section('title','About Gomovie')
+@section('title',\App\Support\StudioAppearance::text('about','seo_title','About Gomovie'))
+@section('description',\App\Support\StudioAppearance::text('about','seo_description','About Gomovie'))
 @section('content')
 <section class="gm-about-panel">
-  <p class="gm-eyebrow">About the platform</p>
-  <h1>Stories worth discovering.</h1>
-  <p>Gomovie is a developing catalog and streaming platform for movies and TV series. Our public pages show published titles; playback remains restricted to content with approved rights, secure delivery and verified access.</p>
+  <p class="gm-eyebrow">{{ \App\Support\StudioAppearance::text('about','eyebrow','About the platform') }}</p>
+  <h1>{{ \App\Support\StudioAppearance::text('about','heading','Stories worth discovering.') }}</h1>
+  <p>{{ \App\Support\StudioAppearance::text('about','description','Gomovie is a developing catalog and streaming platform for movies and TV series. Our public pages show published titles; playback remains restricted to content with approved rights, secure delivery and verified access.') }}</p>
   <div class="gm-about-grid">
     <article><span aria-hidden="true">▣</span><h2>Explore</h2><p>Find movies, TV series and episode information in one catalog.</p></article>
     <article><span aria-hidden="true">♡</span><h2>Personal library</h2><p>Registered, verified viewers can save titles to their private lists.</p></article>

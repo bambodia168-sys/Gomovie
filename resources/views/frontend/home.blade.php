@@ -1,5 +1,6 @@
 @extends('layouts.app')
-@section('title','Home')
+@section('title',\App\Support\StudioAppearance::text('home','seo_title','Home'))
+@section('description',\App\Support\StudioAppearance::text('home','seo_description','Discover licensed movies and TV series.'))
 @section('content')
 <div class="gm-home-upgrade">
 @if($heroTitles->isNotEmpty())
@@ -37,7 +38,7 @@
     @endforeach
     <span class="gm-hero-scene-tint"></span>
   </div>
-  <p class="gm-hero-kicker">CINEMATIC STORIES · CURATED DISCOVERY</p>
+  <p class="gm-hero-kicker">{{ \App\Support\StudioAppearance::text('home','eyebrow','CINEMATIC STORIES · CURATED DISCOVERY') }}</p>
   <div class="gm-hero-stage">
     @foreach($heroTitles as $index=>$entry)
       @php
@@ -85,7 +86,7 @@
 @else
 <section class="gm-preview-hero" aria-labelledby="gm-preview-title">
   <div class="gm-preview-aura" aria-hidden="true"></div>
-  <p class="gm-preview-overline">THE NEXT CHAPTER IN ENTERTAINMENT</p>
+  <p class="gm-preview-overline">{{ \App\Support\StudioAppearance::text('home','eyebrow','THE NEXT CHAPTER IN ENTERTAINMENT') }}</p>
   <div class="gm-preview-stage" aria-hidden="true">
     <div class="gm-preview-cover gm-preview-cover--far-left"><span class="gm-preview-topline">GOMOVIE · COLLECTION</span><span class="gm-preview-symbol">✦</span><strong>EXPLORE</strong><small>NEW PERSPECTIVES</small></div>
     <div class="gm-preview-cover gm-preview-cover--left"><span class="gm-preview-topline">GOMOVIE · COLLECTION</span><span class="gm-preview-symbol">◈</span><strong>IMAGINE</strong><small>BEYOND THE FRAME</small></div>
@@ -97,8 +98,8 @@
   <div class="gm-preview-intro">
     <div class="gm-preview-heading">
       <p class="gm-eyebrow">WELCOME TO GOMOVIE</p>
-      <h1 id="gm-preview-title">A world of stories. <em>Made for you.</em></h1>
-      <p>A fresh cinematic experience is taking shape. Discover films and series as approved titles become available in our catalog.</p>
+      <h1 id="gm-preview-title">{{ \App\Support\StudioAppearance::text('home','heading','A world of stories. Made for you.') }}</h1>
+      <p>{{ \App\Support\StudioAppearance::text('home','description','A fresh cinematic experience is taking shape. Discover films and series as approved titles become available in our catalog.') }}</p>
     </div>
     <div class="gm-preview-cta">
       <a href="{{ route('browse') }}" class="gm-button gm-button-primary"><span aria-hidden="true">⌕</span> Browse catalog</a>

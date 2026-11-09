@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title',$title->title)
-@section('description',\Illuminate\Support\Str::limit($title->overview ?: $title->title,150))
+@section('description',\App\Support\StudioAppearance::text('watch','seo_description',\Illuminate\Support\Str::limit($title->overview ?: $title->title,150)))
 @section('content')
 @php
   $portrait=$displayMode==='portrait';

@@ -1,8 +1,8 @@
 @extends('layouts.auth')
 @section('title','Sign in')
 @section('content')
-<h1 class="gm-auth-title">Welcome back</h1>
-<p class="gm-auth-subtitle">Sign in to manage your Gomovie account and continue exploring.</p>
+<h1 class="gm-auth-title">{{ \App\Support\StudioAppearance::text('login','heading','Welcome back') }}</h1>
+<p class="gm-auth-subtitle">{{ \App\Support\StudioAppearance::text('login','description','Sign in to manage your Gomovie account and continue exploring.') }}</p>
 @if(session('status'))<div role="status" class="gm-message">{{ session('status') }}</div>@endif
 <form method="POST" action="{{ route('login') }}" class="gm-auth-form">
   @csrf

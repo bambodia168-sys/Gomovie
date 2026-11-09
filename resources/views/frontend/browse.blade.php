@@ -1,10 +1,11 @@
 @extends('layouts.app')
-@section('title','Explore titles')
+@section('title',\App\Support\StudioAppearance::text('browse','seo_title','Explore titles'))
+@section('description',\App\Support\StudioAppearance::text('browse','seo_description','Browse Gomovie catalog'))
 @section('content')
 <section class="gm-browse-intro">
-  <p class="gm-eyebrow">Discover Gomovie</p>
-  <h1>Movies &amp; Series</h1>
-  <p>Explore published catalog titles. Playback depends on approved distribution rights and availability.</p>
+  <p class="gm-eyebrow">{{ \App\Support\StudioAppearance::text('browse','eyebrow','Discover Gomovie') }}</p>
+  <h1>{{ \App\Support\StudioAppearance::text('browse','heading','Movies & Series') }}</h1>
+  <p>{{ \App\Support\StudioAppearance::text('browse','description','Explore published catalog titles. Playback depends on approved distribution rights and availability.') }}</p>
 </section>
 <form method="GET" action="{{ route('browse') }}" class="gm-filter-bar" role="search">
   <div class="gm-search-field"><label for="browse-query">Search titles</label>
