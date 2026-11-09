@@ -115,7 +115,8 @@ gh run download "$BUILD_RUN" --repo "$REPO" --name "$BUILD_NAME" --dir "$BACKUP/
 test "$(find "$BACKUP/package" -type f -name 'Gomovie-Installer-QA-*.zip' | wc -l)" -eq 1
 ZIP="$(find "$BACKUP/package" -type f -name 'Gomovie-Installer-QA-*.zip' -print -quit)"
 test -f "$ZIP.sha256"
-( cd "$(dirname "$ZIP")" && sha256sum -c "$(basename "$ZIP.sha256")" >/dev/null )
+read -r EXPECTED_ZIP_HASH _ < "$ZIP.sha256"
+test "$(sha256sum "$ZIP" | awk '{print $1}')" = "$EXPECTED_ZIP_HASH"
 unzip -tqq "$ZIP"
 echo "CI_PACKAGE_SHA256=VERIFIED"
 
