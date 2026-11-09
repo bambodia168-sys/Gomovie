@@ -94,6 +94,21 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
 .notice{background:#101d2b;border:1px solid #2e465c;border-radius:11px;padding:13px 15px;color:#b7cde3;font-size:12px;line-height:1.6}
 .big-check{width:65px;height:65px;display:grid;place-items:center;border-radius:19px;background:#163e2b;color:#65e5a4;font-size:36px;margin-bottom:16px}
 .status-chip{display:inline-flex;padding:6px 11px;border-radius:20px;border:1px solid #465269;color:#cad2e1;font-size:12px;font-weight:750}
+.caption-manager{margin:22px 0 10px;border:1px solid #364258;border-radius:14px;background:#0b111e;padding:16px}
+.caption-manager summary{cursor:pointer;font-size:14px;font-weight:850;color:#f4f5f9}
+.caption-manager summary:hover{color:#ff7094}
+.caption-optional{font-size:11px;color:#a2aec1;font-weight:500;margin-left:7px}
+.caption-manager .field-note{margin:10px 0 18px}
+.caption-manager .caption-fields{margin-top:10px}
+.caption-check{display:flex;align-items:center;gap:10px;color:#cad3e1;font-size:12px;margin-bottom:17px}
+.caption-check input{accent-color:#f02b55}
+.caption-toolbar{display:flex;flex-wrap:wrap;gap:8px}
+.caption-list{display:flex;flex-direction:column;gap:9px;margin-top:15px}
+.caption-item{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:11px;border:1px solid #354057;border-radius:11px;background:#111827}
+.caption-item input{min-width:120px;max-width:230px;flex:1}
+.caption-item .btn{font-size:11px;min-height:36px;padding:8px 10px}
+.caption-item small{font-size:11px;color:#acb8cb}
+.caption-item .caption-item-delete{border-color:#b9485b;color:#ffafb9}
 @media(max-width:1000px){.columns{grid-template-columns:1fr}.sidebar-content{padding:20px}.sidebar{order:2}}
 @media(max-width:700px){.header-inner{padding:0 15px;min-height:66px}.quiet-link{font-size:11px;padding:7px 10px}.workspace{padding:24px 13px 60px}.steps{grid-template-columns:repeat(5,minmax(130px,1fr));overflow-x:auto;scrollbar-width:thin}.step{min-height:48px}.card-inner{padding:20px 17px}.row-fields{grid-template-columns:1fr}.type-select label{flex:1}.type-select span{min-width:0}}
 @media(prefers-reduced-motion:reduce){.progress-fill{transition:none}}
@@ -218,6 +233,35 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
             <img id="gm-artwork-preview" class="preview" alt="Selected artwork preview" hidden>
           </div>
           <div id="gm-artwork-readonly" class="notice" hidden>This title is not a draft, so artwork changes are unavailable here.</div>
+          <details class="caption-manager" id="gm-caption-manager" hidden>
+            <summary>Closed captions <span class="caption-optional">Optional · WebVTT</span></summary>
+            <p class="field-note">Upload a real .vtt file after saving your video. Captions remain private until the media is separately cleared for distribution.</p>
+            <div class="row-fields caption-fields">
+              <div class="field">
+                <label class="label" for="gm-caption-language">Language</label>
+                <select class="control" id="gm-caption-language">
+                  <option value="en">English</option><option value="km">Khmer</option>
+                  <option value="zh">Chinese</option><option value="fr">French</option>
+                  <option value="hi">Hindi</option><option value="id">Indonesian</option>
+                  <option value="ja">Japanese</option><option value="ko">Korean</option>
+                  <option value="ms">Malay</option><option value="th">Thai</option>
+                  <option value="vi">Vietnamese</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="label" for="gm-caption-label">Caption label</label>
+                <input class="control" id="gm-caption-label" maxlength="80" placeholder="English (CC)">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="gm-caption-file">Subtitle file (.vtt, up to 256 KB)</label>
+              <input class="control" id="gm-caption-file" type="file" accept=".vtt,text/vtt">
+            </div>
+            <label class="caption-check"><input type="checkbox" id="gm-caption-default"> Default caption language</label>
+            <div class="caption-toolbar"><button type="button" class="btn btn-primary" id="gm-caption-upload">Save captions</button><button type="button" class="btn" id="gm-caption-refresh">Refresh captions</button></div>
+            <div class="caption-list" id="gm-caption-list" aria-live="polite"></div>
+            <p class="message" id="gm-caption-feedback" role="status" aria-live="polite" hidden></p>
+          </details>
           <p class="message" id="gm-artwork-feedback" role="status" aria-live="polite" hidden></p>
           <div class="bottom-actions">
             <button class="btn" type="button" data-prev="2">← Back</button>
