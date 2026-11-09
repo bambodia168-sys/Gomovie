@@ -111,19 +111,16 @@
           <button type="button" class="gm-modern-btn gm-modern-fullscreen-btn"
                   data-fullscreen-player data-fullscreen-state="windowed"
                   title="Enter fullscreen" aria-label="Enter fullscreen" aria-pressed="false">
-            {{-- Custom diagonal-expand glyph inside a rounded cinematic frame.
-                 Distinct from the browser's native corner-bracket icon. --}}
+            {{-- Compact, unframed SVG to match Settings and Volume controls. --}}
             <svg class="gm-fullscreen-glyph gm-icon-expand" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="1.95"
+                 fill="none" stroke="currentColor" stroke-width="1.9"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-              <rect class="gm-fullscreen-frame" x="2.8" y="2.8" width="18.4" height="18.4" rx="5" stroke-width="1.25" opacity=".58"/>
-              <path d="M9.8 9.8 17.3 6.7m0 0h-4.6m4.6 0v4.6M14.2 14.2l-7.5 3.1m0 0h4.6m-4.6 0v-4.6"/>
+              <path d="M13.5 4.5h6v6m0-6-7 7M10.5 19.5h-6v-6m0 6 7-7"/>
             </svg>
             <svg class="gm-fullscreen-glyph gm-icon-collapse" viewBox="0 0 24 24"
-                 fill="none" stroke="currentColor" stroke-width="1.95"
+                 fill="none" stroke="currentColor" stroke-width="1.9"
                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-              <rect class="gm-fullscreen-frame" x="2.8" y="2.8" width="18.4" height="18.4" rx="5" stroke-width="1.25" opacity=".58"/>
-              <path d="M6.5 6.5 10.2 10.2m0 0V6.5m0 3.7H6.5M17.5 17.5l-3.7-3.7m0 0v3.7m0-3.7h3.7"/>
+              <path d="m19.5 4.5-6 6m0-4.5v4.5H18m-13.5 9 6-6M6 13.5h4.5V18"/>
             </svg>
           </button>
         @endif
