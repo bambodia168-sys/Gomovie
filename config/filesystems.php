@@ -47,6 +47,20 @@ return [
             'report' => false,
         ],
 
+        // Private Cloudflare R2: S3 API, auto region, and NO public URL.
+        'r2' => [
+            'driver' => 's3',
+            'key' => env('GOMOVIE_R2_KEY'),
+            'secret' => env('GOMOVIE_R2_SECRET'),
+            'region' => 'auto',
+            'bucket' => env('GOMOVIE_R2_BUCKET'),
+            'endpoint' => env('GOMOVIE_R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

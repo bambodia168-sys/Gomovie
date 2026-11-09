@@ -1,6 +1,10 @@
 <?php
 
 return [
+    'r2_enabled' => filter_var(env('GOMOVIE_R2_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+    'r2_endpoint' => env('GOMOVIE_R2_ENDPOINT'),
+    'r2_bucket' => env('GOMOVIE_R2_BUCKET'),
+    'malware_scanner_binary' => env('GOMOVIE_MALWARE_SCANNER_BINARY', '/usr/bin/clamscan'),
     'media_staging_enabled' => filter_var(env('GOMOVIE_MEDIA_STAGING_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'media_queue_connection' => env('GOMOVIE_MEDIA_QUEUE_CONNECTION', 'database_media'),
     'queue_probes_enabled' => filter_var(env('GOMOVIE_QUEUE_PROBES_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
