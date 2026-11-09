@@ -40,6 +40,35 @@ jobs:
         run: bash -n support/upload-studio-upgrade.sh
       - name: Syntax check selective Studio feedback and artwork upgrade
         run: bash -n support/studio-feedback-artwork-upgrade.sh
+      - name: Verify custom authentication layout is preserved by Studio recovery
+        run: |
+          bash -n support/studio-feedback-custom-auth-recovery.sh
+          python3 - <<'PY'
+          import pathlib, re, shutil, subprocess, tempfile
+          script = pathlib.Path('support/studio-feedback-custom-auth-recovery.sh').read_text()
+          match = re.search(r"auth_plan\(\) \{\n  python3 - \"\$1\" \"\$2\" <<'PY'\n(.*?)\nPY", script, re.S)
+          assert match, 'Missing isolated custom-auth patch'
+          assert 'cp -p "$BACKUP/original/$AUTH" "$BACKUP/release/$AUTH"' in script
+          assert 'test "$(git hash-object "$APP/$AUTH")" = "$ORIGINAL_AUTH_BLOB"' in script
+          assert 'artisan migrate' not in script
+          patch = match.group(1)
+          with tempfile.TemporaryDirectory() as work:
+              root = pathlib.Path(work)
+              source = root / 'auth.blade.php'
+              prepared = root / 'prepared.blade.php'
+              custom = '<html><head><meta charset="utf-8"></head><body><main>Existing private design</main></body></html>'
+              source.write_text(custom)
+              source.chmod(0o640)
+              shutil.copy2(source, prepared)
+              subprocess.run(['python3','-c',patch,str(source),str(prepared)],check=True)
+              expected = custom.replace('</head>', "@include('partials.feedback')\n</head>")
+              assert prepared.read_text() == expected, 'Custom layout was not preserved'
+              assert source.read_text() == custom, 'Original custom layout changed'
+              assert prepared.stat().st_mode & 0o777 == 0o640, 'Original permissions not retained'
+              prepared.write_text(expected)
+              subprocess.run(['python3','-c',patch,str(prepared),'--check'],check=True)
+              assert prepared.read_text() == expected, 'Idempotence check changed the layout'
+          PY
       - name: Syntax check read-only Upload Studio live audit
         run: |
           bash -n support/upload-studio-live-audit.sh
