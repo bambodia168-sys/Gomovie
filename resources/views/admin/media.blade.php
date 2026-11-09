@@ -32,7 +32,7 @@
   <div class="overflow-x-auto">
     <table class="w-full min-w-[580px] text-left text-sm">
       <thead class="text-xs uppercase text-zinc-500">
-        <tr><th class="p-5">Video</th><th class="p-5">Uploaded by</th><th class="p-5">Size</th><th class="p-5">Status</th><th class="p-5">Uploaded</th></tr>
+        <tr><th class="p-5">Video</th><th class="p-5">Uploaded by</th><th class="p-5">Size</th><th class="p-5">Status</th><th class="p-5">Uploaded</th><th class="p-5">Edit</th></tr>
       </thead>
       <tbody class="divide-y divide-white/10">
         @forelse($assets as $asset)
@@ -42,9 +42,10 @@
             <td class="p-5 text-zinc-400">{{ number_format($asset->size_bytes / 1048576, 1) }} MB</td>
             <td class="p-5 text-zinc-300">{{ $asset->status === 'quarantined' ? 'Saved privately' : ucfirst($asset->status) }}</td>
             <td class="p-5 text-zinc-400">{{ $asset->created_at }}</td>
+            <td class="p-5 text-xs">@if((int) $asset->uploaded_by === (int) auth()->id() && $asset->status === 'quarantined')<a class="font-semibold text-rose-300 hover:underline" href="{{ route('upload-studio.index', ['upload' => $asset->id]) }}">Edit upload →</a>@else<span class="text-zinc-600">—</span>@endif</td>
           </tr>
         @empty
-          <tr><td colspan="5" class="p-7 text-center text-zinc-500">No uploaded videos yet.</td></tr>
+          <tr><td colspan="6" class="p-7 text-center text-zinc-500">No uploaded videos yet.</td></tr>
         @endforelse
       </tbody>
     </table>
