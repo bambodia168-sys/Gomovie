@@ -53,7 +53,7 @@ final class PrivateIngestPreviewController extends Controller
         ), 404);
 
         $disk = Storage::disk('local');
-        $root = realpath(storage_path('app/private'));
+        $root = realpath($disk->path(''));
         $location = $disk->path($key);
         $real = realpath($location);
         abort_unless($root && $real && !is_link($location)
