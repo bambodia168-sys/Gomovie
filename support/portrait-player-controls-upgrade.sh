@@ -115,6 +115,14 @@ while IFS= read -r file; do
   echo "NEW_SOURCE_VERIFIED=$file"
 done < <(files)
 cp -p "$APP/public/build/manifest.json" "$BACKUP/old/manifest.json"
+if [ -e "$APP/public/build/fonts-manifest.json" ] || [ -L "$APP/public/build/fonts-manifest.json" ]; then
+  test -f "$APP/public/build/fonts-manifest.json"
+  test ! -L "$APP/public/build/fonts-manifest.json"
+  cp -p "$APP/public/build/fonts-manifest.json" "$BACKUP/old/fonts-manifest.json"
+  echo "FONTS_MANIFEST_BACKUP=VERIFIED"
+else
+  echo "FONTS_MANIFEST_BACKUP=NOT_INSTALLED"
+fi
 
 echo "========== VERIFY COMPILED PLAYER ASSETS =========="
 unzip -q "$ZIP" 'public/build/*' -d "$BACKUP/extract"
@@ -130,6 +138,25 @@ foreach (["resources/css/app.css","resources/js/app.js"] as $entry) {
 ' "$BUILD"
 grep -RlF 'gm-modern-menu-volume' "$BUILD/assets" --include='*.css' >/dev/null
 grep -RlF 'gmSubtitleCount' "$BUILD/assets" --include='*.js' >/dev/null
+# Laravel Vite's font plugin emits an additional generated, unversioned
+# fonts-manifest.json alongside the hashed assets. Audit the FULL compiled
+# directory BEFORE changing any live files; reject all unexpected paths.
+FONTS_MANIFEST="$BUILD/fonts-manifest.json"
+test -f "$FONTS_MANIFEST" && test ! -L "$FONTS_MANIFEST"
+"$PHP" -r '
+try {
+    $data=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR);
+    if (!is_array($data)) exit(3);
+} catch (\\Throwable $error) { exit(4); }
+' "$FONTS_MANIFEST"
+while IFS= read -r -d '' asset; do
+  relative="$(realpath --relative-to="$BUILD" "$asset")"
+  case "$relative" in
+    manifest.json|fonts-manifest.json|assets/*) ;;
+    *) echo "BLOCKED_UNEXPECTED_ASSET=$relative"; exit 1;;
+  esac
+done < <(find "$BUILD" -type f -print0)
+echo "COMPILED_ASSET_ALLOWLIST=VERIFIED"
 echo "PORTRAIT_PLAYER_COMPILED_ASSETS=VERIFIED"
 
 CHANGED=0
@@ -142,6 +169,11 @@ rollback() {
       cp -p "$BACKUP/old/$file" "$APP/$file"
     done < <(files)
     cp -p "$BACKUP/old/manifest.json" "$APP/public/build/manifest.json"
+    if [ -f "$BACKUP/old/fonts-manifest.json" ]; then
+      cp -p "$BACKUP/old/fonts-manifest.json" "$APP/public/build/fonts-manifest.json"
+    else
+      rm -f -- "$APP/public/build/fonts-manifest.json"
+    fi
     (
       cd "$APP"
       runuser -u www -- "$PHP" artisan optimize:clear
@@ -156,18 +188,30 @@ CHANGED=1
 while IFS= read -r -d '' asset; do
   relative="$(realpath --relative-to="$BUILD" "$asset")"
   if [ "$relative" = "manifest.json" ]; then continue; fi
+  # All entries were checked against the exact allowlist before changing
+  # production. The generated font manifest is unversioned; backup + replace
+  # it deliberately and restore it on failure. Hashed assets remain immutable.
   case "$relative" in
-    assets/*) ;;
+    fonts-manifest.json)
+      target="$APP/public/build/fonts-manifest.json"
+      if [ -e "$target" ] || [ -L "$target" ]; then
+        test -f "$target" && test ! -L "$target"
+      fi
+      install -o root -g www -m 0644 "$asset" "$target"
+      echo "FONTS_MANIFEST=UPDATED"
+      ;;
+    assets/*)
+      target="$APP/public/build/$relative"
+      if [ -e "$target" ] || [ -L "$target" ]; then
+        test -f "$target" && test ! -L "$target"
+        cmp -s "$asset" "$target" || { echo "BLOCKED_CUSTOM_ASSET=$relative"; exit 1; }
+      else
+        install -d -o root -g www -m 0755 "$(dirname "$target")"
+        install -o root -g www -m 0644 "$asset" "$target"
+      fi
+      ;;
     *) echo "BLOCKED_UNEXPECTED_ASSET=$relative"; exit 1;;
   esac
-  target="$APP/public/build/$relative"
-  if [ -e "$target" ]; then
-    test -f "$target" && test ! -L "$target"
-    cmp -s "$asset" "$target" || { echo "BLOCKED_CUSTOM_ASSET=$relative"; exit 1; }
-  else
-    install -d -o root -g www -m 0755 "$(dirname "$target")"
-    install -o root -g www -m 0644 "$asset" "$target"
-  fi
 done < <(find "$BUILD" -type f -print0)
 echo "VITE_ASSETS=INSTALLED"
 
@@ -209,6 +253,8 @@ while IFS= read -r file; do
   test "$(git hash-object "$APP/$file")" = "$(new_blob "$file")"
 done < <(files)
 cmp -s "$BUILD/manifest.json" "$APP/public/build/manifest.json"
+cmp -s "$FONTS_MANIFEST" "$APP/public/build/fonts-manifest.json"
+echo "FONTS_MANIFEST=VERIFIED"
 COMPLETE=1
 echo "GOMOVIE_PORTRAIT_CONTROLS=FIXED"
 echo "PORTRAIT_LAYOUT=PLAYER_WIDTH_RESPONSIVE"
