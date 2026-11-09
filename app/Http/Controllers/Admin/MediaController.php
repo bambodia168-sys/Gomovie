@@ -24,11 +24,9 @@ class MediaController extends Controller
             'episodes' => Episode::orderByDesc('id')->limit(500)->get(['id','title']),
             'assets' => DB::table('media_ingests')
                 ->join('users','users.id','=','media_ingests.uploaded_by')
-                ->leftJoin('media_publication_reviews as reviews','reviews.media_ingest_id','=','media_ingests.id')
-                ->leftJoin('media_publication_batches as batches','batches.media_ingest_id','=','media_ingests.id')
                 ->select('media_ingests.id','media_ingests.original_name','media_ingests.mime',
                     'media_ingests.size_bytes','media_ingests.status','media_ingests.created_at',
-                    'users.name as uploader','reviews.status as review_status','batches.status as staging_status')
+                    'users.name as uploader')
                 ->orderByDesc('media_ingests.id')->paginate(20),
         ]);
     }
