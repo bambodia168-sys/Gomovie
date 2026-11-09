@@ -64,6 +64,8 @@ jobs:
           assert js.index('const payload = new FormData(form);') < js.index('busy(true);')
           PY
           node --check /tmp/gomovie-upload-studio.js
+      - name: Syntax check one-click Upload Studio recovery updater
+        run: bash -n support/upload-studio-one-click-recovery.sh
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
