@@ -36,6 +36,19 @@ class MediaController extends Controller
             $ready = $auto->readyAsset((string) $asset->ingestable_type, (int) $asset->ingestable_id);
             $asset->public = $ready && hash_equals(
                 (string) $ready->manifest_key, (string) $asset->encoded_manifest_key);
+            $asset->watch_url = null;
+            if ($asset->public && $asset->ingestable_type === 'movie') {
+                $slug = Movie::query()->whereKey($asset->ingestable_id)->value('slug');
+                if ($slug) $asset->watch_url = route('watch.show', ['type' => 'movie', 'slug' => $slug]);
+            } elseif ($asset->public && $asset->ingestable_type === 'episode') {
+                $episode = Episode::query()->with('season.series')->find($asset->ingestable_id);
+                if ($episode?->season?->series?->slug) {
+                    $asset->watch_url = route('watch.show', [
+                        'type' => 'series', 'slug' => $episode->season->series->slug,
+                        'episode' => $episode->id,
+                    ]);
+                }
+            }
         }
 
         return view('admin.media', [
