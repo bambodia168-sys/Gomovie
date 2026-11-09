@@ -8,6 +8,7 @@
 <meta name="description" content="@yield('description', 'Discover licensed movies and TV series on Gomovie.')">
 <title>@yield('title','Discover') — Gomovie</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
+@include('partials.feedback')
 </head>
 <body class="gm-site min-h-screen text-white antialiased">
 <a href="#main-content" class="gm-skip">Skip to content</a>
@@ -42,7 +43,6 @@
   </div>
 </header>
 <main id="main-content" class="gm-container gm-main-content">
-  @if(session('status'))<div class="gm-message" role="status">{{ session('status') }}</div>@endif
   @yield('content')
 </main>
 <footer class="gm-site-footer">

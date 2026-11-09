@@ -5,6 +5,7 @@
 <meta name="theme-color" content="#090812">
 <title>@yield('title','Sign in') — Gomovie</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
+@include('partials.feedback')
 </head>
 <body class="gm-auth-body text-white antialiased">
 <a href="#auth-content" class="gm-skip">Skip to sign-in form</a>

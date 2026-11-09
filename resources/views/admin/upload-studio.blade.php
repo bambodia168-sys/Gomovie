@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0b0d14">
 <title>Upload Studio — Gomovie</title>
+@include('partials.feedback')
 <style>
 :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}
@@ -137,10 +138,10 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
             <select class="control" name="title_id" id="gm-upload-target" required>
               <option value="">Select an existing title</option>
               @foreach($movies as $movie)
-                <option data-kind="movie" data-title="{{ $movie->title }}" data-overview="{{ $movie->overview }}" data-runtime="{{ $movie->runtime_minutes }}" data-year="{{ $movie->release_year }}" data-premium="{{ (int) $movie->is_premium }}" data-catalog-status="{{ $movie->status }}" value="{{ $movie->id }}">{{ $movie->title }}</option>
+                <option data-kind="movie" data-title="{{ $movie->title }}" data-overview="{{ $movie->overview }}" data-runtime="{{ $movie->runtime_minutes }}" data-year="{{ $movie->release_year }}" data-premium="{{ (int) $movie->is_premium }}" data-catalog-status="{{ $movie->status }}" data-art-poster="{{ \App\Support\CatalogArtwork::url($movie->poster_path, 'w342') }}" data-art-backdrop="{{ \App\Support\CatalogArtwork::url($movie->backdrop_path, 'w780') }}" value="{{ $movie->id }}">{{ $movie->title }}</option>
               @endforeach
               @foreach($episodes as $episode)
-                <option data-kind="episode" data-title="{{ $episode->title }}" data-overview="{{ $episode->overview }}" data-runtime="{{ $episode->runtime_minutes }}" data-year="" data-premium="{{ (int) ($episode->season?->series?->is_premium ?? 0) }}" data-catalog-status="{{ $episode->status }}" data-series-status="{{ $episode->season?->series?->status ?? '' }}" value="{{ $episode->id }}">{{ $episode->season?->series?->title ?? 'Series' }} · S{{ $episode->season?->season_number ?? '?' }} E{{ $episode->episode_number }} — {{ $episode->title }}</option>
+                <option data-kind="episode" data-title="{{ $episode->title }}" data-overview="{{ $episode->overview }}" data-runtime="{{ $episode->runtime_minutes }}" data-year="" data-premium="{{ (int) ($episode->season?->series?->is_premium ?? 0) }}" data-catalog-status="{{ $episode->status }}" data-series-status="{{ $episode->season?->series?->status ?? '' }}" data-art-still="{{ \App\Support\CatalogArtwork::url($episode->still_path, 'w780') }}" value="{{ $episode->id }}">{{ $episode->season?->series?->title ?? 'Series' }} · S{{ $episode->season?->season_number ?? '?' }} E{{ $episode->episode_number }} — {{ $episode->title }}</option>
               @endforeach
             </select>
             <p class="field-note" id="gm-no-matches" hidden>No matching titles.</p>
@@ -205,6 +206,11 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
               <option value="poster">Movie poster (2:3)</option>
               <option value="backdrop">Movie backdrop (16:9)</option>
             </select>
+          </div>
+          <div class="field" id="gm-existing-artwork" hidden>
+            <span class="label">Already saved for this title</span>
+            <img id="gm-existing-artwork-preview" class="preview" alt="Existing title artwork" loading="lazy">
+            <p class="field-note">This image is already available. Select a different file only if you want to replace it.</p>
           </div>
           <div class="field">
             <label for="gm-artwork-file" class="label">Choose artwork (JPG, PNG or WebP · Max 8 MB)</label>
@@ -304,7 +310,8 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     title: o.dataset.title || '', overview: o.dataset.overview || '',
     runtime: o.dataset.runtime || '', year: o.dataset.year || '',
     premium: o.dataset.premium || '0', status: o.dataset.catalogStatus || 'draft',
-    seriesStatus: o.dataset.seriesStatus || ''
+    seriesStatus: o.dataset.seriesStatus || '',
+    artwork: {poster: o.dataset.artPoster || '', backdrop: o.dataset.artBackdrop || '', still: o.dataset.artStill || ''}
   }));
   const limitsLabel = el('gm-upload-file-meta').textContent;
   let ingestId = form.dataset.resumeId || '';
@@ -328,8 +335,14 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
   function message(id, text, state) {
     const item = el(id);
     if (!item) return;
+    // Global, top-right confirmation. Keep field-level validation next to its input.
+    if (state === 'ok') {
+      item.hidden = true;
+      window.GomovieFeedback?.show(text, 'success');
+      return;
+    }
     item.textContent = text;
-    item.className = 'message' + (state === 'error' ? ' error' : state === 'ok' ? ' ok' : '');
+    item.className = 'message' + (state === 'error' ? ' error' : '');
     item.hidden = false;
   }
   function clearMessage(id) { el(id).hidden = true; }
@@ -350,6 +363,16 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     if (matches.some(c => c.id === former)) target.value = former;
     el('gm-no-matches').hidden = matches.length > 0;
     syncForms();
+  }
+  function syncExistingArtwork() {
+    const entry = currentItem();
+    const slot = el('gm-artwork-slot').value;
+    const url = entry?.artwork?.[slot] || '';
+    const wrapper = el('gm-existing-artwork');
+    const preview = el('gm-existing-artwork-preview');
+    wrapper.hidden = !url;
+    if (url) { preview.src = url; preview.alt = 'Existing ' + slot + ' artwork'; }
+    else preview.removeAttribute('src');
   }
   function syncForms() {
     const entry = currentItem();
@@ -376,6 +399,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
       if (entry.kind === 'episode') slot.add(new Option('Episode still (16:9)', 'still'));
       else { slot.add(new Option('Movie poster (2:3)', 'poster')); slot.add(new Option('Movie backdrop (16:9)', 'backdrop')); }
     }
+    syncExistingArtwork();
   }
   function setUploadStatus(status) {
     ingestStatus = status;
@@ -531,6 +555,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     } catch(error) { message('gm-meta-feedback',error.message,'error'); }
     button.disabled = !currentItem() || currentItem().status !== 'draft';
   });
+  el('gm-artwork-slot').addEventListener('change',syncExistingArtwork);
   el('gm-artwork-file').addEventListener('change',() => {
     const file = el('gm-artwork-file').files?.[0];
     if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
@@ -553,6 +578,9 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     button.disabled=true;
     try {
       const result=await requestJson(urlFor('artwork'),'POST',fields,true);
+      const entry=currentItem();
+      if (entry && result.artwork_url) entry.artwork[el('gm-artwork-slot').value] = result.artwork_url;
+      syncExistingArtwork();
       message('gm-artwork-feedback',result.message,'ok');
     } catch(error) { message('gm-artwork-feedback',error.message,'error'); }
     button.disabled=!currentItem() || currentItem().status !== 'draft';

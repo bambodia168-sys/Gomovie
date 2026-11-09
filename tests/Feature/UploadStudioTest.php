@@ -317,6 +317,49 @@ final class UploadStudioTest extends TestCase
         $this->assertDatabaseCount('media_assets',0);
     }
 
+    public function test_upload_studio_displays_existing_movie_and_episode_artwork(): void
+    {
+        $movie = $this->movie();
+        $movie->forceFill([
+            'poster_path' => '/qa-poster.jpg',
+            'backdrop_path' => '/qa-backdrop.jpg',
+        ])->save();
+        $series = Series::create([
+            'title'=>'Artwork QA Series', 'slug'=>'artwork-qa-series', 'status'=>'draft',
+            'is_premium'=>false,
+        ]);
+        $season = Season::create([
+            'series_id'=>$series->id, 'season_number'=>1, 'title'=>'Season One',
+        ]);
+        Episode::create([
+            'season_id'=>$season->id, 'episode_number'=>1,
+            'title'=>'Episode with still', 'status'=>'draft',
+            'still_path'=>'artwork/episode/qa-still.png',
+        ]);
+
+        $this->actingAs($this->admin())->get('/upload-studio')->assertOk()
+            ->assertSee('data-art-poster="https://image.tmdb.org/t/p/w342/qa-poster.jpg"', false)
+            ->assertSee('data-art-backdrop="https://image.tmdb.org/t/p/w780/qa-backdrop.jpg"', false)
+            ->assertSee('data-art-still=', false)
+            ->assertSee('gm-existing-artwork-preview')
+            ->assertSee("entry.artwork[el('gm-artwork-slot').value] = result.artwork_url;", false);
+    }
+
+    public function test_global_feedback_partial_is_available_to_upload_and_admin_and_public_pages(): void
+    {
+        $this->actingAs($this->admin())->withSession([
+            'status' => 'Video uploaded successfully. You can finish now or add optional details.',
+        ]);
+        $this->get('/upload-studio')->assertOk()
+            ->assertSee('window.GomovieFeedback', false)
+            ->assertSee('gm-feedback-success')
+            ->assertSee('Video uploaded successfully. You can finish now or add optional details.');
+        $this->get('/dashboard')->assertOk()
+            ->assertSee('window.GomovieFeedback', false);
+        $this->get('/about')->assertOk()
+            ->assertSee('window.GomovieFeedback', false);
+    }
+
     public function test_r2_mirror_is_queued_isolated_and_remains_private(): void
     {
         Storage::fake('r2');

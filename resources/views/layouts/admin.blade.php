@@ -4,30 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0A0A0C">
 <title>@yield('title','Studio') — Gomovie Studio</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
-<style>
-/* Scoped, self-contained styles: live aaPanel does not rebuild Vite for Blade-only releases. */
-.gm-studio-toast {
-  box-sizing:border-box;position:fixed;top:100px;right:22px;z-index:2500;
-  display:flex;align-items:flex-start;gap:11px;
-  width:max-content;max-width:min(390px,calc(100vw - 32px));
-  padding:12px 14px;color:#d2ffe5;background:#132a21;
-  border:1px solid rgba(77,202,138,.5);border-radius:12px;
-  box-shadow:0 18px 46px rgba(0,0,0,.52);
-  font-size:13px;font-weight:550;line-height:1.5;
-}
-.gm-studio-toast .gm-studio-toast-icon {flex:none;width:19px;height:19px;color:#5ee4a1;margin-top:1px}
-.gm-studio-toast .gm-studio-toast-copy {flex:1;min-width:0;overflow-wrap:anywhere}
-.gm-studio-toast .gm-studio-toast-close {
-  flex:none;width:23px;height:23px;display:grid;place-items:center;
-  margin:-2px -5px -2px 0;border:0;border-radius:6px;
-  background:transparent;color:#b0d6c1;cursor:pointer;
-}
-.gm-studio-toast .gm-studio-toast-close:hover {background:rgba(255,255,255,.09);color:white}
-.gm-studio-toast .gm-studio-toast-close svg {width:15px;height:15px}
-@media(max-width:640px){
-  .gm-studio-toast{right:10px;max-width:calc(100vw - 20px);padding:10px 12px;font-size:12px}
-}
-</style>
+@include('partials.feedback')
+
 </head>
 <body class="min-h-screen bg-[#0A0A0C] text-white antialiased" x-data="{menu:false}">
 <div class="min-h-screen lg:flex">
@@ -65,18 +43,6 @@
       </div>
     </header>
     <main class="mx-auto max-w-7xl p-5 lg:p-9">
-      @if(session('status'))
-        <div x-data="{visible:true}"
-             x-init="const bar = $el.closest('main')?.previousElementSibling; if (bar) $el.style.top = Math.ceil(bar.getBoundingClientRect().bottom + 12) + 'px'; setTimeout(() => visible = false, 5800)"
-             x-show="visible" x-transition.opacity.duration.250ms
-             role="status" aria-live="polite" class="gm-studio-toast">
-          <svg aria-hidden="true" class="gm-studio-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m7 12 3 3 7-7"/></svg>
-          <span class="gm-studio-toast-copy">{{ session('status') }}</span>
-          <button type="button" @click="visible=false" class="gm-studio-toast-close" aria-label="Dismiss confirmation">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
-      @endif
       @if($errors->any())<div role="alert" class="mb-6 rounded-xl border border-red-700/50 bg-red-950/40 p-4 text-sm text-red-200"><p class="mb-2 font-semibold">Please check your input.</p><ul class="list-inside list-disc">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
       @yield('content')
     </main>
