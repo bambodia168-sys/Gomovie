@@ -10,6 +10,7 @@ if (root) {
     const retryButton = root.querySelector('[data-retry-playback]');
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
     const profileId = Number(root.dataset.profileId);
+    const publicHlsUrl = root.dataset.publicHlsUrl || '';
     const tools = document.querySelector('[data-gomovie-player-tools]');
     const stage = root.closest('.gm-player-stage');
     const nextPrompt = document.querySelector('[data-gomovie-next-prompt]');
@@ -203,7 +204,7 @@ if (root) {
     }
 
     async function begin(type, titleId) {
-        if (busy || !csrf || !Number.isInteger(profileId) || profileId <= 0) return;
+        if (busy || (!publicHlsUrl && (!csrf || !Number.isInteger(profileId) || profileId <= 0))) return;
         if (!['movie', 'episode'].includes(type) || !/^[1-9][0-9]*$/.test(String(titleId))) return;
         busy = true;
         const generation = ++requestGeneration;
@@ -214,6 +215,14 @@ if (root) {
         try {
             await stopCurrent();
             if (generation !== requestGeneration) return;
+            if (publicHlsUrl) {
+                if (!publicHlsUrl.startsWith('/hls/')) throw new Error('Invalid public playback source.');
+                setStatus('Loading free public playback…');
+                stopButton.hidden = false;
+                attach(publicHlsUrl);
+                setStatus('Free video ready to watch.');
+                return;
+            }
             setStatus('Checking content rights and preparing secure playback…');
             const grant = await send('POST', '/api/v1/stream/' + type + '/' + titleId + '/token', {
                 profile_id: profileId,
@@ -297,7 +306,7 @@ if (root) {
 
     video.addEventListener('ended', prepareNext);
     video.addEventListener('error', () => {
-        if (!session) return;
+        if (!session && !publicHlsUrl) return;
         setStatus('The video could not be decoded. Retry or choose a different title.');
         setRetry(true);
         cancelNext();

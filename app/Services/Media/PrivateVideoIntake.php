@@ -3,6 +3,7 @@
 namespace App\Services\Media;
 
 use App\Jobs\MirrorPrivateIngestToR2;
+use App\Jobs\AutoPublishUploadedVideo;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -100,6 +101,18 @@ final class PrivateVideoIntake
                 report($error);
                 DB::table('media_ingests')->where('id', $id)
                     ->update(['cloud_status' => 'failed', 'updated_at' => now()]);
+            }
+        }
+
+        if (config('gomovie.automatic_publication_enabled') === true
+            && config('gomovie.public_hls_enabled') === true) {
+            try {
+                AutoPublishUploadedVideo::dispatch($id);
+            } catch (Throwable $error) {
+                report($error);
+                DB::table('media_ingests')->where('id', $id)->update([
+                    'pipeline_error' => 'publication_queue_unavailable', 'updated_at' => now(),
+                ]);
             }
         }
 

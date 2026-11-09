@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Episode;
 use App\Models\Movie;
 use App\Services\Media\PrivateVideoIntake;
+use App\Services\Media\AutomaticPublicationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,6 +61,7 @@ final class UploadStudioController extends Controller
             'episodes' => $episodes,
             'maxUploadBytes' => $max,
             'resume' => $resume,
+            'automaticPublicationEnabled' => app(AutomaticPublicationService::class)->enabled(),
         ]);
     }
 
@@ -82,6 +84,7 @@ final class UploadStudioController extends Controller
             return response()->json([
                 'ok' => true,
                 'message' => 'Video uploaded successfully. Saved to your private Media Library.',
+                'automatic_publication_enabled' => app(AutomaticPublicationService::class)->enabled(),
                 'upload_id' => $id,
                 'library_url' => route('admin.media.index'),
                 'editor_url' => route('upload-studio.index', ['upload' => $id]),

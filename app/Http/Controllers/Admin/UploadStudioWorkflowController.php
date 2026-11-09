@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Episode;
 use App\Models\Movie;
+use App\Services\Media\AutomaticPublicationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -65,8 +66,21 @@ final class UploadStudioWorkflowController extends Controller
     {
         $record = $this->ingest($request, $ingest);
         $target = $this->target($record);
+        $auto = app(AutomaticPublicationService::class);
+        $ready = $auto->readyAsset((string) $record->ingestable_type, (int) $record->ingestable_id);
+        $watchUrl = null;
+        if ($ready) {
+            $watchUrl = $record->ingestable_type === 'movie'
+                ? route('watch.show', ['type' => 'movie', 'slug' => $target->slug])
+                : route('watch.show', ['type' => 'series',
+                    'slug' => $target->season->series->slug, 'episode' => $target->id]);
+        }
         return response()->json([
             'ok' => true,
+            'public' => (bool) $ready,
+            'watch_url' => $watchUrl,
+            'publication_error' => $record->pipeline_error,
+            'automatic_publication_enabled' => $auto->enabled(),
             'upload_id' => $record->id,
             'type' => $record->ingestable_type,
             'title_id' => $record->ingestable_id,

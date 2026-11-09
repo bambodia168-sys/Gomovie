@@ -129,6 +129,11 @@ class BrowseController extends Controller
         $profileId = $viewerAuthorized ? UserProfile::query()->where('user_id',auth()->id())
             ->where('is_kids',false)->value('id') : null;
         $playerEnabled = config('gomovie.edge_enabled') === true && (bool) $profileId;
+        $publicWatchId = $type === 'movie' ? (int) $title->id : (int) ($selectedEpisode?->id ?? 0);
+        $publicAsset = $publicWatchId > 0
+            ? app(\App\Services\Media\AutomaticPublicationService::class)
+                ->readyAsset($type === 'movie' ? 'movie' : 'episode', $publicWatchId)
+            : null;
 
         // A verified administrator can preview their own private source on
         // the existing watch page. No public viewer sees the preview URL.
@@ -233,7 +238,7 @@ class BrowseController extends Controller
         return view('frontend.detail', compact(
             'title','type','displayMode','seasons','selectedEpisode','previousEpisode',
             'nextEpisode','related','autoNext','playerEnabled','profileId',
-            'isWatchlisted','viewerAuthorized','privatePreviewIngest','playerPreferences'
+            'isWatchlisted','viewerAuthorized','privatePreviewIngest','playerPreferences','publicAsset'
         ));
     }
 

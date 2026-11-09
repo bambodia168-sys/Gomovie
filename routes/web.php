@@ -15,12 +15,17 @@ use App\Http\Controllers\Admin\TmdbController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Frontend\BrowseController;
+use App\Http\Controllers\Frontend\PublicHlsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [BrowseController::class, 'home'])->name('home');
 Route::get('/browse', [BrowseController::class, 'index'])->name('browse');
 Route::view('/about', 'frontend.about')->name('about');
 Route::get('/watch/{type}/{slug}', [BrowseController::class, 'show'])->name('watch.show');
+// Only integrity-verified FREE HLS assets; raw private ingests have no public route.
+Route::get('/hls/{asset}/{path}', PublicHlsController::class)
+    ->whereNumber('asset')->where('path', '.*')
+    ->middleware('throttle:240,1')->name('public-hls.show');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [SessionController::class, 'loginForm'])->name('login');

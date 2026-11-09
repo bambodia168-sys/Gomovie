@@ -120,7 +120,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
   </nav>
   <div class="columns">
     <div class="card">
-      <form id="gm-upload-studio-form" action="{{ route('upload-studio.upload') }}" method="POST" enctype="multipart/form-data" data-max-bytes="{{ $maxUploadBytes }}" data-resume-id="{{ $resume->id ?? '' }}" data-resume-type="{{ $resume->ingestable_type ?? '' }}" data-resume-target="{{ $resume->ingestable_id ?? '' }}" data-upload-base="{{ route('upload-studio.index') }}" novalidate>
+      <form id="gm-upload-studio-form" action="{{ route('upload-studio.upload') }}" method="POST" enctype="multipart/form-data" data-max-bytes="{{ $maxUploadBytes }}" data-resume-id="{{ $resume->id ?? '' }}" data-resume-type="{{ $resume->ingestable_type ?? '' }}" data-resume-target="{{ $resume->ingestable_id ?? '' }}" data-upload-base="{{ route('upload-studio.index') }}" data-auto-publication="{{ $automaticPublicationEnabled ? '1' : '0' }}" novalidate>
         @csrf
         <section class="card-inner" data-panel="1">
           <div class="panel-title"><span class="count">1</span><h2>File &amp; Ingest</h2></div>
@@ -253,8 +253,9 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
           <div class="panel-title"><span class="count">5</span><h2>Finish</h2></div>
           <div class="big-check" aria-hidden="true">✓</div>
           <h3 style="margin:0 0 8px;font-size:21px">Video saved successfully</h3>
-          <p class="section-help" style="margin:0 0 20px">Your original file is stored privately. Publishing and streaming are not activated by uploading.</p>
+          <p class="section-help" style="margin:0 0 20px">{{ $automaticPublicationEnabled ? 'Gomovie processes eligible licensed free videos automatically. The original is protected while processing.' : 'Your original file is stored privately. Automatic public playback is not enabled for this installation.' }}</p>
           <div class="notice"><strong>Actual upload status: </strong><span id="gm-finish-status">Saved privately</span></div>
+          <a id="gm-public-watch" class="btn btn-primary" href="#" hidden style="margin-top:14px">▶ Watch public video</a>
           <p class="message" id="gm-finish-feedback" role="status" aria-live="polite" hidden></p>
           <div class="bottom-actions">
             <button class="btn" type="button" data-prev="4">← Back</button>
@@ -327,7 +328,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
   function currentItem() { return catalog.find(c => c.kind === currentType() && c.id === target.value); }
   function displayStatus(status) {
     const known = {
-      quarantined: 'Saved privately', approved: 'Private processing authorized',
+      public: 'Public and playable', quarantined: 'Saved privately', approved: 'Automatic processing authorized',
       processing: 'Processing privately', encoded: 'Private encoding completed',
       rejected: 'Rejected', failed: 'Processing failed'
     };
@@ -412,6 +413,18 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     ingestStatus = status;
     el('gm-side-status').textContent = displayStatus(status);
     el('gm-finish-status').textContent = displayStatus(status);
+  }
+  let statusPolling = null;
+  function startStatusPolling() {
+    if (!form.dataset.autoPublication || form.dataset.autoPublication !== '1' || !ingestId) return;
+    if (statusPolling !== null) return;
+    statusPolling = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshStatus();
+      if (el('gm-side-status').textContent === 'Public and playable') {
+        window.clearInterval(statusPolling); statusPolling = null;
+      }
+    }, 10000);
   }
   function enablePostUpload() {
     steps.forEach(b => { b.disabled = false; });
@@ -516,8 +529,11 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
         setProgress(100);
         el('gm-upload-progress-text').textContent = 'Upload complete';
         setUploadStatus('quarantined');
-        message('gm-upload-feedback','Video uploaded successfully. You can finish now or add optional details.','ok');
+        message('gm-upload-feedback',data.automatic_publication_enabled
+          ? 'Video uploaded successfully. Automatic processing has started.'
+          : 'Video uploaded successfully. You can finish now or add optional details.','ok');
         enablePostUpload();
+        if (form.dataset.autoPublication === '1') startStatusPolling();
       } else {
         let reason = firstError(data,'The upload failed. Try again.');
         if (xhr.status === 413) reason = 'The server rejected the file because it is too large.';
@@ -611,8 +627,18 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
       const response=await fetch(urlFor('status'),{headers:{'Accept':'application/json'},credentials:'same-origin'});
       const data=await response.json();
       if(!response.ok || data.ok !== true)throw new Error(firstError(data,'Unable to check upload status.'));
-      setUploadStatus(data.status);
-      clearMessage('gm-finish-feedback');
+      setUploadStatus(data.public ? 'public' : data.status);
+      const watch = el('gm-public-watch');
+      watch.hidden = !(data.public && data.watch_url);
+      if (data.public && data.watch_url) watch.href = data.watch_url;
+      if (data.public) { watch.hidden = false; watch.href = data.watch_url; }
+      if (data.publication_error) message('gm-finish-feedback',
+        data.publication_error === 'documented_distribution_rights_required'
+          ? 'A verified distribution-rights record is required before this video can be public.'
+          : data.publication_error === 'active_free_distribution_rights_required'
+            ? 'Automatic playback is available for licensed free titles only.'
+            : 'Automatic processing could not finish. The video remains protected.','error');
+      else clearMessage('gm-finish-feedback');
     } catch(error) {message('gm-finish-feedback',error.message,'error');}
   }
   el('gm-refresh-status').addEventListener('click',refreshStatus);
@@ -625,9 +651,10 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
       target.value=resumeTarget;syncForms();setUploadStatus('quarantined');enablePostUpload();
       submit.hidden=true;videoFile.disabled=true;target.disabled=true;search.disabled=true;types.forEach(t=>t.disabled=true);
       drop.hidden=true;
-      message('gm-upload-feedback','This video is already saved privately. Continue editing optional catalog details or finish.','ok');
+      message('gm-upload-feedback','This video is saved. Continue editing optional catalog details or finish.','ok');
     }
     refreshStatus();
+    startStatusPolling();
   }
   window.addEventListener('beforeunload',() => {if(previewObjectUrl)URL.revokeObjectURL(previewObjectUrl);});
 })();

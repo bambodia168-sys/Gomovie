@@ -18,7 +18,25 @@
       <section class="gm-player-stage" aria-label="{{ $portrait ? 'Portrait' : 'Widescreen' }} watch player">
         @if($still)<img class="gm-player-background" src="{{ $still }}" alt="" loading="eager" decoding="async">@endif
         <div class="gm-player-vignette" aria-hidden="true"></div>
-        @if($privatePreviewIngest && !$playerEnabled)
+        @if($publicAsset)
+          <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
+               data-gomovie-player data-public-hls-url="{{ route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8']) }}"
+               data-profile-id="0" data-modern-player
+               data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
+               data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"
+               style="--gm-player-accent:{{ \App\Support\PlayerPreferences::accentColor($playerPreferences) }}">
+            <video playsinline controls preload="none" aria-label="Gomovie public free video"
+                   @if($still) poster="{{ $still }}" @endif></video>
+            @include('frontend.partials.modern-player-controls', ['secure' => true])
+            <div class="gm-player-controls">
+              <button type="button" data-play-type="{{ $type === 'movie' ? 'movie' : 'episode' }}"
+                      data-play-id="{{ $publicWatchId }}" class="gm-button gm-button-primary">▶ Watch now</button>
+              <button type="button" data-stop-playback class="gm-button gm-button-secondary" hidden>Stop playback</button>
+              <button type="button" data-retry-playback class="gm-button gm-button-secondary" hidden>↻ Retry</button>
+              <p data-playback-status role="status" aria-live="polite">Ready to watch for free.</p>
+            </div>
+          </div>
+        @elseif($privatePreviewIngest && !$playerEnabled)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
                data-gomovie-private-preview data-modern-player
                data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
@@ -83,7 +101,7 @@
         @endif
       </section>
     </div>
-    @if($privatePreviewIngest && !$playerEnabled)
+    @if($privatePreviewIngest && !$playerEnabled && !$publicAsset)
       <p class="gm-muted" style="font-size:12px;line-height:1.6;margin:12px 0 0">
         Private administrator preview · Not publicly available. Source video duration may differ from the catalog runtime.
       </p>

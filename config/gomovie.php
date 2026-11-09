@@ -1,6 +1,9 @@
 <?php
 
 return [
+    // Opt-in, off until FFmpeg, ClamAV and an isolated media worker are accepted.
+    'automatic_publication_enabled' => filter_var(env('GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+    'public_hls_enabled' => filter_var(env('GOMOVIE_PUBLIC_HLS_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'r2_enabled' => filter_var(env('GOMOVIE_R2_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'r2_endpoint' => env('GOMOVIE_R2_ENDPOINT'),
     'r2_bucket' => env('GOMOVIE_R2_BUCKET'),

@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
  */
 final class MediaPackageInspector
 {
-    public function inspect(int $ingestId): array
+    public function inspect(int $ingestId, bool $permitDraftForAutoPublication = false): array
     {
         $ingest = DB::table('media_ingests')->where('id', $ingestId)->first();
         abort_unless($ingest, 404);
@@ -40,13 +40,20 @@ final class MediaPackageInspector
         $id = (int) $ingest->ingestable_id;
         app(\App\Services\Rights\GlobalRights::class)->requireActive($type, $id);
         if ($type === 'movie') {
+            $status = $permitDraftForAutoPublication ? ['draft', 'published'] : ['published'];
             abort_unless(DB::table('movies')->where('id', $id)
-                ->where('status', 'published')->exists(), 403, 'Title is not published.');
+                ->whereIn('status', $status)->where('is_premium', false)->exists()
+                || (!$permitDraftForAutoPublication && DB::table('movies')->where('id',$id)
+                    ->where('status','published')->exists()),
+                403, 'Title is not eligible for publication.');
         } else {
-            abort_unless(DB::table('episodes')->join('seasons', 'seasons.id', '=', 'episodes.season_id')
+            $statuses = $permitDraftForAutoPublication ? ['draft', 'published'] : ['published'];
+            $query = DB::table('episodes')->join('seasons', 'seasons.id', '=', 'episodes.season_id')
                 ->join('series', 'series.id', '=', 'seasons.series_id')
-                ->where('episodes.id', $id)->where('episodes.status', 'published')
-                ->where('series.status', 'published')->exists(), 403, 'Episode or series is not published.');
+                ->where('episodes.id', $id)->whereIn('episodes.status', $statuses)
+                ->whereIn('series.status', $statuses);
+            if ($permitDraftForAutoPublication) $query->where('series.is_premium', false);
+            abort_unless($query->exists(), 403, 'Episode or series is not eligible for publication.');
         }
 
         $key = $ingest->encoded_manifest_key;
