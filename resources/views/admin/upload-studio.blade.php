@@ -184,8 +184,24 @@
   type.addEventListener('change', () => { target.value = ''; filter(); });
   search.addEventListener('input', filter);
   filter();
-  for (const event of ['dragenter', 'dragover']) drop.addEventListener(event, () => drop.classList.add('is-dragging'));
-  for (const event of ['dragleave', 'drop']) drop.addEventListener(event, () => drop.classList.remove('is-dragging'));
+  for (const type of ['dragenter', 'dragover']) {
+    drop.addEventListener(type, event => {
+      event.preventDefault();
+      drop.classList.add('is-dragging');
+    });
+  }
+  drop.addEventListener('dragleave', () => drop.classList.remove('is-dragging'));
+  drop.addEventListener('drop', event => {
+    event.preventDefault();
+    drop.classList.remove('is-dragging');
+    if (!event.dataTransfer?.files?.length || input.disabled) return;
+    try {
+      input.files = event.dataTransfer.files;
+      input.dispatchEvent(new Event('change'));
+    } catch {
+      show('Your browser needs you to choose the file using Browse.');
+    }
+  });
   input.addEventListener('change', () => {
     const file = input.files?.[0];
     fileLabel.textContent = file ? file.name : 'Drag a video here or browse';
@@ -232,6 +248,9 @@
           }
         }
         submit.textContent = 'Upload another video';
+        input.value = '';
+        fileLabel.textContent = 'Drag a video here or browse';
+        target.value = '';
       } else {
         const error = data?.errors ? Object.values(data.errors).flat()[0] : data?.message;
         show(error || 'Upload could not be completed. Please retry.');
