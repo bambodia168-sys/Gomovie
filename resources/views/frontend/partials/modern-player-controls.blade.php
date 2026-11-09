@@ -29,9 +29,24 @@
       </div>
       <div class="gm-modern-group gm-modern-trailing">
         @if($playerPreferences['show_volume'])
-          <button type="button" class="gm-modern-btn gm-modern-volume-icon" data-gm-mute aria-label="Mute audio" title="Mute or unmute">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5ZM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
-          </button>
+          <div class="gm-modern-volume-wrap">
+            <button type="button" class="gm-modern-btn gm-modern-volume-icon" data-gm-mute
+                    data-gm-volume-toggle aria-label="Adjust volume" title="Adjust volume"
+                    aria-controls="gm-modern-volume-{{ $type }}-{{ $selectedEpisode?->id ?? $title->id }}"
+                    aria-expanded="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5ZM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg>
+            </button>
+            <div class="gm-modern-volume-popover" data-gm-volume-popover
+                 id="gm-modern-volume-{{ $type }}-{{ $selectedEpisode?->id ?? $title->id }}"
+                 role="group" aria-label="Volume adjustment" hidden>
+              <span>Volume</span>
+              <div class="gm-volume-vertical-track">
+                <input type="range" min="0" max="1" step="0.05" value="1"
+                       data-gm-menu-volume aria-label="Player volume" aria-orientation="vertical">
+              </div>
+              <output data-gm-volume-percent>100%</output>
+            </div>
+          </div>
         @endif
 
         <div class="gm-modern-settings-wrap">
@@ -84,19 +99,7 @@
                         aria-label="Toggle captions" aria-pressed="false" disabled hidden>Captions · Off</button>
               @endif
             </div>
-            @if($playerPreferences['show_volume'])
-              <div class="gm-settings-group gm-settings-audio" aria-label="Audio settings">
-                <span class="gm-settings-section-title">Audio</span>
-                <div class="gm-volume-vertical-wrap">
-                  <span>Volume</span>
-                  <div class="gm-volume-vertical-track">
-                    <input type="range" min="0" max="1" step="0.05" value="1"
-                           data-gm-menu-volume aria-label="Player volume" aria-orientation="vertical">
-                  </div>
-                  <output data-gm-volume-percent>100%</output>
-                </div>
-              </div>
-            @endif
+
             @if($playerPreferences['show_pip'])
               <div class="gm-settings-group gm-settings-device">
                 <span class="gm-settings-section-title">Device</span>
