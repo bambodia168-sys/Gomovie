@@ -84,7 +84,7 @@ final class PrivateIngestPreviewTest extends TestCase
 
         $this->actingAs($admin)->withHeaders(['Range' => 'bytes=0-15'])
             ->get($url)->assertStatus(206)->assertHeader('Content-Range',
-                'bytes 0-15/4350');
+                'bytes 0-15/'.strlen(str_repeat('gomovie private preview bytes ', 150)));
     }
 
     public function test_private_preview_is_never_available_to_guests_viewers_or_unrelated_admins(): void
