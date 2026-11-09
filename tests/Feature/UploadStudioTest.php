@@ -205,9 +205,10 @@ final class UploadStudioTest extends TestCase
         $this->postJson('/upload-studio', [
             'type'=>'movie','title_id'=>$movie->id,
             'video'=>$this->fakeVideo('real-studio.mp4'),
-        ])->assertCreated()->assertJsonPath('editor_url', route('upload-studio.index', ['upload'=>1]));
+        ])->assertCreated()->assertJsonPath('ok', true);
 
         $id = (int) DB::table('media_ingests')->value('id');
+        $this->assertDatabaseHas('media_ingests', ['id'=>$id,'status'=>'quarantined']);
         $this->get('/upload-studio?upload='.$id)->assertOk()
             ->assertSee('data-resume-id="'.$id.'"', false);
 
