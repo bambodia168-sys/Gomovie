@@ -1,12 +1,12 @@
 @extends('layouts.admin')
 @section('title','System Health')
 @section('content')
-<div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+<div class="gm-page-heading">
   <div><p class="text-xs font-bold uppercase tracking-widest text-[#F5C518]">Operations / Read-only</p>
-    <h2 class="mt-2 text-3xl font-black tracking-tight">Application health</h2>
+    <h2>Application health</h2>
     <p class="mt-3 text-sm text-zinc-400">Database, queues, storage and integration safety checks. This view does not approve production release.</p>
   </div>
-  <p class="rounded-full border border-white/15 bg-zinc-900 px-4 py-2 text-xs text-zinc-400">Checked {{ $snapshot['checked_at'] }}</p>
+  <div class="gm-page-actions"><span class="gm-studio-pill">Checked {{ $snapshot['checked_at'] }}</span><a href="{{ route('admin.operations.index') }}" class="gm-studio-button">@include('partials.studio-icon',['name'=>'history']) Refresh checks</a></div>
 </div>
 @if(count($snapshot['alerts']))
   <section class="mb-7 rounded-2xl border border-amber-600/25 bg-zinc-900/70 px-6 py-5" role="status">
@@ -62,18 +62,19 @@
     </dl>
   </section>
 </div>
-<section class="mt-9 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/65">
-  <h3 class="border-b border-white/10 px-6 py-5 text-lg font-semibold">Recent administrative audit events</h3>
-  <div class="overflow-x-auto"><table class="w-full min-w-[530px] text-left text-sm">
-    <thead class="text-xs uppercase text-zinc-500"><tr><th class="p-5">Action</th><th class="p-5">Resource type</th><th class="p-5">Recorded</th></tr></thead>
-    <tbody class="divide-y divide-white/10">
+<section class="gm-studio-panel mt-9">
+  <div class="gm-studio-panel-head"><div><h3>Recent administrative audit events</h3><small>Read-only security history · 10 records per page</small></div><span class="gm-studio-pill">{{ $recentEvents->total() }} events</span></div>
+  <div class="gm-studio-table-scroll"><table class="gm-studio-table">
+    <thead><tr><th>No.</th><th>Action</th><th>Resource type</th><th>Resource ID</th><th>Recorded</th></tr></thead>
+    <tbody>
       @forelse($recentEvents as $event)
-        <tr><td class="p-5">{{ $event->action }}</td><td class="p-5 text-zinc-400">{{ $event->resource_type ?: '—' }}</td><td class="p-5 text-zinc-400">{{ $event->created_at }}</td></tr>
+        <tr><td>{{ ($recentEvents->firstItem()??1)+$loop->index }}</td><td>{{ $event->action }}</td><td class="gm-studio-muted">{{ $event->resource_type ?: '—' }}</td><td class="gm-studio-muted">{{ $event->resource_id ?: '—' }}</td><td class="gm-studio-muted">{{ $event->created_at }}</td></tr>
       @empty
-        <tr><td colspan="3" class="p-7 text-center text-zinc-500">No administrative events recorded.</td></tr>
+        <tr><td colspan="5" class="gm-studio-empty">No administrative events recorded.</td></tr>
       @endforelse
     </tbody>
   </table></div>
+  @include('partials.studio-pager',['paginator'=>$recentEvents,'id'=>'gm-audit-page'])
 </section>
 <section class="mt-9 overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/65">
   <div class="border-b border-white/10 px-6 py-5">

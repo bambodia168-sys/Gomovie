@@ -18,8 +18,8 @@ final class OperationsController extends Controller
             'snapshot'=>$inspector->inspect(),
             'hostAcceptance'=>app(\App\Services\Operations\HostAcceptanceRegistry::class)->report(),
             'recentEvents'=>DB::table('admin_audit_events')
-                ->select('action','resource_type','created_at')
-                ->orderByDesc('id')->limit(15)->get(),
+                ->select('id','action','resource_type','resource_id','created_at')
+                ->orderByDesc('id')->paginate(10)->withQueryString(),
         ]);
     }
 }
