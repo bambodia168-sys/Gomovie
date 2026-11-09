@@ -133,7 +133,7 @@ foreach (["resources/css/app.css","resources/js/app.js"] as $entry) {
 }
 ' "$BUILD"
 grep -RlF 'gm-modern-volume-popover' "$BUILD/assets" --include='*.css' >/dev/null
-grep -RlF 'gm-modern-volume-popover' "$BUILD/assets" --include='*.js' >/dev/null
+grep -RlF 'data-gm-volume-popover' "$BUILD/assets" --include='*.js' >/dev/null
 # Laravel Vite's font plugin emits an additional generated, unversioned
 # fonts-manifest.json alongside the hashed assets. Audit the FULL compiled
 # directory BEFORE changing any live files; reject all unexpected paths.
