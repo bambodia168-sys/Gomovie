@@ -835,3 +835,127 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 @media(prefers-reduced-motion:reduce){
   .gm-modern-volume-icon{transition:none}
 }
+
+
+/* Gomovie Player v1.3 — portrait-safe portal, cinematic low-opacity chrome,
+   one inline control row, fast idle. Scope these final overrides to the player. */
+.gm-modern-player .gm-modern-ui > .gm-modern-settings.gm-settings-premium {
+  position:absolute;
+  inset:auto auto 78px 50%;
+  right:auto;
+  left:50%;
+  bottom:78px;
+  transform:translateX(-50%);
+  width:min(302px,calc(100% - 24px));
+  max-width:calc(100% - 24px);
+  max-height:calc(100% - 105px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  z-index:21;
+  pointer-events:auto;
+}
+.gm-modern-player .gm-modern-ui > .gm-modern-settings.gm-settings-premium[hidden]{display:none!important}
+.gm-modern-player .gm-modern-ui > .gm-modern-settings .gm-settings-heading{
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:#161926;
+}
+.gm-modern-player .gm-modern-bottom{
+  min-height:0;
+  background:linear-gradient(to top,rgba(2,3,9,.38),rgba(2,3,9,.10) 72%,transparent);
+  transition:opacity .14s ease,transform .14s ease;
+}
+.gm-modern-player .gm-modern-btn:hover{
+  background:rgba(255,255,255,.10);
+  border-color:rgba(255,255,255,.15);
+}
+.gm-modern-player.is-idle:not(.is-ad-break):not(.is-keyboard) .gm-modern-bottom,
+.gm-modern-player.is-idle:not(.is-ad-break):not(.is-keyboard):focus-within .gm-modern-bottom{
+  opacity:0!important;
+  transform:translateY(7px)!important;
+  pointer-events:none!important;
+}
+.gm-modern-player.is-idle:not(.is-ad-break):not(.is-keyboard) .gm-modern-center-play{
+  opacity:0!important;
+  pointer-events:none!important;
+}
+.gm-modern-player .gm-modern-ui > .gm-modern-settings.gm-settings-premium:not([hidden]){
+  opacity:1;
+  pointer-events:auto;
+}
+.gm-player-placement.is-portrait .gm-modern-bottom{
+  min-height:0!important;
+  padding:12px 10px 12px!important;
+  gap:5px!important;
+}
+.gm-player-placement.is-portrait .gm-modern-toolbar{
+  display:flex!important;
+  flex-direction:row!important;
+  flex-wrap:nowrap!important;
+  grid-template-columns:none!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:2px!important;
+  width:100%;
+  min-height:32px;
+}
+.gm-player-placement.is-portrait .gm-modern-group,
+.gm-player-placement.is-portrait .gm-modern-trailing{
+  width:auto!important;
+  min-width:0!important;
+  flex:0 1 auto!important;
+  margin:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:1px!important;
+}
+.gm-player-placement.is-portrait .gm-modern-trailing{margin-left:auto!important}
+.gm-player-placement.is-portrait .gm-modern-btn,
+.gm-player-placement.is-portrait .gm-modern-player.is-compact .gm-modern-btn,
+.gm-player-placement.is-portrait .gm-modern-btn.gm-modern-skip,
+.gm-player-placement.is-portrait .gm-modern-fullscreen-btn{
+  width:32px!important;
+  height:32px!important;
+  min-width:32px!important;
+  min-height:32px!important;
+  padding:0!important;
+  border-radius:9px!important;
+}
+.gm-player-placement.is-portrait .gm-modern-btn svg{
+  width:18px!important;
+  height:18px!important;
+}
+.gm-player-placement.is-portrait .gm-modern-fullscreen-btn svg.gm-fullscreen-glyph{
+  width:18px!important;
+  height:18px!important;
+}
+.gm-player-placement.is-portrait .gm-modern-btn.gm-modern-skip svg{
+  width:22px!important;
+  height:22px!important;
+}
+.gm-player-placement.is-portrait .gm-modern-skip span{font-size:7px}
+.gm-player-placement.is-portrait .gm-modern-time,
+.gm-player-placement.is-portrait .gm-modern-player.is-compact .gm-modern-time{
+  margin:0 0 0 2px!important;
+  font-size:10px!important;
+  letter-spacing:0!important;
+  gap:3px;
+}
+.gm-player-placement.is-portrait .gm-modern-timeline-wrap{height:12px}
+.gm-player-placement.is-portrait .gm-modern-volume-popover{
+  bottom:calc(100% + 12px);
+}
+@container (max-width:350px){
+  .gm-player-placement.is-portrait .gm-modern-toolbar{gap:0!important}
+  .gm-player-placement.is-portrait .gm-modern-btn,
+  .gm-player-placement.is-portrait .gm-modern-player.is-compact .gm-modern-btn{
+    width:28px!important;
+    min-width:28px!important;
+  }
+  .gm-player-placement.is-portrait .gm-modern-time{font-size:9px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .gm-modern-player .gm-modern-bottom{transition:none!important}
+}
