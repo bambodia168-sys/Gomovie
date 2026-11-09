@@ -70,6 +70,8 @@ jobs:
         run: bash -n support/remove-upload-approval-page.sh
       - name: Syntax check real five-stage Upload Studio deployment
         run: bash -n support/sample-inspired-real-upload-upgrade.sh
+      - name: Syntax check private watch preview deployment helper
+        run: bash -n support/private-watch-preview-upgrade.sh
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
