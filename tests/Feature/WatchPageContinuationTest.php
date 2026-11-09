@@ -88,8 +88,9 @@ final class WatchPageContinuationTest extends TestCase
             ->assertOk()
             ->assertDontSee('gm-watch-breadcrumb')
             ->assertDontSee('Now exploring')
-            ->assertSee('gm-watch-toolbar-compact')
-            ->assertSee('Widescreen · 16:9')
+            ->assertSee('data-gm-view-placement')
+            ->assertSee('data-gm-view-preference="auto"', false)
+            ->assertDontSee('gm-mode-switch')
             ->assertSee('All Episodes')
             ->assertSee('Episode 1')
             ->assertSee('Episode 2')
@@ -101,7 +102,8 @@ final class WatchPageContinuationTest extends TestCase
 
         $this->get('/watch/series/'.$series->slug.'?view=portrait&episode='.$second->id)
             ->assertOk()
-            ->assertSee('Portrait · 9:16')
+            ->assertSee('data-gm-view-preference="portrait"', false)
+            ->assertSee('is-portrait')
             ->assertSee('Previous episode')
             ->assertSee('episode='.$first->id)
             ->assertDontSee('Private Draft Episode');
