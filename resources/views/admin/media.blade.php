@@ -22,8 +22,8 @@
 <template id="asset-actions-{{ $asset->id }}">
 @if(in_array(auth()->user()->role,['admin','super_admin'],true))
 <a role="menuitem" href="{{ route('admin.media.ingest-preview',$asset->id) }}" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) Private preview</a>
-@if($asset->public)
-<a role="menuitem" href="{{ route('watch.show',['type'=>$asset->ingestable_type==='movie'?'movie':'series','slug'=>$asset->ingestable_type==='movie'?(AppModelsMovie::find($asset->ingestable_id)?->slug??''):(AppModelsEpisode::find($asset->ingestable_id)?->season?->series?->slug??'')]) }}" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) Watch public video</a>
+@if($asset->public && ($asset->watch_url ?? null))
+<a role="menuitem" href="{{ $asset->watch_url }}" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) Watch public video</a>
 @endif
 @endif
 @if((int)$asset->uploaded_by===(int)auth()->id() && $asset->status==='quarantined')
