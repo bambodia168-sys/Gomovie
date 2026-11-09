@@ -97,13 +97,15 @@ final class CinematicFrontendTest extends TestCase
         $foreign = Episode::create(['season_id'=>$otherSeason->id,'episode_number'=>1,'title'=>'Foreign Episode','status'=>'published']);
 
         $this->get('/watch/series/portrait-story')->assertOk()
-            ->assertSee('Widescreen · 16:9')
+            ->assertSee('data-gm-view-preference="auto"', false)
+            ->assertDontSee('gm-mode-switch')
             ->assertSee('A First Episode')
             ->assertSee('The Next Chapter')
             ->assertDontSee('Private Episode');
 
         $this->get('/watch/series/portrait-story?view=portrait&episode='.$second->id)
-            ->assertOk()->assertSee('Portrait · 9:16')->assertSee('The Next Chapter')
+            ->assertOk()->assertSee('data-gm-view-preference="portrait"', false)
+            ->assertSee('is-portrait')->assertSee('The Next Chapter')
             ->assertSee('Related Movies &amp; Series', false)
             ->assertSee('Another Show')
             ->assertDontSee('Private Episode')
