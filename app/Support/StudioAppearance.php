@@ -11,10 +11,12 @@ final class StudioAppearance
         'home' => ['label'=>'Homepage','route'=>'home','eyebrow'=>'Discover Gomovie','heading'=>'A world of stories. Made for you.','description'=>'Discover films and series on Gomovie.'],
         'browse' => ['label'=>'Browse catalog','route'=>'browse','eyebrow'=>'Discover Gomovie','heading'=>'Movies & Series','description'=>'Explore published catalog titles. Playback depends on approved distribution rights and availability.'],
         'about' => ['label'=>'About','route'=>'about','eyebrow'=>'About the platform','heading'=>'Stories worth discovering.','description'=>'Gomovie is a developing catalog and streaming platform for movies and TV series. Our public pages show published titles; playback remains restricted to content with approved rights, secure delivery and verified access.'],
-        'watch' => ['label'=>'Watch title template','route'=>null,'eyebrow'=>null,'heading'=>null,'description'=>null],
+        'watch' => ['label'=>'Watch title template','route'=>null,'eyebrow'=>null,'heading'=>'Story details','description'=>null],
         'login' => ['label'=>'Sign in','route'=>'login','eyebrow'=>null,'heading'=>'Welcome back','description'=>'Sign in to manage your Gomovie account and continue exploring.'],
-        'register' => ['label'=>'Registration','route'=>'register','eyebrow'=>null,'heading'=>'Create an account','description'=>''],
-        'forgot-password' => ['label'=>'Password recovery','route'=>'password.request','eyebrow'=>null,'heading'=>'Reset password','description'=>''],
+        'register' => ['label'=>'Registration','route'=>'register','eyebrow'=>null,'heading'=>'Create your account','description'=>'Join Gomovie and build your own movie and series watchlist.'],
+        'forgot-password' => ['label'=>'Password recovery','route'=>'password.request','eyebrow'=>null,'heading'=>'Forgot password?','description'=>"Enter your account email. We'll send reset instructions if the account exists."],
+        'reset-password' => ['label'=>'Reset password form','route'=>null,'eyebrow'=>null,'heading'=>'Choose a new password','description'=>'Confirm your account email and choose a strong new password.'],
+        'email-verification' => ['label'=>'Email verification','route'=>null,'eyebrow'=>null,'heading'=>'Check your inbox','description'=>'A secure verification link has been sent to your email address. Verify it before accessing your Gomovie account and personal library.'],
     ];
 
     public static function page(string $slug): ?object
