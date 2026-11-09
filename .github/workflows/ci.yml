@@ -114,11 +114,45 @@ jobs:
           assert ".gm-modern-ui [hidden]{display:none!important}" in css
           assert "data-gm-menu-volume" in controls
           assert "data-gm-menu-pip" in controls
-          assert "disabled hidden>CC" in controls
+          assert "data-captions-toggle" in controls
+          assert "data-gm-view-mode" in controls
+          assert "data-gm-ad-layer" in controls
+          assert "data-gm-menu-volume" in controls
+          assert "data-gm-volume-percent" in controls
+          assert "data-gm-settings-close" in controls
+          assert "gm-icon-expand" in controls and "gm-icon-collapse" in controls
+          assert "gm-modern-settings-button" in controls
           assert "const updateCapabilities" in js
           assert "video.dataset.gmSubtitleCount" in js
           assert "video.textTracks?.addEventListener?.('addtrack'" in js
           assert "'/api/v1/stream/' + type + '/' + titleId + '/token'" in js
+          PY
+      - name: Verify premium player UX and protected ad integration contract
+        run: |
+          node --check resources/js/player.js
+          python3 - <<'PY'
+          from pathlib import Path
+          js=Path("resources/js/player.js").read_text()
+          css=Path("resources/css/app.css").read_text()
+          blade=Path("resources/views/frontend/detail.blade.php").read_text()
+          controls=Path("resources/views/frontend/partials/modern-player-controls.blade.php").read_text()
+          assert "video.videoHeight > video.videoWidth" in js
+          assert "video.addEventListener('loadedmetadata', detectOrientation)" in js
+          assert "applyViewMode(viewSelect.value, true)" in js
+          assert "document.activeElement" in js and "keyboardInteracting" in js
+          assert "data-gm-menu-volume" in controls and "data-gm-volume-percent" in controls
+          assert "data-gm-volume aria-label" not in controls
+          assert "gm-mode-switch" not in blade
+          assert "gm-watch-title-block" in blade and "gm-watch-info-actions" in blade
+          assert blade.index("<h2>{{ $title->title }}</h2>") < blade.index('<div class="gm-watch-tags">')
+          assert "data-gm-ad-layer hidden" in controls
+          assert "root.addEventListener('gomovie:ad-start'" in js
+          assert "root.addEventListener('gomovie:ad-end'" in js
+          assert "gomovie:ad-skip-request" in js
+          assert "video.pause();" in js
+          assert "gm-player-soft-glow" in css and "gm-player-spinner" in css
+          assert ".gm-player-stage:fullscreen" in css
+          print("GOMOVIE_PREMIUM_PLAYER=VERIFIED")
           PY
       - name: Verify portrait player aaPanel upgrade helper
         run: |
