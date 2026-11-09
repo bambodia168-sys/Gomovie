@@ -37,12 +37,26 @@ final class UploadStudioController extends Controller
             abort_unless(in_array($resume->ingestable_type, ['movie', 'episode'], true), 404);
         }
 
+        $movies = Movie::query()->orderBy('title')->limit(2000)->get([
+            'id', 'title', 'overview', 'release_year', 'runtime_minutes', 'is_premium', 'status',
+        ]);
+        $episodes = Episode::query()->with('season.series')
+            ->orderByDesc('id')->limit(2000)->get();
+
+        // Always include the user's resumed upload, even in a large catalog.
+        if ($resume && $resume->ingestable_type === 'movie'
+            && !$movies->contains('id', (int) $resume->ingestable_id)) {
+            $movies->push(Movie::query()->findOrFail((int) $resume->ingestable_id));
+        }
+        if ($resume && $resume->ingestable_type === 'episode'
+            && !$episodes->contains('id', (int) $resume->ingestable_id)) {
+            $episodes->push(Episode::query()->with('season.series')
+                ->findOrFail((int) $resume->ingestable_id));
+        }
+
         return view('admin.upload-studio', [
-            'movies' => Movie::query()->orderBy('title')->limit(2000)->get([
-                'id', 'title', 'overview', 'release_year', 'runtime_minutes', 'is_premium', 'status',
-            ]),
-            'episodes' => Episode::query()->with('season.series')
-                ->orderByDesc('id')->limit(2000)->get(),
+            'movies' => $movies,
+            'episodes' => $episodes,
             'maxUploadBytes' => $max,
             'resume' => $resume,
         ]);
