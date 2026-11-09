@@ -4,7 +4,7 @@
 <div class="mx-auto max-w-4xl">
   <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
     <div>
-      <a href="{{ route('admin.upload-studio.index') }}" class="text-xs font-bold text-rose-300 hover:underline">← Upload Studio</a>
+      <a href="{{ route('upload-studio.index') }}" class="text-xs font-bold text-rose-300 hover:underline">← Upload Studio</a>
       <h2 class="mt-3 text-2xl font-extrabold tracking-tight">Review video</h2>
       <p class="mt-2 text-sm text-zinc-400">An operator reviews the original file; the uploader does not need to complete extra steps.</p>
     </div>
