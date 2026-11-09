@@ -68,6 +68,8 @@ jobs:
         run: bash -n support/upload-studio-one-click-recovery.sh
       - name: Syntax check upload approval-page removal helper
         run: bash -n support/remove-upload-approval-page.sh
+      - name: Syntax check real five-stage Upload Studio deployment
+        run: bash -n support/sample-inspired-real-upload-upgrade.sh
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
