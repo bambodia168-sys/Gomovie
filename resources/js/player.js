@@ -13,7 +13,7 @@ if (root) {
     const tools = document.querySelector('[data-gomovie-player-tools]');
     const stage = root.closest('.gm-player-stage');
     const nextPrompt = document.querySelector('[data-gomovie-next-prompt]');
-    const autoNextToggle = tools?.querySelector('[data-auto-next-toggle]');
+    const autoNextToggle = document.querySelector('[data-auto-next-toggle]');
     const qualitySelect = tools?.querySelector('[data-playback-quality]');
     const qualityContainer = tools?.querySelector('[data-quality-container]');
     const speedSelect = tools?.querySelector('[data-playback-speed]');
@@ -292,28 +292,6 @@ if (root) {
         cancelNext();
     });
 
-    tools?.querySelectorAll('[data-seek-offset]').forEach(button => {
-        button.addEventListener('click', () => {
-            if (!session || !Number.isFinite(video.duration)) return;
-            video.currentTime = Math.min(
-                Math.max(0, video.currentTime + Number(button.dataset.seekOffset)),
-                video.duration
-            );
-        });
-    });
-
-    tools?.querySelector('[data-mute-toggle]')?.addEventListener('click', event => {
-        video.muted = !video.muted;
-        event.currentTarget.setAttribute('aria-label', video.muted ? 'Unmute audio' : 'Mute audio');
-    });
-    volumeSlider?.addEventListener('input', () => {
-        video.volume = Math.min(1, Math.max(0, Number(volumeSlider.value)));
-        video.muted = video.volume === 0;
-    });
-    speedSelect?.addEventListener('change', () => {
-        const speed = Number(speedSelect.value);
-        if ([0.75, 1, 1.25, 1.5, 2].includes(speed)) video.playbackRate = speed;
-    });
     qualitySelect?.addEventListener('change', () => {
         if (instance) instance.currentLevel = Number(qualitySelect.value);
     });
@@ -340,33 +318,6 @@ if (root) {
         });
         button.setAttribute('aria-pressed', String(enabling));
         setStatus(enabling ? 'Captions enabled.' : 'Captions disabled.');
-    });
-
-    tools?.querySelector('[data-picture-in-picture]')?.addEventListener('click', async () => {
-        try {
-            if (!document.pictureInPictureEnabled || !video.requestPictureInPicture) {
-                setStatus('Picture-in-picture is unavailable in this browser.');
-            } else if (document.pictureInPictureElement === video) {
-                await document.exitPictureInPicture();
-            } else if (session) {
-                await video.requestPictureInPicture();
-            } else {
-                setStatus('Start authorized playback first.');
-            }
-        } catch {
-            setStatus('Picture-in-picture was not permitted by the browser.');
-        }
-    });
-
-    tools?.querySelector('[data-fullscreen-player]')?.addEventListener('click', async () => {
-        try {
-            if (document.fullscreenElement) await document.exitFullscreen();
-            else if (stage?.requestFullscreen) await stage.requestFullscreen();
-            else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
-            else setStatus('Fullscreen is unavailable in this browser.');
-        } catch {
-            setStatus('Fullscreen was not permitted by the browser.');
-        }
     });
 
     if (autoNextToggle) {
@@ -412,3 +363,241 @@ if (root) {
         }
     });
 }
+
+
+/**
+ * Gomovie's shared, accessible player controls. Works with the authenticated
+ * private-upload <source> and the existing HLS grant/session controller above.
+ * This layer only controls an HTMLMediaElement; it never creates stream URLs
+ * or modifies server-side rights, entitlements, publication or processing.
+ */
+document.querySelectorAll('[data-modern-player]').forEach((root) => {
+    const video = root.querySelector('video');
+    const ui = root.querySelector('[data-gm-controls]');
+    if (!video || !ui) return;
+
+    const stage = root.closest('.gm-player-stage');
+    const seek = ui.querySelector('[data-gm-timeline]');
+    const current = ui.querySelector('[data-gm-current]');
+    const duration = ui.querySelector('[data-gm-duration]');
+    const volume = ui.querySelector('[data-gm-volume]');
+    const mute = ui.querySelector('[data-gm-mute]');
+    const speed = ui.querySelector('[data-playback-speed]');
+    const captions = ui.querySelector('[data-captions-toggle]');
+    const pip = ui.querySelector('[data-picture-in-picture]');
+    const fullscreen = ui.querySelector('[data-fullscreen-player]');
+    const settingsButton = ui.querySelector('[data-gm-settings-toggle]');
+    const settingsPanel = ui.querySelector('[data-gm-settings]');
+    const feedback = ui.querySelector('[data-gm-feedback]');
+    const secure = root.hasAttribute('data-gomovie-player');
+    const seekSeconds = [5, 10, 15, 30].includes(Number(root.dataset.seekSeconds))
+        ? Number(root.dataset.seekSeconds) : 10;
+    const hideSeconds = [0, 3, 4, 5, 8].includes(Number(root.dataset.hideSeconds))
+        ? Number(root.dataset.hideSeconds) : 4;
+
+    let idleTimer = null;
+    let feedbackTimer = null;
+    let isScrubbing = false;
+    video.controls = false; // Native controls are the fallback if JavaScript fails.
+
+    const fmt = seconds => {
+        if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+        const total = Math.floor(seconds);
+        const h = Math.floor(total / 3600);
+        const m = Math.floor(total / 60) % 60;
+        const s = String(total % 60).padStart(2, '0');
+        return h ? h + ':' + String(m).padStart(2, '0') + ':' + s : m + ':' + s;
+    };
+    const updateTime = () => {
+        const len = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+        if (current) current.textContent = fmt(video.currentTime);
+        if (duration) duration.textContent = fmt(len);
+        if (seek) {
+            seek.disabled = len === 0 || !video.seekable.length;
+            if (!isScrubbing) seek.value = len ? String(video.currentTime / len * 100) : '0';
+            const played = len ? Math.min(100, video.currentTime / len * 100) : 0;
+            let buffered = played;
+            try {
+                for (let i = 0; i < video.buffered.length; i++) {
+                    if (video.buffered.start(i) <= video.currentTime + 0.5)
+                        buffered = Math.max(buffered, video.buffered.end(i) / len * 100);
+                }
+            } catch { /* Buffered ranges are optional. */ }
+            seek.style.setProperty('--gm-played', played + '%');
+            seek.style.setProperty('--gm-buffered', Math.min(100, buffered) + '%');
+            seek.setAttribute('aria-valuetext', fmt(video.currentTime) + ' of ' + fmt(len));
+        }
+    };
+    const updatePlay = () => {
+        const playing = !video.paused && !video.ended;
+        root.classList.toggle('is-playing', playing);
+        ui.querySelectorAll('[data-gm-toggle]').forEach(button => {
+            button.setAttribute('aria-label', playing ? 'Pause video' : 'Play video');
+            button.setAttribute('title', playing ? 'Pause video' : 'Play video');
+        });
+        if (playing) scheduleIdle();
+        else showControls();
+    };
+    const closeSettings = () => {
+        if (settingsPanel) settingsPanel.hidden = true;
+        settingsButton?.setAttribute('aria-expanded', 'false');
+    };
+    const showControls = () => {
+        root.classList.remove('is-idle');
+        if (idleTimer !== null) window.clearTimeout(idleTimer);
+        idleTimer = null;
+    };
+    const scheduleIdle = () => {
+        showControls();
+        if (!hideSeconds || video.paused || document.activeElement?.closest?.('.gm-modern-ui')
+            || (settingsPanel && !settingsPanel.hidden)) return;
+        idleTimer = window.setTimeout(() => {
+            if (!video.paused && (!settingsPanel || settingsPanel.hidden)
+                && !document.activeElement?.closest?.('.gm-modern-ui')) {
+                root.classList.add('is-idle');
+            }
+        }, hideSeconds * 1000);
+    };
+    const tell = (message) => {
+        if (!feedback) return;
+        feedback.textContent = message;
+        feedback.hidden = false;
+        if (feedbackTimer !== null) window.clearTimeout(feedbackTimer);
+        feedbackTimer = window.setTimeout(() => { feedback.hidden = true; }, 3300);
+    };
+    const togglePlay = async () => {
+        if (video.paused || video.ended) {
+            if (secure && !video.currentSrc && !video.src) {
+                // Stream token issuance and expiry remain wholly inside
+                // the original protected secure playback controller.
+                const start = root.querySelector('[data-play-type][data-play-id]');
+                if (start) start.click();
+                else tell('Playback is not available for this title.');
+                return;
+            }
+            try { await video.play(); }
+            catch { tell('Unable to play this video. Check the file or browser codec.'); }
+        } else video.pause();
+    };
+    const jump = direction => {
+        if (!Number.isFinite(video.duration) || !video.seekable.length) return;
+        video.currentTime = Math.max(0, Math.min(
+            Math.max(0, video.duration - 0.05), video.currentTime + direction * seekSeconds
+        ));
+    };
+
+    ui.querySelectorAll('[data-gm-toggle]').forEach(b => b.addEventListener('click', togglePlay));
+    ui.querySelectorAll('[data-gm-skip]').forEach(b => b.addEventListener('click', () => {
+        jump(Number(b.dataset.gmSkip));
+        scheduleIdle();
+    }));
+    video.addEventListener('click', togglePlay);
+    video.addEventListener('dblclick', async () => {
+        if (!stage?.requestFullscreen) return;
+        try { if (document.fullscreenElement) await document.exitFullscreen(); else await stage.requestFullscreen(); }
+        catch { tell('Fullscreen is unavailable.'); }
+    });
+
+    seek?.addEventListener('pointerdown', () => { isScrubbing = true; });
+    seek?.addEventListener('pointerup', () => { isScrubbing = false; updateTime(); });
+    seek?.addEventListener('change', () => { isScrubbing = false; updateTime(); });
+    seek?.addEventListener('input', () => {
+        if (!Number.isFinite(video.duration) || !video.seekable.length) return;
+        isScrubbing = true;
+        video.currentTime = Math.max(0, Math.min(video.duration - 0.05,
+            video.duration * Number(seek.value) / 100));
+        if (current) current.textContent = fmt(video.currentTime);
+        seek.style.setProperty('--gm-played', seek.value + '%');
+    });
+
+    mute?.addEventListener('click', () => { video.muted = !video.muted; });
+    volume?.addEventListener('input', () => {
+        video.volume = Math.min(1, Math.max(0, Number(volume.value)));
+        video.muted = video.volume === 0;
+    });
+    video.addEventListener('volumechange', () => {
+        if (mute) mute.setAttribute('aria-label', video.muted || !video.volume ? 'Unmute audio' : 'Mute audio');
+        if (volume) volume.value = video.muted ? '0' : String(video.volume);
+    });
+    speed?.addEventListener('change', () => {
+        const value = Number(speed.value);
+        if ([0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].includes(value)) video.playbackRate = value;
+    });
+    video.addEventListener('ratechange', () => {
+        if (speed && [...speed.options].some(option => Number(option.value) === video.playbackRate))
+            speed.value = String(video.playbackRate);
+    });
+
+    if (!secure) {
+        captions?.addEventListener('click', () => {
+            const tracks = Array.from(video.textTracks || []).filter(track =>
+                ['captions', 'subtitles'].includes(track.kind));
+            if (!tracks.length) return tell('No captions are available for this video.');
+            const enabled = tracks.some(track => track.mode === 'showing');
+            tracks.forEach((track, i) => { track.mode = !enabled && i === 0 ? 'showing' : 'disabled'; });
+            captions.setAttribute('aria-pressed', String(!enabled));
+        });
+    }
+    pip?.addEventListener('click', async () => {
+        try {
+            if (!document.pictureInPictureEnabled || !video.requestPictureInPicture)
+                return tell('Picture-in-picture is unavailable in this browser.');
+            if (document.pictureInPictureElement === video) await document.exitPictureInPicture();
+            else await video.requestPictureInPicture();
+        } catch { tell('Picture-in-picture was blocked by the browser.'); }
+    });
+    fullscreen?.addEventListener('click', async () => {
+        try {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            else if (stage?.requestFullscreen) await stage.requestFullscreen();
+            else if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+            else tell('Fullscreen is unavailable in this browser.');
+        } catch { tell('Fullscreen was blocked by the browser.'); }
+    });
+    settingsButton?.addEventListener('click', () => {
+        const open = settingsPanel?.hidden !== false;
+        if (settingsPanel) settingsPanel.hidden = !open;
+        settingsButton.setAttribute('aria-expanded', String(open));
+        showControls();
+        if (!open) scheduleIdle();
+    });
+    document.addEventListener('pointerdown', event => {
+        if (settingsPanel && !settingsPanel.hidden
+            && !event.target.closest('.gm-modern-settings-wrap')) closeSettings();
+    });
+
+    root.addEventListener('pointermove', scheduleIdle);
+    root.addEventListener('pointerleave', scheduleIdle);
+    ui.addEventListener('focusin', showControls);
+    ui.addEventListener('focusout', () => window.setTimeout(scheduleIdle, 0));
+    if (stage) {
+        stage.setAttribute('tabindex', '0');
+        stage.addEventListener('keydown', event => {
+            const target = event.target;
+            if (target && /INPUT|BUTTON|SELECT|TEXTAREA/.test(target.tagName)) return;
+            if (event.ctrlKey || event.metaKey || event.altKey) return;
+            const key = event.key.toLowerCase();
+            if (key === ' ' || key === 'k') {event.preventDefault();void togglePlay();}
+            else if (key === 'arrowleft' || key === 'j') {event.preventDefault();jump(-1);}
+            else if (key === 'arrowright' || key === 'l') {event.preventDefault();jump(1);}
+            else if (key === 'm') {event.preventDefault();video.muted = !video.muted;}
+            else if (key === 'f' && fullscreen) {event.preventDefault();fullscreen.click();}
+            else if (key === 'escape') closeSettings();
+            scheduleIdle();
+        });
+    }
+    ['loadedmetadata','durationchange','timeupdate','progress','seeking','seeked'].forEach(name =>
+        video.addEventListener(name, updateTime));
+    ['play','pause','ended','playing'].forEach(name => video.addEventListener(name, updatePlay));
+    video.addEventListener('waiting', () => root.classList.add('is-buffering'));
+    video.addEventListener('playing', () => root.classList.remove('is-buffering'));
+    video.addEventListener('error', () => {
+        if (video.error) tell('The video cannot be decoded or was interrupted.');
+    });
+    window.addEventListener('pagehide', () => {
+        window.clearTimeout(idleTimer);
+        window.clearTimeout(feedbackTimer);
+    }, {once:true});
+    updateTime();
+    updatePlay();
+});
