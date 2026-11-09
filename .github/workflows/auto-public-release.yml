@@ -1,0 +1,64 @@
+name: Gomovie automatic publication release safety
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/auto-public-release.yml'
+      - 'support/automatic-public-production-activation.sh'
+      - 'support/browser-public-qa-fixture.php'
+      - 'app/Services/Media/AutomaticPublicationService.php'
+      - 'resources/views/frontend/detail.blade.php'
+      - 'resources/js/player.js'
+      - 'tests/Feature/AutomaticPublicPlaybackTest.php'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fail-closed-release-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Bash and PHP syntax
+        run: |
+          bash -n support/automatic-public-production-activation.sh
+          php -l support/browser-public-qa-fixture.php
+      - name: Verify security and rollback invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          shell=Path('support/automatic-public-production-activation.sh').read_text()
+          fixture=Path('support/browser-public-qa-fixture.php').read_text()
+          service=Path('app/Services/Media/AutomaticPublicationService.php').read_text()
+          blade=Path('resources/views/frontend/detail.blade.php').read_text()
+          player=Path('resources/js/player.js').read_text()
+          for marker in (
+              '--check', '--apply', '--disable',
+              'PRODUCTION_ACTIVATION_PREFLIGHT=PASS',
+              'PRODUCTION_AUTOMATIC_PUBLICATION_ACTIVATION=SUCCESS',
+              'PRODUCTION_AUTOMATIC_PUBLICATION_DISABLED=SUCCESS',
+              'PRODUCTION_ACTIVATION_ROLLBACK=ATTEMPTED',
+              'config:cache', 'systemctl restart "$SERVICE"',
+              'UNKNOWN_PUBLIC_HLS=404',
+              'MEDIA_QUEUE_PENDING=',
+              'PREEXISTING_READY_PUBLIC_CANDIDATES=',
+              'EXISTING_VIDEO_OR_RIGHTS_CHANGED=NO',
+          ):
+              assert marker in shell, marker
+          assert shell.count("' -- \"$MODE\"")==2
+          assert 'artisan migrate' not in shell
+          assert 'DB::table(' not in shell
+          assert 'data-public-hls-url=' in blade
+          assert "route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false)" in blade
+          assert "publicHlsUrl.startsWith('/hls/')" in player
+          assert '|| !$this->hasDocumentedRights($kind, $titleId)' in service
+          assert "GOMOVIE-ORIGINAL-FFMPEG-QA-c510082cf911cce9" in fixture
+          assert "'ends_at'=>now()->addDay()" in fixture
+          assert "'status'=>'revoked'" in fixture
+          assert 'BROWSER_QA_REAL_UPLOAD_AND_PUBLIC_ASSET=PASS' in fixture
+          print('AUTO_PUBLIC_RELEASE_SAFETY=PASS')
+          PY
