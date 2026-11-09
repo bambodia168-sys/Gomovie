@@ -71,3 +71,31 @@ jobs:
           assert re.search(r'SOURCE="[a-f0-9]{40}"',shell)
           print('QUICK_UPLOAD_RELEASE_SAFETY=PASS')
           PY
+
+  runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, sqlite3, pdo_sqlite, curl, fileinfo
+          coverage: none
+      - name: Install Laravel dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Create isolated test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Validate real Quick Upload and backward-compatible advanced workflows
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          QUEUE_CONNECTION: sync
+          MAIL_MAILER: array
+        run: |
+          vendor/bin/phpunit --colors=never \
+            tests/Feature/QuickUploadTest.php \
+            tests/Feature/UploadStudioTest.php \
+            tests/Feature/UploadCaptionTest.php
