@@ -1,0 +1,73 @@
+name: Gomovie Quick Upload release safety
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/quick-upload-release.yml'
+      - 'app/Http/Controllers/Admin/QuickUploadController.php'
+      - 'app/Services/Media/PrivateVideoIntake.php'
+      - 'app/Http/Controllers/Admin/MediaController.php'
+      - 'resources/views/admin/quick-upload.blade.php'
+      - 'resources/views/admin/media.blade.php'
+      - 'routes/web.php'
+      - 'tests/Feature/QuickUploadTest.php'
+      - 'support/quick-upload-upgrade.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax verification
+        run: |
+          php -l app/Http/Controllers/Admin/QuickUploadController.php
+          php -l app/Services/Media/PrivateVideoIntake.php
+          php -l app/Http/Controllers/Admin/MediaController.php
+          php -l routes/web.php
+          php -l tests/Feature/QuickUploadTest.php
+          bash -n support/quick-upload-upgrade.sh
+      - name: One-screen product and security acceptance
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          shell=Path('support/quick-upload-upgrade.sh').read_text()
+          ctl=Path('app/Http/Controllers/Admin/QuickUploadController.php').read_text()
+          view=Path('resources/views/admin/quick-upload.blade.php').read_text()
+          route=Path('routes/web.php').read_text()
+          ingest=Path('app/Services/Media/PrivateVideoIntake.php').read_text()
+          media=Path('app/Http/Controllers/Admin/MediaController.php').read_text()
+          assert "Route::get('/upload-studio', [QuickUploadController::class, 'index'])" in route
+          assert "Route::post('/upload-studio/quick', [QuickUploadController::class, 'store'])" in route
+          assert "Route::get('/upload-studio/advanced', [UploadStudioController::class, 'index'])" in route
+          assert 'rights_confirmed' in ctl and 'rights_basis' in ctl
+          assert 'uploader_declaration_only' in ctl
+          assert "'status' => 'active'" in ctl and "'territories' => null" in ctl
+          assert "Rule::in(['free', 'private', 'paid'])" in ctl
+          assert "No manual approval" not in view
+          assert 'quick-upload-form' in view
+          assert 'Paid video · Draft' in view
+          assert 'Checkout' not in view or 'checkout' in view
+          assert 'Advanced editor' in view
+          assert 'data-status-template=' in view
+          assert 'bool $autoPublish = true' in ingest
+          assert 'if ($autoPublish && config(' in ingest
+          assert 'readyAsset(' in media
+          for name in ('QuickUploadController.php','quick-upload.blade.php',
+                       'PrivateVideoIntake.php','web.php','MediaController.php','media.blade.php'):
+              assert name in shell
+          assert 'QUICK_UPLOAD_PREFLIGHT=PASS' in shell
+          assert 'QUICK_UPLOAD_DEPLOYMENT=SUCCESS' in shell
+          assert 'QUICK_UPLOAD_ROLLBACK=ATTEMPTED' in shell
+          assert 'QUICK_UPLOAD_ROUTES=VERIFIED' in shell
+          assert 'artisan migrate' not in shell
+          assert 'systemctl restart' not in shell
+          assert re.search(r'SOURCE="[a-f0-9]{40}"',shell)
+          print('QUICK_UPLOAD_RELEASE_SAFETY=PASS')
+          PY
