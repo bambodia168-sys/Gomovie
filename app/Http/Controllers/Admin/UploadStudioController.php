@@ -39,6 +39,7 @@ final class UploadStudioController extends Controller
 
         $movies = Movie::query()->orderBy('title')->limit(2000)->get([
             'id', 'title', 'overview', 'release_year', 'runtime_minutes', 'is_premium', 'status',
+            'poster_path', 'backdrop_path',
         ]);
         $episodes = Episode::query()->with('season.series')
             ->orderByDesc('id')->limit(2000)->get();

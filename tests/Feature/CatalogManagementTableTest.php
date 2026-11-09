@@ -152,11 +152,11 @@ final class CatalogManagementTableTest extends TestCase
             ->withSession(['status' => 'Title updated.'])
             ->get('/dashboard/catalog/movies')
             ->assertOk()
-            ->assertSee('class="gm-studio-toast"', false)
-            ->assertSee('position:fixed')
-            ->assertSee('getBoundingClientRect().bottom + 12')
-            ->assertDontSee('fixed right-4 top-4')
-            ->assertSee('Dismiss confirmation')
+            ->assertSee('window.GomovieFeedback', false)
+            ->assertSee('name="gm-feedback-success"', false)
+            ->assertSee('#gm-feedback-stack{position:fixed')
+            ->assertDontSee('class="gm-studio-toast"', false)
+            ->assertSee('Dismiss notification')
             ->assertSee('Title updated.');
     }
 }
