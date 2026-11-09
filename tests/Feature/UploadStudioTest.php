@@ -75,6 +75,21 @@ final class UploadStudioTest extends TestCase
         $this->post('/upload-studio', [])->assertSessionHasErrors(['type', 'title_id', 'video']);
     }
 
+    public function test_upload_form_serializes_fields_before_disabling_controls(): void
+    {
+        $view = file_get_contents(resource_path('views/admin/upload-studio.blade.php'));
+        self::assertIsString($view);
+        self::assertStringContainsString('name="type"', $view);
+        self::assertStringContainsString('name="title_id"', $view);
+        self::assertStringContainsString('name="video"', $view);
+        $serialized = strpos($view, 'const payload = new FormData(form);');
+        $disabled = strpos($view, 'busy(true);');
+        self::assertNotFalse($serialized);
+        self::assertNotFalse($disabled);
+        self::assertLessThan($disabled, $serialized,
+            'The multipart upload must be captured before inputs are disabled.');
+    }
+
     public function test_upload_is_private_quarantined_and_does_not_grant_media_rights(): void
     {
         Storage::fake('local');
