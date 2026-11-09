@@ -54,6 +54,34 @@ jobs:
           assert 'GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED' not in source
           assert 'GOMOVIE_PUBLIC_HLS_ENABLED' not in source
           PY
+      - name: Verify one-shot real auto-publication acceptance remains isolated
+        run: |
+          bash -n support/real-auto-publication-acceptance.sh
+          php -l support/real-auto-publication-acceptance.php
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          shell = Path('support/real-auto-publication-acceptance.sh').read_text()
+          php = Path('support/real-auto-publication-acceptance.php').read_text()
+          assert "GOMOVIE_REAL_AUTO_PUBLIC_ACCEPTANCE=PASS" in shell
+          assert "GOMOVIE_REAL_AUTOPUBLIC_QA=PASS" in php
+          assert "ISOLATED_AUTO_PUBLICATION_JOB=QUEUED" in php
+          assert "NEW" not in shell or "--check" in shell
+          assert "queue:work database_media" in shell
+          assert "--queue=\"$QUEUE\"" in shell
+          assert "QA_PROCESSING_MODE=ISOLATED_ONE_SHOT" in shell
+          assert "PUBLICATION_ACTIVATED_GLOBALLY=NO" in shell
+          assert "GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED=true" in shell
+          assert "GOMOVIE_PUBLIC_HLS_ENABLED=true" in shell
+          assert "GOMOVIE_TRANSCODING_ENABLED=true" in shell
+          assert ".env" in shell and "sed -i" not in shell and "systemctl restart" not in shell
+          assert "realpath($qa) !== $qa" in php
+          assert "'licensable_type' => 'movie'" in php
+          assert "'status' => 'revoked'" in php
+          assert "SOURCE_ROLLBACK" not in php or "cleanup" in php
+          assert "GOMOVIE_REAL_AUTOPUBLIC_QA=PASS" in php
+          assert re.search(r"EXPECTED_PHP_BLOB=\"[a-f0-9]{40}\"", shell)
+          PY
       - name: Verify isolated aaPanel media worker installer
         run: |
           bash -n support/media-worker-service.sh
