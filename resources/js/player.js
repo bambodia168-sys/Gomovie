@@ -724,7 +724,76 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     video.addEventListener('error', () => {
         if (video.error) tell('The video cannot be decoded or was interrupted.');
     });
+    // Advertisement UI is disabled until an approved ad adapter supplies
+    // actual media and placement. It never invents ads, counts, or stream access.
+    // Integration contract:
+    // root.dispatchEvent(new CustomEvent('gomovie:ad-start', {
+    //   detail: {media: adVideoElement, placement:'pre-roll'|'mid-roll'|'end-roll',
+    //            skipAfter:5}
+    // }));
+    // Adapter owns ad delivery, tracking, and resume/skip enforcement; the UI
+    // only displays state calculated from real ad media playback.
+    const finishAd = () => {
+        adCleanup?.();
+        adCleanup = null;
+        activeAd = null;
+        root.classList.remove('is-ad-break');
+        if (adLayer) adLayer.hidden = true;
+        if (adSkip) { adSkip.hidden = true; adSkip.disabled = true; }
+        scheduleIdle();
+    };
+    root.addEventListener('gomovie:ad-start', event => {
+        const detail = event.detail || {};
+        const placementName = detail.placement;
+        const media = detail.media;
+        if (!adLayer || !(media instanceof HTMLMediaElement) ||
+            !['pre-roll', 'mid-roll', 'end-roll'].includes(placementName) ||
+            activeAd || media === video) return;
+        const skipAfter = Number.isFinite(detail.skipAfter) && detail.skipAfter >= 0
+            ? detail.skipAfter : null;
+        activeAd = {media, placement:placementName, skipAfter};
+        video.pause();
+        closeSettings();
+        showControls();
+        root.classList.add('is-ad-break');
+        adLayer.hidden = false;
+        if (adKind) adKind.textContent = 'Advertisement · ' +
+            ({'pre-roll':'Before video','mid-roll':'During video','end-roll':'After video'}[placementName]);
+        if (adMessage) adMessage.textContent = 'Advertisement playing';
+        const updateAd = () => {
+            if (!activeAd || activeAd.media !== media) return;
+            const length = Number.isFinite(media.duration) ? media.duration : 0;
+            const elapsed = Number.isFinite(media.currentTime) ? media.currentTime : 0;
+            if (adCountdown) adCountdown.textContent = length > 0
+                ? Math.max(0, Math.ceil(length - elapsed)) + 's remaining' : '';
+            if (adSkip) {
+                const canSkip = skipAfter !== null && elapsed >= skipAfter;
+                adSkip.hidden = !canSkip;
+                adSkip.disabled = !canSkip;
+            }
+        };
+        media.addEventListener('timeupdate', updateAd);
+        media.addEventListener('loadedmetadata', updateAd);
+        media.addEventListener('ended', finishAd);
+        adCleanup = () => {
+            media.removeEventListener('timeupdate', updateAd);
+            media.removeEventListener('loadedmetadata', updateAd);
+            media.removeEventListener('ended', finishAd);
+        };
+        updateAd();
+    });
+    root.addEventListener('gomovie:ad-end', finishAd);
+    adSkip?.addEventListener('click', () => {
+        if (!activeAd || adSkip.disabled || adSkip.hidden) return;
+        adSkip.disabled = true;
+        root.dispatchEvent(new CustomEvent('gomovie:ad-skip-request', {
+            detail: {placement:activeAd.placement, media:activeAd.media},
+        }));
+        // Only the adapter's actual ad end/skip acknowledgment clears UI.
+    });
+
     window.addEventListener('pagehide', () => {
+        finishAd();
         window.clearTimeout(idleTimer);
         window.clearTimeout(feedbackTimer);
     }, {once:true});
