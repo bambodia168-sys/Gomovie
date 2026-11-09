@@ -23,6 +23,9 @@
 @if(session('error'))
 <meta name="gm-feedback-error" content="{{ session('error') }}">
 @endif
+@if($errors->any())
+<meta name="gm-feedback-validation" content="{{ $errors->first() }}">
+@endif
 <script>
 (function () {
   'use strict';
@@ -68,10 +71,10 @@
     toast.append(icon, copy, close);
     parent.prepend(toast);
     while (parent.children.length > 3) parent.lastElementChild.remove();
-    var timeout = Number.isFinite(duration) && duration >= 0 ? duration : 5500;
+    var timeout = Number.isFinite(duration) && duration >= 0 ? duration : 5000;
     if (timeout) {
       var timer = window.setTimeout(function () { toast.remove(); }, timeout);
-      toast.addEventListener('mouseenter', function () { window.clearTimeout(timer); }, { once: true });
+      // Always dismiss after five seconds, including when hovered.
     }
     return toast;
   }
@@ -83,7 +86,7 @@
     info: function (msg) { return show(msg, 'info'); }
   });
   function showFlash() {
-    [['gm-feedback-success', 'success'], ['gm-feedback-error', 'error']].forEach(function (pair) {
+    [['gm-feedback-success', 'success'], ['gm-feedback-error', 'error'], ['gm-feedback-validation', 'error']].forEach(function (pair) {
       var node = document.querySelector('meta[name="' + pair[0] + '"]');
       if (node && node.content) show(node.content, pair[1]);
     });

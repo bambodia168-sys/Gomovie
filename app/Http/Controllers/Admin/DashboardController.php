@@ -24,7 +24,7 @@ class DashboardController extends Controller
                 'published_series' => Series::where('status', 'published')->count(),
                 'ingests_pending' => DB::table('media_ingests')->where('status', 'quarantined')->count(),
             ],
-            'recentMovies' => Movie::latest()->limit(8)->get(),
+            'recentMovies' => Movie::latest()->paginate(10)->withQueryString(),
         ]);
     }
 }

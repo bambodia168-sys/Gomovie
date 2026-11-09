@@ -29,7 +29,7 @@ class LibraryController extends Controller
         $table = $section === 'watchlist' ? 'watchlists' : 'watch_history';
         $query = DB::table($table)->where('user_profile_id',$profile->id);
         $records = $query->orderByDesc($section === 'watchlist' ? 'created_at' : 'last_watched_at')
-            ->paginate(24)->withQueryString();
+            ->paginate(10)->withQueryString();
 
         $rows = $records->getCollection();
         $movieIds = $rows->where('watchable_type','movie')->pluck('watchable_id')->all();
@@ -85,4 +85,20 @@ class LibraryController extends Controller
         return back()->with('status', $data['action']==='add'
             ? 'Saved to My List.' : 'Removed from My List.');
     }
+    public function removeHistory(Request $request, int $record): RedirectResponse
+    {
+        $profileId=$request->validate([
+            'profile_id'=>['required','integer','min:1'],
+        ])['profile_id'];
+        $profile=UserProfile::query()->where('user_id',$request->user()->id)
+            ->findOrFail((int)$profileId);
+        $row=DB::table('watch_history')->where('id',$record)
+            ->where('user_id',$request->user()->id)
+            ->where('user_profile_id',$profile->id)->firstOrFail();
+        DB::table('watch_history')->where('id',$row->id)
+            ->where('user_id',$request->user()->id)
+            ->where('user_profile_id',$profile->id)->delete();
+        return back()->with('status','Watch-history entry removed.');
+    }
+
 }

@@ -4,6 +4,7 @@ use App\Http\Controllers\Account\LibraryController;
 use App\Http\Controllers\Account\SettingsController;
 use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\AppearanceController;
 use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\PrivateIngestPreviewController;
@@ -23,6 +24,10 @@ Route::get('/', [BrowseController::class, 'home'])->name('home');
 Route::get('/browse', [BrowseController::class, 'index'])->name('browse');
 Route::view('/about', 'frontend.about')->name('about');
 Route::get('/watch/{type}/{slug}', [BrowseController::class, 'show'])->name('watch.show');
+// Custom pages are published explicitly; their content is escaped in the template.
+Route::get('/pages/{slug}', [AppearanceController::class, 'showPublic'])
+    ->where('slug','[a-z0-9]+(?:-[a-z0-9]+)*')->name('appearance.page');
+Route::get('/appearance/font.woff2', [AppearanceController::class, 'font'])->name('appearance.font');
 // Only integrity-verified FREE HLS assets; raw private ingests have no public route.
 Route::get('/hls/{asset}/{path}', PublicHlsController::class)
     ->whereNumber('asset')->where('path', '.*')
@@ -56,7 +61,9 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::patch('/account/settings/password',[SettingsController::class,'changePassword'])
             ->middleware('throttle:5,1')->name('account.password');
         Route::post('/account/profiles',[SettingsController::class,'storeProfile'])->name('account.profiles.store');
+        Route::patch('/account/profiles/{profileId}',[SettingsController::class,'updateProfile'])->name('account.profiles.update');
         Route::delete('/account/profiles/{profileId}',[SettingsController::class,'removeProfile'])->name('account.profiles.destroy');
+        Route::delete('/account/history/{record}',[LibraryController::class,'removeHistory'])->name('account.history.destroy');
     });
 });
 
@@ -125,6 +132,19 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::post('/tmdb/preview', [TmdbController::class, 'preview'])->name('tmdb.preview');
     Route::post('/tmdb/import', [TmdbController::class, 'import'])->name('tmdb.import');
     Route::get('/operations', [OperationsController::class, 'index'])->name('operations.index');
+    Route::get('/appearance', [AppearanceController::class, 'index'])->name('appearance.index');
+    Route::post('/appearance/pages', [AppearanceController::class,'store'])
+        ->middleware('throttle:12,1')->name('appearance.pages.store');
+    Route::put('/appearance/pages/{slug}', [AppearanceController::class,'update'])
+        ->middleware('throttle:20,1')->where('slug','[a-z0-9]+(?:-[a-z0-9]+)*')
+        ->name('appearance.pages.update');
+    Route::delete('/appearance/pages/{slug}', [AppearanceController::class,'destroy'])
+        ->middleware('throttle:12,1')->where('slug','[a-z0-9]+(?:-[a-z0-9]+)*')
+        ->name('appearance.pages.destroy');
+    Route::patch('/appearance/typography',[AppearanceController::class,'typography'])
+        ->middleware('throttle:10,1')->name('appearance.typography.update');
+    Route::post('/appearance/font',[AppearanceController::class,'uploadFont'])
+        ->middleware('throttle:5,1')->name('appearance.font.store');
     Route::get('/player-settings', [PlayerSettingsController::class, 'edit'])->name('player-settings.edit');
     Route::patch('/player-settings', [PlayerSettingsController::class, 'update'])
         ->middleware('throttle:20,1')->name('player-settings.update');

@@ -18,7 +18,14 @@ class UserController extends Controller
 
         return view('admin.users', [
             'users' => User::query()->select(['id', 'name', 'email', 'role', 'is_active', 'email_verified_at', 'created_at'])
-                ->orderByDesc('id')->paginate(20),
+                ->when($request->filled('q'), function ($query) use ($request) {
+                    $q=trim((string)$request->input('q'));
+                    abort_if(mb_strlen($q)>100,422);
+                    $query->where(fn ($userQuery) => $userQuery
+                        ->where('name','like','%'.$q.'%')
+                        ->orWhere('email','like','%'.$q.'%'));
+                })
+                ->orderByDesc('id')->paginate(10)->withQueryString(),
         ]);
     }
 

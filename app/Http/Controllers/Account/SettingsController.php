@@ -98,6 +98,31 @@ class SettingsController extends Controller
         return back()->with('status','Profile added.');
     }
 
+    public function updateProfile(Request $request, int $profileId): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required','string','max:80'],
+            'is_kids' => ['sometimes','boolean'],
+        ]);
+        DB::transaction(function () use ($request,$profileId,$data): void {
+            $profile=UserProfile::query()->where('user_id',$request->user()->id)
+                ->lockForUpdate()->findOrFail($profileId);
+            $slug=Str::slug($data['name']);
+            if ($slug === '') {
+                throw ValidationException::withMessages(['name'=>'Choose a usable profile name.']);
+            }
+            if (UserProfile::query()->where('user_id',$request->user()->id)
+                ->where('slug',$slug)->whereKeyNot($profileId)->exists()) {
+                throw ValidationException::withMessages(['name'=>'A profile with this name already exists.']);
+            }
+            $profile->update([
+                'name'=>$data['name'], 'slug'=>$slug,
+                'is_kids'=>(bool)($data['is_kids']??false),
+            ]);
+        });
+        return back()->with('status','Profile updated.');
+    }
+
     public function removeProfile(Request $request, int $profileId): RedirectResponse
     {
         DB::transaction(function () use ($request, $profileId): void {

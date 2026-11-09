@@ -27,7 +27,7 @@ class MediaController extends Controller
                 ->select('media_ingests.id','media_ingests.original_name','media_ingests.mime',
                     'media_ingests.size_bytes','media_ingests.status','media_ingests.created_at','media_ingests.uploaded_by',
                     'users.name as uploader')
-                ->orderByDesc('media_ingests.id')->paginate(20),
+                ->orderByDesc('media_ingests.id')->paginate(10)->withQueryString(),
         ]);
     }
 
