@@ -9,8 +9,8 @@
       Set how the movie player looks and which controls are visible. Playback permissions, video files, and streaming security are not changed here.
     </p>
   </div>
-  <a href="{{ route('watch.show', ['type'=>'movie', 'slug'=>'a-story-of-derry-1813355']) }}"
-     class="rounded-xl border border-white/15 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:border-rose-400 hover:text-white">View watch page ↗</a>
+  <a href="{{ route('browse') }}"
+     class="rounded-xl border border-white/15 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:border-rose-400 hover:text-white">Browse titles ↗</a>
 </div>
 <form method="POST" action="{{ route('admin.player-settings.update') }}" id="gm-player-settings-form" class="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,.9fr)]">
   @csrf @method('PATCH')
