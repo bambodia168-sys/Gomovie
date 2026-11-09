@@ -215,6 +215,27 @@ jobs:
           assert "video.textTracks?.addEventListener?.('addtrack'" in js
           assert "'/api/v1/stream/' + type + '/' + titleId + '/token'" in js
           PY
+      - name: Verify premium portrait player and private captions
+        run: |
+          node --check resources/js/player.js
+          node --test tests/javascript/player-portrait-v13.test.mjs
+          php -l app/Http/Controllers/Admin/UploadCaptionController.php
+          php -l app/Http/Controllers/Admin/UploadStudioWorkflowController.php
+          php -l app/Services/Media/TranscodingService.php
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path("database/migrations/2026_11_09_000300_create_ingest_captions_table.php")
+          assert path.exists()
+          vtt=Path("app/Http/Controllers/Admin/UploadCaptionController.php").read_text()
+          assert "hash_file('sha256'" in vtt
+          assert "'media.ingest_caption_deleted'" in vtt
+          assert "->where('uploaded_by', (int) $user->id)" in vtt
+          assert "'text/vtt; charset=utf-8'" in vtt
+          transcoder=Path("app/Services/Media/TranscodingService.php").read_text()
+          assert "config('gomovie.high_res_transcoding_enabled') === true" in transcoder
+          assert "2160 =>" in transcoder and "1440 =>" in transcoder
+          print("GOMOVIE_PLAYER_UPLOAD_V13=VERIFIED")
+          PY
       - name: Test single speaker volume control
         run: |
           node --check resources/js/player.js
