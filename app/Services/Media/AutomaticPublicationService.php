@@ -88,14 +88,7 @@ final class AutomaticPublicationService
                 ->update(['pipeline_error' => 'active_free_distribution_rights_required', 'updated_at' => now()]);
             return;
         }
-        $rights = DB::table('content_rights')->where('licensable_type', $kind)
-            ->where('licensable_id', $titleId)->where('status', 'active')
-            ->whereNull('territories')
-            ->whereNotNull('rights_reference')
-            ->where('rights_reference', '!=', '')
-            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
-            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))
-            ->exists();
+        $rights = $this->hasDocumentedRights($kind, $titleId);
         if (!$rights) {
             DB::table('media_ingests')->where('id', $ingestId)->where('status', 'quarantined')
                 ->update(['pipeline_error' => 'documented_distribution_rights_required', 'updated_at' => now()]);
@@ -178,6 +171,8 @@ final class AutomaticPublicationService
         $id = (int) $ingest->ingestable_id;
         abort_unless($this->eligibleTitle($kind, $id, false), 403, 'Free eligible catalog title required.');
         app(GlobalRights::class)->requireActive($kind, $id);
+        abort_unless($this->hasDocumentedRights($kind, $id), 403,
+            'A documented active global distribution-rights record is required.');
         // The package inspector enforces safe manifests, relative paths, bytes and checksums.
         $package = app(MediaPackageInspector::class)->inspect($ingestId, true);
 
@@ -187,7 +182,8 @@ final class AutomaticPublicationService
                 && $locked->encoded_manifest_key === $ingest->encoded_manifest_key
                 && $locked->sha256 === $ingest->sha256, 409, 'Ingest changed during publication.');
             $title = $this->eligibleTitle($kind, $id, false);
-            abort_unless($title && app(GlobalRights::class)->allows($kind, $id), 403,
+            abort_unless($title && app(GlobalRights::class)->allows($kind, $id)
+                && $this->hasDocumentedRights($kind, $id), 403,
                 'Rights or catalog status changed during publication.');
             if ($kind === 'episode') {
                 $series = Series::query()->findOrFail($title->season->series->id);
@@ -219,6 +215,17 @@ final class AutomaticPublicationService
                 ['media_asset_id' => $assetId, 'package_sha256' => $package['package_sha256']]);
             return $assetId;
         });
+    }
+
+    private function hasDocumentedRights(string $kind, int $id): bool
+    {
+        return DB::table('content_rights')->where('licensable_type', $kind)
+            ->where('licensable_id', $id)->where('status', 'active')
+            ->whereNull('territories')->whereNotNull('rights_reference')
+            ->where('rights_reference', '!=', '')
+            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))
+            ->exists();
     }
 
     public function failure(int $ingestId, Throwable $error): void
