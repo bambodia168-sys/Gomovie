@@ -37,10 +37,11 @@
         @endif
         @if($playerPreferences['show_captions'])
           <button type="button" class="gm-modern-btn gm-modern-cc" data-captions-toggle
-                  aria-label="Turn captions on or off" aria-pressed="false" title="Captions when provided">CC</button>
+                  aria-label="Turn captions on or off" aria-pressed="false" title="Captions when provided"
+                  disabled hidden>CC</button>
         @endif
         @if($playerPreferences['show_pip'])
-          <button type="button" class="gm-modern-btn gm-modern-pip" data-picture-in-picture aria-label="Picture in picture" title="Picture in picture">
+          <button type="button" class="gm-modern-btn gm-modern-pip" data-picture-in-picture aria-label="Picture in picture" title="Picture in picture" disabled hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="19" height="16" rx="2"/><rect x="11.5" y="11" width="8" height="6" rx="1"/></svg>
           </button>
         @endif
@@ -53,6 +54,14 @@
           <div class="gm-modern-settings" data-gm-settings
                id="gm-modern-settings-{{ $type }}-{{ $selectedEpisode?->id ?? $title->id }}" hidden>
             <h3>Playback settings</h3>
+            @if($playerPreferences['show_volume'])
+              <label class="gm-modern-menu-volume">Volume
+                <input type="range" data-gm-menu-volume min="0" max="1" step="0.05" value="1" aria-label="Player volume">
+              </label>
+            @endif
+            @if($playerPreferences['show_pip'])
+              <button type="button" class="gm-modern-menu-pip" data-gm-menu-pip hidden disabled>Picture in picture</button>
+            @endif
             @if($playerPreferences['show_speed'])
               <label>Speed
                 <select data-playback-speed aria-label="Playback speed">
