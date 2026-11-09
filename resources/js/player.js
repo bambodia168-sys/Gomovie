@@ -500,8 +500,9 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
             button.setAttribute('aria-label', playing ? 'Pause video' : 'Play video');
             button.setAttribute('title', playing ? 'Pause video' : 'Play video');
         });
-        if (playing) scheduleIdle();
-        else showControls();
+        // A paused player retains the central Play affordance while its
+        // bottom chrome fades after inactivity, just as during playback.
+        scheduleIdle();
     };
     const closeSettings = () => {
         if (settingsPanel) settingsPanel.hidden = true;
@@ -521,10 +522,10 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     const hasKeyboardFocus = () => keyboardInteracting && ui.contains(document.activeElement);
     const scheduleIdle = () => {
         showControls();
-        if (!hideSeconds || video.paused || hasKeyboardFocus()
+        if (!hideSeconds || hasKeyboardFocus()
             || (settingsPanel && !settingsPanel.hidden) || activeAd) return;
         idleTimer = window.setTimeout(() => {
-            if (!video.paused && !hasKeyboardFocus() && !activeAd
+            if (!hasKeyboardFocus() && !activeAd
                 && (!settingsPanel || settingsPanel.hidden)) root.classList.add('is-idle');
         }, hideSeconds * 1000);
     };
@@ -685,6 +686,7 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     root.addEventListener('pointerdown', () => {
         keyboardInteracting = false;
         root.classList.remove('is-keyboard');
+        scheduleIdle();
     }, {passive: true});
     root.addEventListener('pointermove', scheduleIdle);
     root.addEventListener('pointerleave', scheduleIdle);
