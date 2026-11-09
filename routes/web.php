@@ -51,6 +51,14 @@ Route::middleware(['auth', 'active'])->group(function (): void {
     });
 });
 
+// Standalone uploader: outside the dashboard layout, with the same staff and
+// administrator access controls. Review/approval remains in the dashboard.
+Route::middleware(['auth', 'active', 'verified', 'staff'])->group(function (): void {
+    Route::get('/upload-studio', [UploadStudioController::class, 'index'])->name('upload-studio.index');
+    Route::post('/upload-studio', [UploadStudioController::class, 'upload'])
+        ->middleware('throttle:12,1')->name('upload-studio.upload');
+});
+
 Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')->name('admin.')->group(function (): void {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/catalog/{type}', [AdminCatalogController::class, 'index'])->name('catalog.index');
@@ -69,9 +77,8 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::post('/series/{series}/seasons/{season}/episodes', [EpisodeStudioController::class, 'storeEpisode'])->name('episodes.store');
     Route::patch('/series/{series}/seasons/{season}/episodes/{episode}', [EpisodeStudioController::class, 'updateEpisode'])->name('episodes.update');
     Route::delete('/series/{series}/seasons/{season}/episodes/{episode}', [EpisodeStudioController::class, 'destroyEpisode'])->name('episodes.destroy');
-    Route::get('/upload-studio', [UploadStudioController::class, 'index'])->name('upload-studio.index');
-    Route::post('/upload-studio', [UploadStudioController::class, 'upload'])
-        ->middleware('throttle:12,1')->name('upload-studio.upload');
+    Route::get('/upload-studio', fn () => redirect()->route('upload-studio.index'))
+        ->name('upload-studio.legacy');
     Route::get('/upload-studio/{ingest}', [UploadStudioController::class, 'review'])
         ->whereNumber('ingest')->name('upload-studio.review');
     Route::post('/upload-studio/{ingest}/approve', [UploadStudioController::class, 'approve'])
