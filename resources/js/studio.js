@@ -65,3 +65,40 @@ if (isStudio) {
         });
     });
 }
+
+
+/* Preview Appearance typography changes locally; only Save writes to Laravel. */
+const typeDialog = document.getElementById('appearance-type');
+if (typeDialog) {
+    const settingsForm = typeDialog.querySelector('form[action$="/appearance/typography"]');
+    const preview = typeDialog.querySelector('[data-typography-preview]');
+    const heading = typeDialog.querySelector('[data-typography-heading]');
+    const body = typeDialog.querySelector('[data-typography-body]');
+    const button = typeDialog.querySelector('[data-typography-button]');
+    const families = {
+        'Instrument Sans':'"Instrument Sans",sans-serif',
+        'Inter':'Inter,Arial,sans-serif',
+        'Arial':'Arial,sans-serif',
+        'Georgia':'Georgia,serif',
+        'System UI':'system-ui,sans-serif',
+        'Custom':'"Gomovie Custom",sans-serif',
+    };
+    const previewTypography = () => {
+        if (!settingsForm || !preview || !heading || !body || !button) return;
+        const field = (name) => settingsForm.querySelector('[name="'+name+'"]')?.value;
+        preview.style.fontFamily = families[field('family')] || families['Instrument Sans'];
+        preview.style.fontSize = (Number(field('base_size')) || 16) + 'px';
+        const variant = field('heading_variant') || 'default';
+        heading.style.letterSpacing = variant === 'tight' ? '-.03em' : variant === 'uppercase' ? '.04em' : '';
+        heading.style.textTransform = variant === 'uppercase' ? 'uppercase' : '';
+        heading.style.fontStyle = variant === 'classic' ? 'italic' : 'normal';
+        heading.style.fontWeight = String(Number(field('weight')) || 600);
+        heading.style.fontSize = (24 * (Number(field('heading_scale')) || 100) / 100) + 'px';
+        const bodyVariant = field('body_variant') || 'default';
+        body.style.lineHeight = bodyVariant === 'relaxed' ? '1.85' : bodyVariant === 'compact' ? '1.5' : '';
+        button.style.fontWeight = field('button_variant') === 'bold' ? '800' : field('button_variant') === 'medium' ? '500' : '';
+    };
+    settingsForm?.addEventListener('input', previewTypography);
+    settingsForm?.addEventListener('change', previewTypography);
+    previewTypography();
+}

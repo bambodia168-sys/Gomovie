@@ -161,8 +161,29 @@
 <label class="gm-studio-field"><span>Font family</span><select class="gm-studio-input" name="family">@foreach(['Instrument Sans','Inter','Arial','Georgia','System UI','Custom'] as $family)<option value="{{ $family }}" @selected($typography->family===$family)>{{ $family }}</option>@endforeach</select></label>
 <label class="gm-studio-field"><span>Base font size</span><select name="base_size" class="gm-studio-input">@foreach(range(14,20) as $size)<option value="{{ $size }}" @selected((int)$typography->base_size===$size)>{{ $size }}px</option>@endforeach</select></label>
 <label class="gm-studio-field"><span>Heading scale</span><select name="heading_scale" class="gm-studio-input">@foreach([90,95,100,105,110,115,120] as $scale)<option value="{{ $scale }}" @selected((int)$typography->heading_scale===$scale)>{{ $scale }}%</option>@endforeach</select></label>
-<label class="gm-studio-field"><span>Heading weight / variant</span><select name="weight" class="gm-studio-input">@foreach([400,500,600,700,800,900] as $weight)<option value="{{ $weight }}" @selected((int)$typography->weight===$weight)>{{ $weight }}</option>@endforeach</select></label>
-<p class="text-xs gm-studio-muted">Font choices use installed browser/system families. Custom loads only after a validated WOFF2 upload.</p>
+<label class="gm-studio-field"><span>Heading weight</span><select name="weight" class="gm-studio-input">@foreach([400,500,600,700,800,900] as $weight)<option value="{{ $weight }}" @selected((int)$typography->weight===$weight)>{{ $weight }}</option>@endforeach</select></label>
+<label class="gm-studio-field"><span>Heading variant</span><select name="heading_variant" class="gm-studio-input">
+  @foreach(['default'=>'Default','tight'=>'Tight tracking','uppercase'=>'Uppercase','classic'=>'Classic italic'] as $variant=>$label)
+    <option value="{{ $variant }}" @selected(($typography->heading_variant??'default')===$variant)>{{ $label }}</option>
+  @endforeach
+</select></label>
+<label class="gm-studio-field"><span>Paragraph spacing</span><select name="body_variant" class="gm-studio-input">
+  @foreach(['default'=>'Default','compact'=>'Compact','relaxed'=>'Relaxed'] as $variant=>$label)
+    <option value="{{ $variant }}" @selected(($typography->body_variant??'default')===$variant)>{{ $label }}</option>
+  @endforeach
+</select></label>
+<label class="gm-studio-field"><span>Button text variant</span><select name="button_variant" class="gm-studio-input">
+  @foreach(['default'=>'Default','medium'=>'Medium','bold'=>'Bold'] as $variant=>$label)
+    <option value="{{ $variant }}" @selected(($typography->button_variant??'default')===$variant)>{{ $label }}</option>
+  @endforeach
+</select></label>
+<div class="gm-studio-panel p-4 mt-4" data-typography-preview>
+  <span class="gm-studio-muted text-xs uppercase tracking-widest">Live preview · not yet saved</span>
+  <h3 data-typography-heading class="text-2xl font-bold mt-3">A World of Stories</h3>
+  <p data-typography-body class="text-sm gm-studio-muted mt-2">Discover movies, explore series and build your own watchlist.</p>
+  <div class="mt-4"><span data-typography-button class="gm-studio-button is-primary inline-flex">Explore titles</span></div>
+</div>
+<p class="text-xs gm-studio-muted">Font choices use installed browser/system families. Custom loads only after a validated WOFF2 upload. These changes affect text styling, not page structure.</p>
 </div><div class="gm-studio-modal-actions"><button type="button" class="gm-studio-button" data-studio-close>Cancel</button><button class="gm-studio-button is-primary">Save typography</button></div></form>
 <form method="POST" action="{{ route('admin.appearance.font.store') }}" enctype="multipart/form-data" class="border-t border-white/15 px-5 py-5">@csrf
 <label class="gm-studio-field"><span>Upload custom font (.woff2, max 1 MB)</span><input type="file" class="gm-studio-input" name="font" accept=".woff2,font/woff2" required></label>

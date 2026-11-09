@@ -187,6 +187,9 @@ final class AppearanceController extends Controller
             'base_size'=>['required','integer','between:14,20'],
             'heading_scale'=>['required','integer','between:90,120'],
             'weight'=>['required',Rule::in(['400','500','600','700','800','900',400,500,600,700,800,900])],
+            'heading_variant'=>['sometimes',Rule::in(['default','tight','uppercase','classic'])],
+            'body_variant'=>['sometimes',Rule::in(['default','compact','relaxed'])],
+            'button_variant'=>['sometimes',Rule::in(['default','medium','bold'])],
         ]);
         $previous=DB::table('studio_typography')->where('id',1)->first();
         if ($data['family']==='Custom' && !$previous?->custom_font_key) {
@@ -196,6 +199,9 @@ final class AppearanceController extends Controller
             DB::table('studio_typography')->updateOrInsert(['id'=>1],[
                 'family'=>$data['family'],'base_size'=>(int)$data['base_size'],
                 'heading_scale'=>(int)$data['heading_scale'],'weight'=>(int)$data['weight'],
+                'heading_variant'=>$data['heading_variant']??'default',
+                'body_variant'=>$data['body_variant']??'default',
+                'button_variant'=>$data['button_variant']??'default',
                 'updated_at'=>now(),
             ]);
             $this->audit($request,'appearance.typography.updated',1,$data);

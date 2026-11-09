@@ -91,7 +91,9 @@ final class StudioAppearance
     {
         return (Schema::hasTable('studio_typography')
             ? DB::table('studio_typography')->where('id', 1)->first() : null)
-            ?? (object) ['family'=>'Instrument Sans','base_size'=>16,'heading_scale'=>100,'weight'=>600,'custom_font_key'=>null];
+            ?? (object) ['family'=>'Instrument Sans','base_size'=>16,'heading_scale'=>100,
+                'weight'=>600,'heading_variant'=>'default','body_variant'=>'default',
+                'button_variant'=>'default','custom_font_key'=>null];
     }
 
     public static function css(): string
@@ -118,6 +120,27 @@ final class StudioAppearance
             $face = '@font-face{font-family:"Gomovie Custom";src:url("'
                 .route('appearance.font').'") format("woff2");font-display:swap;}';
         }
+        $headingVariant = match($data->heading_variant ?? 'default') {
+            'tight'=>'letter-spacing:-.03em;',
+            'uppercase'=>'text-transform:uppercase;letter-spacing:.04em;',
+            'classic'=>'font-style:italic;',
+            default=>'',
+        };
+        $bodyVariant = match($data->body_variant ?? 'default') {
+            'compact'=>'line-height:1.5;',
+            'relaxed'=>'line-height:1.85;',
+            default=>'',
+        };
+        $buttonVariant = match($data->button_variant ?? 'default') {
+            'medium'=>'font-weight:500;',
+            'bold'=>'font-weight:800;',
+            default=>'',
+        };
+        $variantCss='';
+        if ($headingVariant!=='') $variantCss.='.gm-site h1,.gm-site h2,.gm-site h3,.gm-auth-body h1,.gm-auth-body h2,.gm-auth-body h3{'.$headingVariant.'}';
+        if ($bodyVariant!=='') $variantCss.='.gm-site p,.gm-auth-body p{'.$bodyVariant.'}';
+        if ($buttonVariant!=='') $variantCss.='.gm-site .gm-button,.gm-auth-body .gm-button{'.$buttonVariant.'}';
+
         $scaleCss = $scale === 100 ? '' :
             '.gm-site h1,.gm-auth-body h1{font-size:clamp(25px,'
             .'calc(3.2vw * '.($scale / 100).'),'
@@ -129,6 +152,6 @@ final class StudioAppearance
             .';--gm-custom-heading-weight:'.$weight.';}'
             .'.gm-site,.gm-auth-body{font-family:var(--gm-custom-font);font-size:var(--gm-custom-base);}'
             .'.gm-site h1,.gm-site h2,.gm-auth-body h1,.gm-auth-body h2{font-weight:var(--gm-custom-heading-weight);}'
-            .$scaleCss;
+            .$scaleCss.$variantCss;
     }
 }
