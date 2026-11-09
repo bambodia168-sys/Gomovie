@@ -269,7 +269,7 @@ echo "========== APPLY ADDITIVE WEBVTT CAPTION MIGRATION =========="
 MIGRATION="database/migrations/2026_11_09_000300_create_ingest_captions_table.php"
 test ! -e "$APP/$MIGRATION" || test "$(git hash-object "$APP/$MIGRATION")" = "$(new_blob "$MIGRATION")"
 CHANGED=1
-install -d -o root -g www -m 0755 "$(dirname "$APP/$MIGRATION")"
+test -d "$(dirname "$APP/$MIGRATION")" && test ! -L "$(dirname "$APP/$MIGRATION")"
 install -o root -g www -m 0644 "$BACKUP/source/$MIGRATION" "$APP/$MIGRATION"
 (
   cd "$APP"
@@ -312,7 +312,7 @@ echo "VITE_ASSETS=INSTALLED"
 echo "========== INSTALL PLAYER, CAPTIONS AND UPLOAD STUDIO SOURCE =========="
 while IFS= read -r file; do
   if [ "$file" = "$MIGRATION" ]; then continue; fi
-  install -d -o root -g www -m 0755 "$(dirname "$APP/$file")"
+  test -d "$(dirname "$APP/$file")" && test ! -L "$(dirname "$APP/$file")"
   install -o root -g www -m 0644 "$BACKUP/source/$file" "$APP/$file"
 done < <(files)
 NEXT_MANIFEST="$APP/public/build/manifest.json.gomovie-player-v13-next"
