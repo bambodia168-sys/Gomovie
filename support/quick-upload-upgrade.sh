@@ -8,7 +8,7 @@ MODE="$1"
 APP="/www/wwwroot/gomovie.tonsamith.com"
 PHP="/www/server/php/85/bin/php"
 REPO="bambodia168-sys/Gomovie"
-SOURCE="38ef8c407beda31201b10bc11bfce56933566868"
+SOURCE="e842034b8adb43bb07db2c0e0581fd382772aecd"
 FILES=(
   app/Http/Controllers/Admin/QuickUploadController.php
   resources/views/admin/quick-upload.blade.php
@@ -26,8 +26,8 @@ OLD=(
   b3deafa3eee6e539e7cea5e7d7b3fe8b3183d239
 )
 NEW=(
-  2bfde453259537bb081d67c4d5612c582832bd12
-  6dcf49d3be93a2717a3e9f66b096a0f198371896
+  460178e4ef21e7cf7a90446f067128b8b2f5a4fd
+  3c91cc5aeb9836cd75e7dac3b14c9ebd96ee7469
   d1443fa797ddb4716af4d070e9221b6d91ffd443
   ef3507ba2e0b956e793865fdc4bd34a233efc0a1
   ee46869680763decf86a393aadeb40e98380236d
