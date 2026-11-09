@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#090812">
+<meta name="description" content="@yield('description','Sign in or manage your Gomovie account.')">
 <title>@yield('title','Sign in') — Gomovie</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')

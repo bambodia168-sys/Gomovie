@@ -1,8 +1,9 @@
 @extends('layouts.auth')
-@section('title','Choose a new password')
+@section('title',\App\Support\StudioAppearance::text('reset-password','seo_title','Choose a new password'))
+@section('description',\App\Support\StudioAppearance::text('reset-password','seo_description','Reset your Gomovie password.'))
 @section('content')
-<h1 class="gm-auth-title">Choose a new password</h1>
-<p class="gm-auth-subtitle">Confirm your account email and choose a strong new password.</p>
+<h1 class="gm-auth-title">{{ \App\Support\StudioAppearance::text('reset-password','heading','Choose a new password') }}</h1>
+<p class="gm-auth-subtitle">{{ \App\Support\StudioAppearance::text('reset-password','description','Confirm your account email and choose a strong new password.') }}</p>
 <form method="POST" action="{{ route('password.update') }}" class="gm-auth-form">
   @csrf
   <input type="hidden" name="token" value="{{ $token }}">

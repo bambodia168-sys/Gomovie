@@ -1,8 +1,9 @@
 @extends('layouts.auth')
-@section('title','Verify your email')
+@section('title',\App\Support\StudioAppearance::text('email-verification','seo_title','Verify your email'))
+@section('description',\App\Support\StudioAppearance::text('email-verification','seo_description','Verify your email address with Gomovie.'))
 @section('content')
-<h1 class="gm-auth-title">Check your inbox</h1>
-<p class="gm-auth-subtitle">A secure verification link has been sent to your email address. Verify it before accessing your Gomovie account and personal library.</p>
+<h1 class="gm-auth-title">{{ \App\Support\StudioAppearance::text('email-verification','heading','Check your inbox') }}</h1>
+<p class="gm-auth-subtitle">{{ \App\Support\StudioAppearance::text('email-verification','description','A secure verification link has been sent to your email address. Verify it before accessing your Gomovie account and personal library.') }}</p>
 @if(session('status'))<div role="status" class="gm-message">{{ session('status') }}</div>@endif
 <form method="POST" action="{{ route('verification.send') }}" class="gm-auth-form">
   @csrf

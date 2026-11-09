@@ -224,7 +224,7 @@
       </div>
     </div>
     <section class="gm-watch-overview">
-      <h2>Story details</h2>
+      <h2>{{ \App\Support\StudioAppearance::text('watch','heading','Story details') }}</h2>
       <p>{{ $selectedEpisode?->overview ?: $title->overview ?: 'A synopsis has not been published for this title.' }}</p>
       <p class="gm-muted">Playback requires approved content rights and a secure media-delivery configuration.</p>
     </section>
