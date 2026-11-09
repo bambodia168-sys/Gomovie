@@ -13,6 +13,8 @@ return [
     'queue_probes_enabled' => filter_var(env('GOMOVIE_QUEUE_PROBES_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'edge_enabled' => filter_var(env('GOMOVIE_EDGE_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'transcoding_enabled' => filter_var(env('GOMOVIE_TRANSCODING_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+    // 1440p/2160p are CPU-heavy. Buyers must opt in after worker and hosting acceptance.
+    'high_res_transcoding_enabled' => filter_var(env('GOMOVIE_HIGH_RES_TRANSCODING_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'ffmpeg_binary' => env('GOMOVIE_FFMPEG_BINARY', '/usr/bin/ffmpeg'),
     'ffprobe_binary' => env('GOMOVIE_FFPROBE_BINARY', '/usr/bin/ffprobe'),
     'media_edge_url' => env('GOMOVIE_MEDIA_EDGE_URL'),
