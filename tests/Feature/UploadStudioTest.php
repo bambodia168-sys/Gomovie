@@ -70,6 +70,7 @@ final class UploadStudioTest extends TestCase
             ->assertSee('const payload = new FormData(form);', false)
             ->assertDontSee('MANAGEMENT STUDIO')
             ->assertDontSee('Cloudflare R2')
+            ->assertDontSee('Review this upload')
             ->assertSee($movie->title);
         $this->get('/dashboard/upload-studio')->assertRedirect(route('upload-studio.index'));
         $this->post('/upload-studio', [])->assertSessionHasErrors(['type', 'title_id', 'video']);
@@ -101,7 +102,9 @@ final class UploadStudioTest extends TestCase
             'type' => 'movie',
             'title_id' => $movie->id,
             'video' => $this->fakeVideo('licensed-qa.mp4'),
-        ])->assertCreated()->assertJsonPath('ok', true);
+        ])->assertCreated()->assertJsonPath('ok', true)
+            ->assertJsonPath('library_url', route('admin.media.index'))
+            ->assertJsonMissingPath('review_url');
 
         $upload = DB::table('media_ingests')->first();
         self::assertNotNull($upload);
@@ -147,11 +150,43 @@ final class UploadStudioTest extends TestCase
         config()->set('gomovie.malware_scanner_binary', '/nonexistent/clamscan');
         $this->post('/dashboard/upload-studio/'.$id.'/approve', [
             'rights_reference' => 'QA-TEST-RIGHTS-1', 'rights_confirmed' => 1,
-        ])->assertStatus(503);
+        ])->assertRedirect(route('admin.upload-studio.review', $id))
+            ->assertSessionHasErrors('approval');
         $this->assertDatabaseHas('media_ingests', ['id' => $id, 'status' => 'quarantined']);
         $this->assertDatabaseCount('content_rights', 0);
         $this->get('/dashboard/upload-studio/'.$id)->assertOk()
-            ->assertSee('Review video')->assertSee('ClamAV');
+            ->assertSee('Manage video')->assertSee('ClamAV');
+    }
+
+    public function test_scanner_failure_returns_clear_error_and_keeps_upload_private(): void
+    {
+        Storage::fake('local');
+        $movie = $this->movie();
+        $this->actingAs($this->admin());
+        $this->postJson('/upload-studio', [
+            'type' => 'movie', 'title_id' => $movie->id,
+            'video' => $this->fakeVideo('scanner-failure.mp4'),
+        ])->assertCreated();
+        $id = (int) DB::table('media_ingests')->latest('id')->value('id');
+        $tmp = sys_get_temp_dir().'/gomovie-scan-failure-'.Str::uuid();
+        mkdir($tmp, 0700, true);
+        file_put_contents($tmp.'/clamscan', "#!/bin/sh\nexit 2\n");
+        chmod($tmp.'/clamscan', 0700);
+        try {
+            config()->set('gomovie.malware_scanner_binary', $tmp.'/clamscan');
+            $this->post('/dashboard/upload-studio/'.$id.'/approve', [
+                'rights_reference' => 'OWNER-TEST-RIGHTS-1',
+                'rights_confirmed' => 1,
+            ])->assertRedirect(route('admin.upload-studio.review', $id))
+                ->assertSessionHasErrors('approval');
+
+            $this->assertDatabaseHas('media_ingests', ['id' => $id, 'status' => 'quarantined']);
+            $this->assertDatabaseCount('content_rights', 0);
+            $this->assertDatabaseCount('media_assets', 0);
+        } finally {
+            @unlink($tmp.'/clamscan');
+            @rmdir($tmp);
+        }
     }
 
     public function test_operator_attested_review_requires_real_scanner_success_and_stays_unpublished(): void
