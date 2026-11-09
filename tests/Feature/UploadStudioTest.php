@@ -24,6 +24,17 @@ final class UploadStudioTest extends TestCase
         return $user->fresh();
     }
 
+    /**
+     * Laravel's empty-size fake does not allocate physical bytes. This fixture
+     * writes real private-upload bytes while retaining the explicit test MIME.
+     */
+    private function fakeVideo(string $name): UploadedFile
+    {
+        $file = UploadedFile::fake()->create($name, 5, 'video/mp4');
+        file_put_contents($file->getRealPath(), str_repeat('x', 5120));
+        return $file;
+    }
+
     private function movie(): Movie
     {
         return Movie::create([
@@ -64,7 +75,7 @@ final class UploadStudioTest extends TestCase
         $this->postJson('/dashboard/upload-studio', [
             'type' => 'movie',
             'title_id' => $movie->id,
-            'video' => UploadedFile::fake()->create('licensed-qa.mp4', 5, 'video/mp4'),
+            'video' => $this->fakeVideo('licensed-qa.mp4'),
         ])->assertCreated()->assertJsonPath('ok', true)
             ->assertJsonPath('upload_id', 1);
 
@@ -105,7 +116,7 @@ final class UploadStudioTest extends TestCase
         $this->actingAs($this->admin());
         $this->postJson('/dashboard/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
-            'video' => UploadedFile::fake()->create('review.mp4', 5, 'video/mp4'),
+            'video' => $this->fakeVideo('review.mp4'),
         ])->assertCreated();
 
         config()->set('gomovie.malware_scanner_binary', '/nonexistent/clamscan');
@@ -132,7 +143,7 @@ final class UploadStudioTest extends TestCase
         try {
             $this->postJson('/dashboard/upload-studio', [
                 'type' => 'movie', 'title_id' => $movie->id,
-                'video' => UploadedFile::fake()->create('approval.mp4', 5, 'video/mp4'),
+                'video' => $this->fakeVideo('approval.mp4'),
             ])->assertCreated();
             $upload = DB::table('media_ingests')->first();
             $disk = Storage::disk('local');
@@ -168,7 +179,7 @@ final class UploadStudioTest extends TestCase
         $this->actingAs($this->admin());
         $this->postJson('/dashboard/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
-            'video' => UploadedFile::fake()->create('reject.mp4', 5, 'video/mp4'),
+            'video' => $this->fakeVideo('reject.mp4'),
         ])->assertCreated();
 
         $this->post('/dashboard/upload-studio/1/reject', [
@@ -194,7 +205,7 @@ final class UploadStudioTest extends TestCase
         $this->actingAs($this->admin());
         $this->postJson('/dashboard/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
-            'video' => UploadedFile::fake()->create('cloud.mp4', 5, 'video/mp4'),
+            'video' => $this->fakeVideo('cloud.mp4'),
         ])->assertCreated();
 
         $ingest = DB::table('media_ingests')->first();
