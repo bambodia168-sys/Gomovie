@@ -40,7 +40,7 @@
       <a href="{{ route('admin.catalog.index','movies') }}" class="block rounded-xl px-4 py-3 text-zinc-300 hover:bg-white/5">▣ &nbsp; Movies</a>
       <a href="{{ route('admin.catalog.index','series') }}" class="block rounded-xl px-4 py-3 text-zinc-300 hover:bg-white/5">▤ &nbsp; TV Series</a>
       @if(in_array(auth()->user()->role,['admin','super_admin'],true))
-      <a href="{{ route('admin.upload-studio.index') }}" class="block rounded-xl px-4 py-3 {{ request()->routeIs('admin.upload-studio.*') ? 'bg-[#E50914]/15 text-white' : 'text-zinc-300 hover:bg-white/5' }}">↑ &nbsp; Upload Studio</a>
+      <a href="{{ route('upload-studio.index') }}" class="block rounded-xl px-4 py-3 {{ request()->routeIs('upload-studio.*') ? 'bg-[#E50914]/15 text-white' : 'text-zinc-300 hover:bg-white/5' }}">↑ &nbsp; Upload Studio</a>
       @endif
       <a href="{{ route('admin.media.index') }}" class="block rounded-xl px-4 py-3 text-zinc-300 hover:bg-white/5">▧ &nbsp; Media Library</a>
       @if(in_array(auth()->user()->role,['super_admin','admin'],true))
