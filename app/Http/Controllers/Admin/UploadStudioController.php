@@ -55,13 +55,13 @@ final class UploadStudioController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
-                'message' => 'Upload complete. The video is private and awaiting review.',
+                'message' => 'Video uploaded successfully. Saved to your private Media Library.',
                 'upload_id' => $id,
-                'review_url' => route('admin.upload-studio.review', $id),
+                'library_url' => route('admin.media.index'),
             ], 201)->header('Cache-Control', 'private, no-store');
         }
         return redirect()->route('upload-studio.index')
-            ->with('status', 'Video uploaded privately. Review it when ready.');
+            ->with('status', 'Video uploaded successfully. Saved to your private Media Library.');
     }
 
     public function review(Request $request, int $ingest): View
