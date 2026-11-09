@@ -1,0 +1,57 @@
+GOMOVIE - QUICK UPLOAD GUIDE
+===========================
+
+Upload Studio: /upload-studio
+
+For a new video:
+1. Enter the video title.
+2. Select an MP4, MOV, MKV, or WebM file.
+3. Choose a viewing option and confirm you have permission to use the video.
+4. Click Upload Video once.
+
+Viewing options
+---------------
+FREE / PUBLIC
+The original file is stored privately. When this installation has a working
+media worker, FFmpeg, ClamAV, and public HLS delivery enabled, Gomovie
+automatically checks the uploaded file and publishes an approved FREE title.
+
+The uploader must declare that they own the video or possess WORLDWIDE online
+publishing permission. This is a recorded uploader declaration, NOT an
+independently verified distribution license. Remove unauthorized content
+promptly when notified, and honor rights revocation.
+
+PRIVATE
+Store the video privately without starting automatic public publication.
+
+PAID VIDEO / DRAFT
+Save the movie as a premium draft. No paid checkout, collection, commission,
+rental, subscription or downloadable resale license is activated. Do not
+advertise paid delivery until a payment provider, access controls, refunds,
+tax/receipt responsibilities, and transaction reconciliation are verified.
+
+Editing existing movies or TV episodes
+--------------------------------------
+The old catalog editor is still available from the Advanced editor link. It is
+not part of the normal upload process. Existing uploads and other movie records
+are not changed by Quick Upload.
+
+Hosting
+-------
+PHP file size limits and web server body size limits can restrict uploads.
+The current single-request intake ceiling is 128 MB; the displayed upload
+limit is the lower of PHP settings and that ceiling. Larger, resumable
+uploads need a separate implementation. A dedicated background media worker
+and FFmpeg/ClamAV are required for automatic public processing.
+
+Marketplace delivery
+--------------------
+Sell the SCRIPT separately from the VIDEO CONTENT. Do not include unlicensed
+movies, film posters, actor images or copyrighted sample clips in the buyer ZIP.
+Use original demo video and artwork or appropriately licensed alternatives.
+Real online sales of video content require additional payment and legal work.
+
+No manual media approval step is required for a newly uploaded original
+free video with a recorded admin permission declaration, but all server-side
+validation, media integrity, private storage, malware checks, and the ability
+to revoke public playback remain in place.
