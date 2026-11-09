@@ -7,6 +7,7 @@ on:
       - '.github/workflows/auto-public-release.yml'
       - 'support/automatic-public-production-activation.sh'
       - 'support/browser-public-qa-fixture.php'
+      - 'support/browser-qa-local-video-recovery.sh'
       - 'app/Services/Media/AutomaticPublicationService.php'
       - 'resources/views/frontend/detail.blade.php'
       - 'resources/js/player.js'
@@ -25,6 +26,7 @@ jobs:
       - name: Verify Bash and PHP syntax
         run: |
           bash -n support/automatic-public-production-activation.sh
+          bash -n support/browser-qa-local-video-recovery.sh
           php -l support/browser-public-qa-fixture.php
       - name: Verify security and rollback invariants
         run: |
@@ -32,6 +34,14 @@ jobs:
           from pathlib import Path
           import re
           shell=Path('support/automatic-public-production-activation.sh').read_text()
+          localqa=Path('support/browser-qa-local-video-recovery.sh').read_text()
+          assert 'BROWSER_QA_SERVER_VIDEO_PREFLIGHT=PASS' in localqa
+          assert 'BROWSER_QA_SERVER_VIDEO_RECOVERY=SUCCESS' in localqa
+          assert 'BROWSER_QA_MOVIE_ID=23' in localqa
+          assert 'GOMOVIE-ORIGINAL-FFMPEG-QA-' in localqa
+          assert 'media_ingests' in localqa
+          assert 'now()->addDay()' in localqa
+          assert 'artisan migrate' not in localqa
           fixture=Path('support/browser-public-qa-fixture.php').read_text()
           service=Path('app/Services/Media/AutomaticPublicationService.php').read_text()
           blade=Path('resources/views/frontend/detail.blade.php').read_text()
