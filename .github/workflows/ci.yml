@@ -51,6 +51,19 @@ jobs:
           assert script.index(autoload) < script.index(bootstrap), "Laravel loaded before Composer"
           assert 'test -f "$APP/vendor/autoload.php"' in script, "Missing vendor preflight"
           PY
+      - name: Verify standalone Upload Studio helper and browser JavaScript
+        run: |
+          bash -n support/standalone-upload-studio-upgrade.sh
+          python3 - <<'PY'
+          from pathlib import Path
+
+          view = Path('resources/views/admin/upload-studio.blade.php').read_text()
+          assert view.count('<script>') == 1 and view.count('</script>') == 1
+          js = view.split('<script>', 1)[1].split('</script>', 1)[0]
+          Path('/tmp/gomovie-upload-studio.js').write_text(js)
+          assert js.index('const payload = new FormData(form);') < js.index('busy(true);')
+          PY
+          node --check /tmp/gomovie-upload-studio.js
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
