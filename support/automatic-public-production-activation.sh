@@ -89,10 +89,14 @@ check_app() {
       echo "MEDIA_QUEUE_PENDING=".$queue."\n";
       echo "ACTIVE_ENCODINGS=".$processing."\n";
       echo "PREEXISTING_READY_PUBLIC_CANDIDATES=".$existing."\n";
-      if($queue!==0||$processing!==0||$existing!==0) {
+      if($argv[1]!=="--disable" && ($queue!==0||$processing!==0||$existing!==0)) {
           fwrite(STDERR,"BLOCKED: inspect existing work/assets before global activation.\n"); exit(16);
       }
-    '
+      if($argv[1]==="--apply") {
+          foreach(["automatic_publication_enabled","public_hls_enabled","transcoding_enabled"] as $name)
+              if(config("gomovie.".$name)===true) exit(19);
+      }
+    ' "$MODE"
   )
 }
 check_app
