@@ -35,7 +35,7 @@ final class PlayerSettingsTest extends TestCase
             'accent' => 'cyan',
             'density' => 'compact',
             'seek_seconds' => 15,
-            'auto_hide_seconds' => 5,
+            'auto_hide_seconds' => 1,
             'show_volume' => '1',
             'show_speed' => '0',
             'show_captions' => '1',
@@ -45,7 +45,7 @@ final class PlayerSettingsTest extends TestCase
 
         $this->assertDatabaseHas('player_preferences', [
             'id' => 1, 'accent' => 'cyan', 'density' => 'compact',
-            'seek_seconds' => 15, 'auto_hide_seconds' => 5,
+            'seek_seconds' => 15, 'auto_hide_seconds' => 1,
             'show_volume' => 1, 'show_speed' => 0,
             'show_captions' => 1, 'show_pip' => 0, 'show_fullscreen' => 1,
         ]);
