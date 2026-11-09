@@ -2,7 +2,7 @@
 @section('title','Media Library')
 @section('content')
 <div class="gm-page-heading">
-<div><p class="text-xs uppercase tracking-widest text-amber-300">Content management</p><h2>Media Library</h2><p>Private video uploads and licensed artwork. Uploading never publishes or unlocks video playback.</p></div>
+<div><p class="text-xs uppercase tracking-widest text-amber-300">Content management</p><h2>Media Library</h2><p>Upload original videos privately or publish free videos automatically when processing and rights checks pass.</p></div>
 <div class="gm-page-actions">
 <button class="gm-studio-button" type="button" data-studio-open="gm-artwork-upload-dialog">@include('partials.studio-icon',['name'=>'media']) Upload artwork</button>
 <button class="gm-studio-button" type="button" data-studio-open="gm-tmdb-dialog">@include('partials.studio-icon',['name'=>'plus']) Import metadata</button>
@@ -16,12 +16,15 @@
 @forelse($assets as $asset)
 <tr><td>{{ ($assets->firstItem()??1)+$loop->index }}</td><td class="break-words">{{ $asset->original_name }}</td>
 <td class="gm-studio-muted">{{ $asset->uploader }}</td><td class="gm-studio-muted">{{ number_format($asset->size_bytes / 1048576, 1) }} MB</td>
-<td><span class="gm-studio-pill {{ $asset->status==='quarantined'?'is-warn':'is-ok' }}">{{ $asset->status==='quarantined'?'Saved privately':ucfirst($asset->status) }}</span></td>
+<td><span class="gm-studio-pill {{ $asset->status==='quarantined'?'is-warn':'is-ok' }}">{{ $asset->public?'Public and playable':($asset->status==='quarantined'?'Saved privately':ucfirst($asset->status)) }}</span></td>
 <td class="gm-studio-muted">{{ $asset->created_at }}</td>
 <td class="text-right"><button class="gm-studio-dots" type="button" aria-label="Actions for {{ $asset->original_name }}" data-studio-menu="asset-actions-{{ $asset->id }}" aria-expanded="false">@include('partials.studio-icon',['name'=>'dots'])</button>
 <template id="asset-actions-{{ $asset->id }}">
 @if(in_array(auth()->user()->role,['admin','super_admin'],true))
 <a role="menuitem" href="{{ route('admin.media.ingest-preview',$asset->id) }}" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) Private preview</a>
+@if($asset->public)
+<a role="menuitem" href="{{ route('watch.show',['type'=>$asset->ingestable_type==='movie'?'movie':'series','slug'=>$asset->ingestable_type==='movie'?(AppModelsMovie::find($asset->ingestable_id)?->slug??''):(AppModelsEpisode::find($asset->ingestable_id)?->season?->series?->slug??'')]) }}" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) Watch public video</a>
+@endif
 @endif
 @if((int)$asset->uploaded_by===(int)auth()->id() && $asset->status==='quarantined')
 <a role="menuitem" href="{{ route('upload-studio.index',['upload'=>$asset->id]) }}">@include('partials.studio-icon',['name'=>'edit']) Edit upload</a>
