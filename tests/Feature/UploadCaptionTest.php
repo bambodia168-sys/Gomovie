@@ -145,7 +145,7 @@ final class UploadCaptionTest extends TestCase
             ->assertSee('kind="subtitles"',false)
             ->assertSee(route('upload-studio.captions.file', ['ingest'=>$id,'caption'=>$caption]))
             ->assertSee('data-captions-toggle');
-        $this->get('/upload-studio?upload='.$id)->assertOk()
+        $this->get('/upload-studio/advanced?upload='.$id)->assertOk()
             ->assertSee('gm-caption-manager');
 
         $this->actingAs(User::factory()->create())->get('/watch/movie/'.$movie->slug)
