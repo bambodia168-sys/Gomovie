@@ -79,6 +79,8 @@ if (root) {
         video.removeAttribute('src');
         video.load();
         if (qualityContainer) qualityContainer.hidden = true;
+        video.dataset.gmSubtitleCount = '0';
+        video.dispatchEvent(new Event('gomovie:tracks-change'));
     }
 
     function fillQualityOptions(hls) {
@@ -92,6 +94,11 @@ if (root) {
         });
         qualitySelect.value = '-1';
         qualityContainer.hidden = hls.levels.length < 2;
+    }
+
+    function reportSubtitles(hls) {
+        video.dataset.gmSubtitleCount = String(hls?.subtitleTracks?.length || 0);
+        video.dispatchEvent(new Event('gomovie:tracks-change'));
     }
 
     function attemptPlay() {
@@ -128,9 +135,13 @@ if (root) {
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (instance !== hls) return;
                 fillQualityOptions(hls);
+                reportSubtitles(hls);
                 applySeek(seekPosition);
                 if (speedSelect) video.playbackRate = Number(speedSelect.value) || 1;
                 attemptPlay();
+            });
+            hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+                if (instance === hls) reportSubtitles(hls);
             });
             hls.loadSource(url);
             hls.attachMedia(video);
@@ -381,10 +392,12 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     const current = ui.querySelector('[data-gm-current]');
     const duration = ui.querySelector('[data-gm-duration]');
     const volume = ui.querySelector('[data-gm-volume]');
+    const menuVolume = ui.querySelector('[data-gm-menu-volume]');
     const mute = ui.querySelector('[data-gm-mute]');
     const speed = ui.querySelector('[data-playback-speed]');
     const captions = ui.querySelector('[data-captions-toggle]');
     const pip = ui.querySelector('[data-picture-in-picture]');
+    const menuPip = ui.querySelector('[data-gm-menu-pip]');
     const fullscreen = ui.querySelector('[data-fullscreen-player]');
     const settingsButton = ui.querySelector('[data-gm-settings-toggle]');
     const settingsPanel = ui.querySelector('[data-gm-settings]');
@@ -398,7 +411,9 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     let idleTimer = null;
     let feedbackTimer = null;
     let isScrubbing = false;
-    video.controls = false; // Native controls are the fallback if JavaScript fails.
+    // Native controls in the markup remain available if this script does not load.
+    // Switch to the custom controls only after the UI is initialized.
+    video.controls = false;
 
     const fmt = seconds => {
         if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -515,9 +530,14 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         video.volume = Math.min(1, Math.max(0, Number(volume.value)));
         video.muted = video.volume === 0;
     });
+    menuVolume?.addEventListener('input', () => {
+        video.volume = Math.min(1, Math.max(0, Number(menuVolume.value)));
+        video.muted = video.volume === 0;
+    });
     video.addEventListener('volumechange', () => {
         if (mute) mute.setAttribute('aria-label', video.muted || !video.volume ? 'Unmute audio' : 'Mute audio');
         if (volume) volume.value = video.muted ? '0' : String(video.volume);
+        if (menuVolume) menuVolume.value = video.muted ? '0' : String(video.volume);
     });
     speed?.addEventListener('change', () => {
         const value = Number(speed.value);
@@ -528,6 +548,32 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
             speed.value = String(video.playbackRate);
     });
 
+    // Never show captions or PiP as functioning when the media/browser
+    // does not actually provide them. HLS reports subtitle tracks separately.
+    const updateCapabilities = () => {
+        const nativeCount = Array.from(video.textTracks || []).filter(track =>
+            ['captions', 'subtitles'].includes(track.kind)).length;
+        const hlsCount = Number(video.dataset.gmSubtitleCount || 0);
+        const hasCaptions = nativeCount > 0 || (secure && hlsCount > 0);
+        if (captions) {
+            captions.hidden = !hasCaptions;
+            captions.disabled = !hasCaptions;
+            if (!hasCaptions) captions.setAttribute('aria-pressed', 'false');
+        }
+        const supportsPip = Boolean(document.pictureInPictureEnabled
+            && video.requestPictureInPicture && !video.disablePictureInPicture);
+        for (const button of [pip, menuPip]) {
+            if (button) {
+                button.hidden = !supportsPip;
+                button.disabled = !supportsPip;
+            }
+        }
+        const supportsFullscreen = Boolean(stage?.requestFullscreen || video.webkitEnterFullscreen);
+        if (fullscreen) {
+            fullscreen.hidden = !supportsFullscreen;
+            fullscreen.disabled = !supportsFullscreen;
+        }
+    };
     if (!secure) {
         captions?.addEventListener('click', () => {
             const tracks = Array.from(video.textTracks || []).filter(track =>
@@ -538,13 +584,32 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
             captions.setAttribute('aria-pressed', String(!enabled));
         });
     }
-    pip?.addEventListener('click', async () => {
+    const togglePip = async () => {
         try {
             if (!document.pictureInPictureEnabled || !video.requestPictureInPicture)
                 return tell('Picture-in-picture is unavailable in this browser.');
             if (document.pictureInPictureElement === video) await document.exitPictureInPicture();
             else await video.requestPictureInPicture();
         } catch { tell('Picture-in-picture was blocked by the browser.'); }
+    };
+    pip?.addEventListener('click', togglePip);
+    menuPip?.addEventListener('click', () => {
+        closeSettings();
+        void togglePip();
+    });
+    video.addEventListener('loadedmetadata', updateCapabilities);
+    video.textTracks?.addEventListener?.('addtrack', updateCapabilities);
+    video.textTracks?.addEventListener?.('removetrack', updateCapabilities);
+    video.addEventListener('gomovie:tracks-change', updateCapabilities);
+    document.addEventListener('fullscreenchange', () => {
+        if (fullscreen) fullscreen.setAttribute('aria-label',
+            document.fullscreenElement ? 'Exit fullscreen' : 'Toggle fullscreen');
+    });
+    video.addEventListener('enterpictureinpicture', () => {
+        menuPip?.setAttribute('aria-pressed', 'true');
+    });
+    video.addEventListener('leavepictureinpicture', () => {
+        menuPip?.setAttribute('aria-pressed', 'false');
     });
     fullscreen?.addEventListener('click', async () => {
         try {
@@ -599,5 +664,6 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         window.clearTimeout(feedbackTimer);
     }, {once:true});
     updateTime();
+    updateCapabilities();
     updatePlay();
 });
