@@ -200,6 +200,82 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->get($url)->assertOk()->assertDontSee('data-public-hls-url=');
     }
 
+    public function test_isolated_synthetic_video_completes_automatic_scan_encode_publish_pipeline(): void
+    {
+        $ffmpeg = '/usr/bin/ffmpeg';
+        $ffprobe = '/usr/bin/ffprobe';
+        if (!is_executable($ffmpeg) || !is_executable($ffprobe)) {
+            if (getenv('GOMOVIE_REQUIRE_FFMPEG_SMOKE') === '1') {
+                self::fail('FFmpeg and FFprobe must be available for isolated automatic-publication acceptance.');
+            }
+            $this->markTestSkipped('FFmpeg and FFprobe unavailable.');
+        }
+
+        $this->enable();
+        config()->set('gomovie.transcoding_enabled', true);
+        config()->set('gomovie.ffmpeg_binary', $ffmpeg);
+        config()->set('gomovie.ffprobe_binary', $ffprobe);
+
+        $movie = $this->freeFilm();
+        $this->rights('movie', (int) $movie->id);
+        $admin = User::factory()->create();
+        $admin->forceFill([
+            'role' => 'admin', 'is_active' => true, 'email_verified_at' => now(),
+        ])->save();
+
+        $key = 'ingests/2026/11/'.Str::uuid().'.mp4';
+        Storage::disk('local')->makeDirectory(dirname($key));
+        $this->temp[] = dirname($key);
+        $path = Storage::disk('local')->path($key);
+        $generate = new \Symfony\Component\Process\Process([
+            $ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+            '-f', 'lavfi', '-i', 'testsrc2=duration=1:size=640x360:rate=25',
+            '-f', 'lavfi', '-i', 'sine=frequency=440:duration=1',
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', '-shortest', $path,
+        ]);
+        $generate->setTimeout(90);
+        $generate->run();
+        self::assertTrue($generate->isSuccessful(), 'Synthetic video generator failed.');
+
+        $id = DB::table('media_ingests')->insertGetId([
+            'ingestable_type' => 'movie', 'ingestable_id' => $movie->id,
+            'uploaded_by' => $admin->id, 'disk' => 'local', 'object_key' => $key,
+            'original_name' => 'synthetic-original.mp4', 'mime' => 'video/mp4',
+            'size_bytes' => filesize($path), 'sha256' => hash_file('sha256', $path),
+            'status' => 'quarantined', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        // Isolated QA scanner stub proves status wiring, NOT malware-detection quality.
+        // Production continues to require a real executable ClamAV scanner.
+        $scannerDir = sys_get_temp_dir().'/gomovie-scanner-'.Str::random(12);
+        mkdir($scannerDir, 0700);
+        $scanner = $scannerDir.'/clamscan';
+        file_put_contents($scanner, "#!/bin/sh\nexit 0\n");
+        chmod($scanner, 0700);
+        config()->set('gomovie.malware_scanner_binary', $scanner);
+
+        try {
+            app(AutomaticPublicationService::class)->process((int) $id);
+            $asset = app(AutomaticPublicationService::class)->readyAsset('movie', (int) $movie->id);
+            self::assertNotNull($asset);
+            $this->assertDatabaseHas('media_ingests', [
+                'id' => $id, 'status' => 'encoded',
+                'security_scan_status' => 'clean', 'rights_review_status' => 'verified',
+            ]);
+            $this->assertDatabaseHas('movies', [
+                'id' => $movie->id, 'status' => 'published',
+            ]);
+            $this->get(route('public-hls.show', [
+                'asset' => $asset->id, 'path' => 'master.m3u8',
+            ]))->assertOk();
+        } finally {
+            @unlink($scanner);
+            @rmdir($scannerDir);
+            $manifest = DB::table('media_ingests')->where('id', $id)->value('encoded_manifest_key');
+            if ($manifest) $this->temp[] = dirname($manifest);
+        }
+    }
+
     public function test_default_off_and_malicious_hls_paths_never_expose_private_video(): void
     {
         $this->enable();
