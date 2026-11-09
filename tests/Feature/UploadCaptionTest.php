@@ -64,9 +64,12 @@ final class UploadCaptionTest extends TestCase
         self::assertSame('local',$row->disk);
         self::assertTrue((bool) $row->is_default);
         Storage::disk('local')->assertExists($row->object_key);
-        $this->get($prefix.'/'.$row->id.'/file')->assertOk()
-            ->assertHeader('Content-Type','text/vtt; charset=utf-8')
-            ->assertSee('WEBVTT')->assertSee('Hello world');
+        $fileResponse = $this->get($prefix.'/'.$row->id.'/file')->assertOk()
+            ->assertHeader('Content-Type','text/vtt; charset=utf-8');
+        // BinaryFileResponse streams bytes; getContent() is intentionally empty.
+        $servedBytes = file_get_contents($fileResponse->baseResponse->getFile()->getPathname());
+        self::assertStringContainsString('WEBVTT', $servedBytes);
+        self::assertStringContainsString('Hello world', $servedBytes);
 
         $this->patchJson($prefix.'/'.$row->id, [
             'label'=>'English subtitles','is_default'=>true,
@@ -81,7 +84,9 @@ final class UploadCaptionTest extends TestCase
         $newRow = DB::table('media_ingest_captions')->first();
         Storage::disk('local')->assertMissing($row->object_key);
         Storage::disk('local')->assertExists($newRow->object_key);
-        $this->get($prefix.'/'.$row->id.'/file')->assertOk()->assertSee('Replaced words');
+        $replacement = $this->get($prefix.'/'.$row->id.'/file')->assertOk();
+        self::assertStringContainsString('Replaced words',
+            file_get_contents($replacement->baseResponse->getFile()->getPathname()));
 
         $this->deleteJson($prefix.'/'.$row->id)->assertOk()->assertJsonPath('ok',true);
         $this->assertDatabaseCount('media_ingest_captions',0);
