@@ -38,6 +38,10 @@ jobs:
         run: bash -n support/watch-page-upgrade.sh
       - name: Syntax check selective aaPanel Upload Studio updater
         run: bash -n support/upload-studio-upgrade.sh
+      - name: Syntax check read-only Upload Studio live audit
+        run: |
+          bash -n support/upload-studio-live-audit.sh
+          ! grep -Eq 'artisan (migrate|optimize:clear)|--apply|install -[a-z]|rm -f' support/upload-studio-live-audit.sh
       - name: Verify Upload Studio backup bootstraps Composer before Laravel
         run: |
           python3 - <<'PY'
