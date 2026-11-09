@@ -3,19 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\TranscodeApprovedIngest;
 use App\Models\Episode;
 use App\Models\Movie;
-use App\Services\Media\IntakeReviewService;
 use App\Services\Media\PrivateVideoIntake;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Throwable;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 final class UploadStudioController extends Controller
 {
@@ -63,77 +58,6 @@ final class UploadStudioController extends Controller
         }
         return redirect()->route('upload-studio.index')
             ->with('status', 'Video uploaded successfully. Saved to your private Media Library.');
-    }
-
-    public function review(Request $request, int $ingest): View
-    {
-        $this->requireAdmin($request);
-        $upload = DB::table('media_ingests')->where('id', $ingest)->first();
-        abort_unless($upload, 404);
-
-        return view('admin.upload-review', [
-            'upload' => $upload,
-            'scannerReady' => is_file((string) config('gomovie.malware_scanner_binary'))
-                && is_executable((string) config('gomovie.malware_scanner_binary'))
-                && basename((string) config('gomovie.malware_scanner_binary')) === 'clamscan',
-        ]);
-    }
-
-    public function approve(Request $request, int $ingest, IntakeReviewService $review): RedirectResponse
-    {
-        $this->requireAdmin($request);
-        $data = $request->validate([
-            'rights_reference' => ['required', 'string', 'min:8', 'max:180',
-                'regex:/\A[a-zA-Z0-9][a-zA-Z0-9:._\/-]+\z/D'],
-            'rights_confirmed' => ['accepted'],
-        ]);
-        try {
-            $review->approve($ingest, $request->user(), $data['rights_reference'], $request->ip());
-        } catch (HttpExceptionInterface $exception) {
-            if (!in_array($exception->getStatusCode(), [409, 422, 503], true)) {
-                throw $exception;
-            }
-            return redirect()->route('admin.upload-studio.review', $ingest)
-                ->withErrors(['approval' => $exception->getMessage()
-                    ?: 'The upload checks could not be completed. The video remains private.']);
-        } catch (Throwable $exception) {
-            report($exception);
-            return redirect()->route('admin.upload-studio.review', $ingest)
-                ->withErrors(['approval' => 'The security or rights check could not be completed. The video remains private. Contact the site administrator.']);
-        }
-
-        // The upload is deliberately simple. Once an administrator has
-        // approved a clean, licensed ingest and the operator has enabled
-        // the private encoding service, enqueue it automatically. Encoding
-        // NEVER creates a public video or a ready playback asset.
-        $message = 'Upload approved. Video remains private.';
-        if (config('gomovie.transcoding_enabled') === true) {
-            try {
-                app(\App\Services\Media\TranscodeGate::class)->validate($ingest);
-                TranscodeApprovedIngest::dispatch($ingest);
-                $message = 'Upload approved. Private video processing has been queued.';
-            } catch (Throwable $exception) {
-                report($exception);
-                $message = 'Upload approved, but processing could not be queued. Check System Health.';
-            }
-        } else {
-            $message = 'Upload approved. Private processing will be available after setup.';
-        }
-
-        return redirect()->route('admin.upload-studio.review', $ingest)
-            ->with('status', $message);
-    }
-
-    public function reject(Request $request, int $ingest, IntakeReviewService $review): RedirectResponse
-    {
-        $this->requireAdmin($request);
-        $data = $request->validate([
-            'reason' => ['required', 'string', 'min:8', 'max:1000'],
-        ]);
-        $review->reject($ingest, $request->user(), $data['reason'], $request->ip());
-
-        return redirect()->route('admin.upload-studio.review', $ingest)
-            ->with('status', 'Upload rejected and retained in private quarantine for operator action.');
     }
 
     private function iniBytes(string|false $value): int
