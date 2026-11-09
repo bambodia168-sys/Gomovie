@@ -401,6 +401,8 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     const current = ui.querySelector('[data-gm-current]');
     const duration = ui.querySelector('[data-gm-duration]');
     const menuVolume = ui.querySelector('[data-gm-menu-volume]');
+    const volumePanel = ui.querySelector('[data-gm-volume-popover]');
+    const volumeWrap = ui.querySelector('.gm-modern-volume-wrap');
     const volumePercent = ui.querySelector('[data-gm-volume-percent]');
     const viewSelect = ui.querySelector('[data-gm-view-mode]');
     const viewHint = ui.querySelector('[data-gm-view-hint]');
@@ -513,6 +515,10 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         // bottom chrome fades after inactivity, just as during playback.
         scheduleIdle();
     };
+    const closeVolume = () => {
+        if (volumePanel) volumePanel.hidden = true;
+        mute?.setAttribute('aria-expanded', 'false');
+    };
     const closeSettings = () => {
         if (settingsPanel) settingsPanel.hidden = true;
         settingsButton?.setAttribute('aria-expanded', 'false');
@@ -532,10 +538,12 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     const scheduleIdle = () => {
         showControls();
         if (!hideSeconds || hasKeyboardFocus()
-            || (settingsPanel && !settingsPanel.hidden) || activeAd) return;
+            || (settingsPanel && !settingsPanel.hidden)
+            || (volumePanel && !volumePanel.hidden) || activeAd) return;
         idleTimer = window.setTimeout(() => {
             if (!hasKeyboardFocus() && !activeAd
-                && (!settingsPanel || settingsPanel.hidden)) root.classList.add('is-idle');
+                && (!settingsPanel || settingsPanel.hidden)
+                && (!volumePanel || volumePanel.hidden)) root.classList.add('is-idle');
         }, hideSeconds * 1000);
     };
     const tell = (message) => {
@@ -588,13 +596,25 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         seek.style.setProperty('--gm-played', seek.value + '%');
     });
 
-    mute?.addEventListener('click', () => { video.muted = !video.muted; });
+    // One and only one volume slider: the speaker opens its own compact popover.
+    // Volume zero mutes; increasing volume unmutes. The Gear has no Audio panel.
+    mute?.addEventListener('click', () => {
+        if (!volumePanel) return;
+        const open = volumePanel.hidden;
+        closeSettings();
+        volumePanel.hidden = !open;
+        mute.setAttribute('aria-expanded', String(open));
+        showControls();
+        if (open) menuVolume?.focus();
+        else scheduleIdle();
+    });
     menuVolume?.addEventListener('input', () => {
         video.volume = Math.min(1, Math.max(0, Number(menuVolume.value)));
         video.muted = video.volume === 0;
     });
     video.addEventListener('volumechange', () => {
-        if (mute) mute.setAttribute('aria-label', video.muted || !video.volume ? 'Unmute audio' : 'Mute audio');
+        if (mute) mute.setAttribute('aria-label',
+            'Adjust volume (' + Math.round((video.muted ? 0 : video.volume) * 100) + '%)');
         if (menuVolume) menuVolume.value = video.muted ? '0' : String(video.volume);
         if (volumePercent) volumePercent.textContent = Math.round((video.muted ? 0 : video.volume) * 100) + '%';
     });
@@ -749,6 +769,7 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         menuPip?.setAttribute('aria-pressed', 'false');
     });
     settingsButton?.addEventListener('click', () => {
+        closeVolume();
         const open = settingsPanel?.hidden !== false;
         if (settingsPanel) settingsPanel.hidden = !open;
         settingsButton.setAttribute('aria-expanded', String(open));
@@ -758,6 +779,11 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     document.addEventListener('pointerdown', event => {
         if (settingsPanel && !settingsPanel.hidden
             && !event.target.closest('.gm-modern-settings-wrap')) closeSettings();
+        if (volumePanel && !volumePanel.hidden
+            && !event.target.closest('.gm-modern-volume-wrap')) {
+            closeVolume();
+            scheduleIdle();
+        }
     });
 
     root.addEventListener('pointerdown', () => {
@@ -767,7 +793,14 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     }, {passive: true});
     root.addEventListener('pointermove', scheduleIdle);
     root.addEventListener('pointerleave', scheduleIdle);
-    ui.addEventListener('keydown', () => {
+    ui.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && volumePanel && !volumePanel.hidden) {
+            event.preventDefault();
+            closeVolume();
+            mute?.focus();
+            scheduleIdle();
+            return;
+        }
         keyboardInteracting = true;
         root.classList.add('is-keyboard');
         showControls();
