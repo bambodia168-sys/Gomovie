@@ -147,7 +147,7 @@ test -f "$FONTS_MANIFEST" && test ! -L "$FONTS_MANIFEST"
 try {
     $data=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR);
     if (!is_array($data)) exit(3);
-} catch (\\Throwable $error) { exit(4); }
+} catch (\Throwable $error) { exit(4); }
 ' "$FONTS_MANIFEST"
 while IFS= read -r -d '' asset; do
   relative="$(realpath --relative-to="$BUILD" "$asset")"
