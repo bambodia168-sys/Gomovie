@@ -299,6 +299,34 @@ jobs:
           assert "resources/js/player.js \\" not in s
           print("COMPACT_FULLSCREEN_HELPER=VERIFIED")
           PY
+      - name: Verify pinned single-volume production upgrade helper
+        run: |
+          bash -n support/single-volume-upgrade.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path("support/single-volume-upgrade.sh").read_text()
+          required=[
+            'TESTED_SHA="1613b616d9afb424ed201f789de660995b5ae66b"',
+            'SOURCE_SHA="b8ac403fc9ff2d8229aefbc9f0cf9ba43cecdc9a"',
+            'BUILD_RUN="42629682460"',
+            'GOMOVIE_SINGLE_VOLUME_PREFLIGHT=PASS',
+            'SINGLE_VOLUME_COMPILED_ASSETS=VERIFIED',
+            'GOMOVIE_SINGLE_VOLUME_DEPLOYMENT=SUCCESS',
+            'SPEAKER_POPOVER=SINGLE_VERTICAL_SLIDER',
+            'GEAR_AUDIO_SECTION=REMOVED',
+            'SOURCE_ROLLBACK=COMPLETE',
+            'CI_PACKAGE_SHA256=VERIFIED',
+            'FONTS_MANIFEST=VERIFIED',
+            'DATABASE_CHANGED=NO',
+            'EXISTING_MEDIA=UNCHANGED',
+            "grep -RlF 'data-gm-volume-popover'",
+            "6dcd7cc8a5a7d51ec10130ff42f981ed71e79b73",
+            "d9beae59872ffd171e69212c856b559c08b1300a",
+            "a3da95ce141e77ef77a951ead7c1d896aec7b68d",
+          ]
+          for value in required: assert value in s, value
+          print("SINGLE_VOLUME_DEPLOYMENT_HELPER=VERIFIED")
+          PY
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
