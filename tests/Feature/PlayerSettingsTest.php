@@ -121,7 +121,7 @@ final class PlayerSettingsTest extends TestCase
             ->assertSee('data-gm-timeline')
             ->assertSee('data-playback-speed')
             ->assertSee('data-fullscreen-player')
-            ->assertDontSee('data-gm-volume')
+            ->assertDontSee('data-gm-menu-volume')
             ->assertDontSee('data-captions-toggle')
             ->assertDontSee('data-picture-in-picture')
             ->assertDontSee('data-quality-container')
@@ -165,7 +165,11 @@ final class PlayerSettingsTest extends TestCase
             ->assertSee('data-gm-timeline')
             ->assertSee('data-gm-menu-volume')
             ->assertSee('data-gm-menu-pip')
-            ->assertSee('disabled hidden>CC', false)
+            ->assertSee('data-captions-toggle')
+            ->assertSee('data-gm-view-mode')
+            ->assertSee('data-gm-view-preference="portrait"', false)
+            ->assertSee('data-gm-ad-layer')
+            ->assertDontSee('gm-mode-switch')
             ->assertSee('PRIVATE ADMIN PREVIEW');
 
         $viewer = $this->user('viewer');
@@ -177,6 +181,62 @@ final class PlayerSettingsTest extends TestCase
         $this->assertDatabaseHas('media_ingests', [
             'ingestable_id' => $movie->id, 'status' => 'quarantined',
         ]);
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('content_rights', 0);
+    }
+
+    public function test_auto_view_mode_and_title_metadata_order_are_real_and_no_ad_is_activated(): void
+    {
+        $admin = $this->user();
+        $movie = Movie::create([
+            'title'=>'Auto Orientation QA',
+            'slug'=>'auto-orientation-qa',
+            'status'=>'published',
+            'is_premium'=>false,
+            'release_year'=>2026,
+            'runtime_minutes'=>35,
+        ]);
+        DB::table('media_ingests')->insert([
+            'ingestable_type'=>'movie', 'ingestable_id'=>$movie->id,
+            'uploaded_by'=>$admin->id, 'disk'=>'local',
+            'object_key'=>'ingests/2026/11/auto-qa.mp4',
+            'mime'=>'video/mp4', 'original_name'=>'auto-qa.mp4',
+            'size_bytes'=>100, 'sha256'=>str_repeat('a',64),
+            'status'=>'quarantined', 'created_at'=>now(), 'updated_at'=>now(),
+        ]);
+
+        $response = $this->actingAs($admin)->get('/watch/movie/'.$movie->slug);
+        $response->assertOk()
+            ->assertSee('data-gm-view-preference="auto"', false)
+            ->assertSee('data-gm-view-mode')
+            ->assertSee('Auto · Match video')
+            ->assertSee('9:16 Portrait')
+            ->assertSee('16:9 Widescreen')
+            ->assertSee('data-gm-ad-layer')
+            ->assertSee('data-gm-ad-skip')
+            ->assertSee('data-gm-volume-percent')
+            ->assertSee('data-gm-menu-volume')
+            ->assertDontSee('data-gm-volume"')
+            ->assertDontSee('gm-mode-switch')
+            ->assertSee('PRIVATE ADMIN PREVIEW');
+
+        $html = $response->getContent();
+        self::assertIsString($html);
+        $titlePos = strpos($html, '<h2>'.$movie->title.'</h2>');
+        $metaPos = strpos($html, 'gm-watch-tags');
+        self::assertNotFalse($titlePos);
+        self::assertNotFalse($metaPos);
+        self::assertLessThan($metaPos, $titlePos);
+
+        $source = file_get_contents(resource_path('js/player.js'));
+        self::assertIsString($source);
+        self::assertStringContainsString('video.videoHeight > video.videoWidth', $source);
+        self::assertStringContainsString('applyViewMode(viewPreference)', $source);
+        self::assertStringContainsString("root.addEventListener('gomovie:ad-start'", $source);
+        self::assertStringContainsString("root.addEventListener('gomovie:ad-end'", $source);
+        self::assertStringContainsString("gomovie:ad-skip-request", $source);
+
+        $this->assertDatabaseHas('media_ingests', ['ingestable_id'=>$movie->id,'status'=>'quarantined']);
         $this->assertDatabaseCount('media_assets', 0);
         $this->assertDatabaseCount('content_rights', 0);
     }
