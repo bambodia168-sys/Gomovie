@@ -78,8 +78,8 @@ class MediaController extends Controller
         $intake->store($data['type'], (int) $data['title_id'],
             $data['video'], (int) $request->user()->id, $request->ip());
 
-        return redirect()->route('admin.upload-studio.index')
-            ->with('status', 'Video uploaded privately. Review it in Upload Studio.');
+        return redirect()->route('upload-studio.index')
+            ->with('status', 'Video uploaded successfully. Saved to your private Media Library.');
     }
 
 }
