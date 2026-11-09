@@ -58,6 +58,15 @@ final class TranscodingService
             720 => ['rate'=>'2800k','buf'=>'5600k','bandwidth'=>3200000,'audio'=>'128k'],
             480 => ['rate'=>'1400k','buf'=>'2800k','bandwidth'=>1700000,'audio'=>'96k'],
         ];
+        // No upscaling: higher tiers are created only when the verified source
+        // has sufficient vertical resolution and an operator opted in.
+        if (config('gomovie.high_res_transcoding_enabled') === true) {
+            $tiers = [
+                2160 => ['rate'=>'16000k','buf'=>'32000k','bandwidth'=>18500000,'audio'=>'192k'],
+                1440 => ['rate'=>'9000k','buf'=>'18000k','bandwidth'=>10300000,'audio'=>'160k'],
+                ...$tiers,
+            ];
+        }
         $tiers = array_filter($tiers, fn ($tier) => $tier <= $height, ARRAY_FILTER_USE_KEY);
         if (!$tiers) {
             $tier = (int) (floor($height / 2) * 2);
