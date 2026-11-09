@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\PrivateIngestPreviewController;
 use App\Http\Controllers\Admin\UploadStudioController;
 use App\Http\Controllers\Admin\UploadStudioWorkflowController;
 use App\Http\Controllers\Admin\OperationsController;
@@ -95,6 +96,9 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
         return redirect()->route('admin.media.index');
     })->whereNumber('ingest')->name('upload-studio.legacy-review');
     Route::get('/media', [MediaController::class, 'index'])->name('media.index');
+    // Admin-only preview; never grants public playback, rights or stream entitlements.
+    Route::get('/media/ingests/{ingest}/preview', PrivateIngestPreviewController::class)
+        ->middleware('throttle:120,1')->whereNumber('ingest')->name('media.ingest-preview');
     Route::post('/media/artwork', [MediaController::class, 'artwork'])->name('media.artwork');
     Route::post('/media/ingests', [MediaController::class, 'ingest'])->name('media.ingest');
     Route::post('/tmdb/preview', [TmdbController::class, 'preview'])->name('tmdb.preview');
