@@ -14,7 +14,7 @@ MODE="$1"
 SRC="$2"
 APP="/www/wwwroot/gomovie.tonsamith.com"
 PHP="/www/server/php/85/bin/php"
-EXPECTED_PHP_BLOB="6330d9b7544e00d13a567698102492652061e6b0"
+EXPECTED_PHP_BLOB="3a136f71d212047a3a38fa64adf55952369a82e2"
 UNIT="gomovie-media-worker.service"
 
 echo "========== GOMOVIE REAL AUTOMATIC PUBLICATION ACCEPTANCE =========="
