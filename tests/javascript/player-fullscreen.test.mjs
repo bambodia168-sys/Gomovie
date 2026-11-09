@@ -62,7 +62,7 @@ test('fullscreen icon uses distinctive framed custom SVGs, not a font or browser
     assert.equal((blade.match(/class="gm-fullscreen-frame"/g) || []).length, 2);
     assert.match(css, /data-fullscreen-state="expanded"/);
     assert.match(css, /data-fullscreen-state="windowed"/);
-    assert.match(css, /gm-fullscreen-btn svg\.gm-fullscreen-glyph/);
+    assert.match(css, /gm-modern-fullscreen-btn svg\.gm-fullscreen-glyph/);
     assert.match(source, /video\.controls = false/);
 });
 
