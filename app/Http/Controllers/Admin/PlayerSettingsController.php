@@ -33,7 +33,7 @@ final class PlayerSettingsController extends Controller
             'accent' => ['required', Rule::in(array_keys(PlayerPreferences::ACCENTS))],
             'density' => ['required', Rule::in(['comfortable', 'compact'])],
             'seek_seconds' => ['required', 'integer', Rule::in([5, 10, 15, 30])],
-            'auto_hide_seconds' => ['required', 'integer', Rule::in([0, 3, 4, 5, 8])],
+            'auto_hide_seconds' => ['required', 'integer', Rule::in([0, 1, 2])],
             'show_volume' => ['required', 'boolean'],
             'show_speed' => ['required', 'boolean'],
             'show_captions' => ['required', 'boolean'],
