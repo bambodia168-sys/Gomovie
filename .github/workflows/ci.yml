@@ -38,6 +38,19 @@ jobs:
         run: bash -n support/watch-page-upgrade.sh
       - name: Syntax check selective aaPanel Upload Studio updater
         run: bash -n support/upload-studio-upgrade.sh
+      - name: Verify Upload Studio backup bootstraps Composer before Laravel
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          script = Path('support/upload-studio-upgrade.sh').read_text()
+          autoload = "require_once getenv('APP_PATH').'/vendor/autoload.php';"
+          bootstrap = "$app=require getenv('APP_PATH').'/bootstrap/app.php';"
+          assert script.count(autoload) == 1, "Missing or duplicated Composer autoload"
+          assert script.count(bootstrap) == 1, "Unexpected Laravel bootstrap"
+          assert script.index(autoload) < script.index(bootstrap), "Laravel loaded before Composer"
+          assert 'test -f "$APP/vendor/autoload.php"' in script, "Missing vendor preflight"
+          PY
       - name: Build frontend assets
         run: |
           npm install --ignore-scripts
