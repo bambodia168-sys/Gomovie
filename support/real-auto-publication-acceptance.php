@@ -29,7 +29,7 @@ if (PHP_SAPI !== 'cli') {
 }
 $mode = $argv[1] ?? '';
 $qa = $argv[2] ?? '';
-if (!in_array($mode, ['check', 'setup', 'queue', 'verify', 'cleanup'], true)
+if (!in_array($mode, ['check', 'setup', 'queue', 'verify', 'cleanup', 'selftest-failure'], true)
     || !is_string($qa) || !preg_match('#\A/tmp/gomovie-autopub-qa\.[A-Za-z0-9]{8}\z#D', $qa)
     || !is_dir($qa) || is_link($qa) || realpath($qa) !== $qa) {
     fwrite(STDERR, "Invalid QA mode or workspace.\n");
@@ -43,6 +43,9 @@ $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 // Laravel's CLI exception handler can display errors without propagating a
 // failure exit status for direct scripts. Explicitly guard all QA operations.
 try {
+if ($mode === 'selftest-failure') {
+    throw new RuntimeException('Intentional regression failure to verify a nonzero exit.');
+}
 $statePath = $qa.'/state.json';
 $readState = static function () use ($statePath): array {
     if (!is_file($statePath) || is_link($statePath)) {
@@ -298,6 +301,12 @@ if ($mode === 'cleanup') {
             if (preg_match('#\Atranscodes/staging/'.preg_quote((string) $ingestId,'#')
                 .'/[0-9a-f-]{36}/master\.m3u8\z#iD', $manifest)) {
                 Storage::disk('local')->deleteDirectory(dirname($manifest));
+            }
+            // If encoding was interrupted before the manifest was committed,
+            // remove only this uniquely identified QA ingest's transcodes.
+            $qaTranscodes = 'transcodes/staging/'.$ingestId;
+            if (preg_match('/\A[1-9][0-9]*\z/D', (string) $ingestId)) {
+                Storage::disk('local')->deleteDirectory($qaTranscodes);
             }
             $source = (string) $ingest->object_key;
             if (preg_match('#\Aingests/[0-9]{4}/[0-9]{2}/[0-9a-f-]{36}\.mp4\z#iD', $source)) {
