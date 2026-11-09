@@ -44,12 +44,23 @@ final class QuickUploadController extends Controller
 
         $requested = $request->query('ingest');
         $ingestId = null;
+        $resumeAccess = null;
         if ($requested !== null) {
             abort_unless(is_string($requested) && ctype_digit($requested), 404);
             $row = DB::table('media_ingests')->where('id', (int) $requested)
                 ->where('uploaded_by', $request->user()->id)->first();
             abort_unless($row, 404);
             $ingestId = (int) $row->id;
+            if ($row->ingestable_type === 'movie') {
+                $record = DB::table('admin_audit_events')
+                    ->where('actor_id', $request->user()->id)
+                    ->where('resource_type', 'movie')
+                    ->where('resource_id', $row->ingestable_id)
+                    ->where('action', 'media.quick_upload_attested')->first();
+                $details = $record ? json_decode((string) $record->details, true) : null;
+                $access = is_array($details) ? ($details['access'] ?? null) : null;
+                if (in_array($access, ['free', 'private', 'paid'], true)) $resumeAccess = $access;
+            }
         }
 
         return view('admin.quick-upload', [
@@ -58,6 +69,7 @@ final class QuickUploadController extends Controller
                 && config('gomovie.public_hls_enabled') === true
                 && config('gomovie.transcoding_enabled') === true,
             'ingestId' => $ingestId,
+            'resumeAccess' => $resumeAccess,
         ]);
     }
 
