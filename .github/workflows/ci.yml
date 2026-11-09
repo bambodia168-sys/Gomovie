@@ -81,7 +81,26 @@ jobs:
           assert "SOURCE_ROLLBACK" not in php or "cleanup" in php
           assert "GOMOVIE_REAL_AUTOPUBLIC_QA=PASS" in php
           assert re.search(r"EXPECTED_PHP_BLOB=\"[a-f0-9]{40}\"", shell)
+          assert "use Illuminate\\Http\\UploadedFile;" in php
+          assert "use Symfony\\Component\\HttpFoundation\\File\\UploadedFile;" not in php
+          assert "GOMOVIE_AUTO_QA_FATAL=" in php
+          assert "exit(89);" in php
+          assert "QA_UPLOAD_SETUP=FAILED" in shell
+          assert "QA_AUTOMATIC_PUBLICATION_VERIFICATION=FAILED" in shell
+          assert "GOMOVIE_REAL_AUTO_PUBLIC_ACCEPTANCE=FAILED" in shell
           PY
+          # The old harness incorrectly exited 0 after a printed PHP error.
+          # Exercise a real intentional exception and require nonzero status.
+          QA_DIR="$(mktemp -d /tmp/gomovie-autopub-qa.XXXXXXXX)"
+          trap 'rmdir "$QA_DIR"' EXIT
+          set +e
+          php support/real-auto-publication-acceptance.php selftest-failure "$QA_DIR" \
+            > /tmp/gomovie-qa-failure-regression.log 2>&1
+          RESULT="$?"
+          set -e
+          test "$RESULT" -eq 89
+          grep -Fq 'GOMOVIE_AUTO_QA_FATAL=RuntimeException: Intentional regression failure' \
+            /tmp/gomovie-qa-failure-regression.log
       - name: Verify isolated aaPanel media worker installer
         run: |
           bash -n support/media-worker-service.sh
