@@ -86,6 +86,11 @@ final class UploadStudioWorkflowController extends Controller
             'title_id' => $record->ingestable_id,
             'status' => $record->status,
             'can_edit' => $record->status === 'quarantined' && $target->status === 'draft',
+            'can_delete' => $record->status === 'quarantined'
+                && $record->disk === 'local'
+                && $record->cloud_status === 'local_only'
+                && $record->approved_at === null
+                && $record->encoded_manifest_key === null,
             'catalog_status' => $target->status,
         ])->header('Cache-Control', 'private, no-store');
     }
@@ -198,4 +203,56 @@ final class UploadStudioWorkflowController extends Controller
             'is_premium' => (bool) $data['is_premium'],
         ])->header('Cache-Control', 'private, no-store');
     }
+
+    /**
+     * Only the uploader can remove an unprocessed, local-only private source.
+     * Never touch encoded media, cloud mirrors, publication reviews or rights.
+     */
+    public function destroy(Request $request, int $ingest): JsonResponse
+    {
+        $this->ingest($request, $ingest);
+
+        $keys = DB::transaction(function () use ($request, $ingest): array {
+            $row = DB::table('media_ingests')->where('id', $ingest)
+                ->where('uploaded_by', $request->user()->id)->lockForUpdate()->first();
+            abort_unless($row && $row->status === 'quarantined'
+                && $row->disk === 'local' && $row->cloud_status === 'local_only'
+                && !$row->approved_at && !$row->encoded_manifest_key
+                && $row->security_scan_status === 'pending'
+                && $row->rights_review_status === 'pending'
+                && !$row->cloud_object_key, 409,
+                'This upload has started processing or cloud mirroring and cannot be deleted here.');
+            $key = (string) $row->object_key;
+            abort_unless((bool) preg_match(
+                '#\Aingests/[0-9]{4}/[0-9]{2}/[0-9a-f-]{36}\.(mp4|mov|mkv|webm)\z#iD',
+                $key
+            ), 409, 'The private source path is not recognized.');
+            abort_unless(!DB::table('media_publication_reviews')
+                ->where('media_ingest_id', $ingest)->exists()
+                && !DB::table('media_publication_batches')
+                ->where('media_ingest_id', $ingest)->exists(), 409,
+                'A linked publication record prevents deletion.');
+            $captions = DB::table('media_ingest_captions')
+                ->where('media_ingest_id', $ingest)->pluck('object_key')->all();
+            DB::table('media_ingests')->where('id', $ingest)->delete();
+            $this->audit($request, $ingest, 'media.private_ingest_deleted',
+                ['caption_count' => count($captions), 'local_only' => true]);
+            return [$key, $captions];
+        });
+
+        // The record is no longer accessible through any preview or caption
+        // route. Cleanup does not remove files belonging to other uploads.
+        $disk = Storage::disk('local');
+        $disk->delete($keys[0]);
+        foreach ($keys[1] as $key) {
+            if (preg_match('#\Acaptions/ingests/'.$ingest.'/[0-9a-f-]{36}\.vtt\z#iD',$key)) {
+                $disk->delete($key);
+            }
+        }
+
+        return response()->json([
+            'ok' => true, 'message' => 'Unprocessed private upload deleted.',
+        ])->header('Cache-Control','private, no-store');
+    }
+
 }
