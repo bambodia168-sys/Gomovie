@@ -81,6 +81,7 @@ if (root) {
         video.load();
         if (qualityContainer) qualityContainer.hidden = true;
         video.dataset.gmSubtitleCount = '0';
+        video.dispatchEvent(new CustomEvent('gomovie:subtitles-change', {detail:{tracks:[]}}));
         video.dispatchEvent(new Event('gomovie:tracks-change'));
     }
 
@@ -88,8 +89,12 @@ if (root) {
         if (!qualitySelect || !qualityContainer || !hls?.levels?.length) return;
         qualitySelect.replaceChildren(new Option('Auto', '-1'));
         hls.levels.forEach((level, index) => {
-            const label = level.height > 0
-                ? String(level.height) + 'p'
+            // Only expose renditions actually present in this authorized HLS
+            // master. 4K is not advertised for original MP4s or 1080p streams.
+            const height = Number(level.height || 0);
+            const label = height > 0
+                ? (height >= 2160 ? '4K · 2160p' : height >= 1440
+                    ? '1440p · QHD' : String(height) + 'p')
                 : String(Math.round((level.bitrate || 0) / 1000)) + ' kbps';
             qualitySelect.add(new Option(label, String(index)));
         });
@@ -98,9 +103,23 @@ if (root) {
     }
 
     function reportSubtitles(hls) {
-        video.dataset.gmSubtitleCount = String(hls?.subtitleTracks?.length || 0);
+        const tracks = (hls?.subtitleTracks || []).map((track, index) => ({
+            index, name: String(track.name || track.lang || 'Caption ' + (index + 1)),
+            lang: String(track.lang || ''),
+        }));
+        video.dataset.gmSubtitleCount = String(tracks.length);
+        video.dispatchEvent(new CustomEvent('gomovie:subtitles-change', {
+            detail: {tracks},
+        }));
         video.dispatchEvent(new Event('gomovie:tracks-change'));
     }
+    video.addEventListener('gomovie:subtitle-selected', event => {
+        if (!instance || !Array.isArray(instance.subtitleTracks)) return;
+        const index = Number(event.detail?.index);
+        if (!Number.isInteger(index) || index < -1 || index >= instance.subtitleTracks.length) return;
+        instance.subtitleDisplay = index !== -1;
+        instance.subtitleTrack = index;
+    });
 
     function attemptPlay() {
         const result = video.play();
@@ -630,17 +649,27 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
             speed.value = String(video.playbackRate);
     });
 
-    // Never show captions or PiP as functioning when the media/browser
-    // does not actually provide them. HLS reports subtitle tracks separately.
+    // Build the menu only from native WebVTT tracks or an actual HLS manifest.
+    // Never create imaginary subtitle languages or resolutions.
+    const captionWrap = ui.querySelector('[data-captions-wrap]');
+    let hlsCaptions = [];
     const updateCapabilities = () => {
-        const nativeCount = Array.from(video.textTracks || []).filter(track =>
-            ['captions', 'subtitles'].includes(track.kind)).length;
-        const hlsCount = Number(video.dataset.gmSubtitleCount || 0);
-        const hasCaptions = nativeCount > 0 || (secure && hlsCount > 0);
+        const nativeTracks = Array.from(video.textTracks || []).filter(track =>
+            ['captions', 'subtitles'].includes(track.kind));
+        const available = secure && hlsCaptions.length
+            ? hlsCaptions.map(track => ({label:track.name, value:String(track.index)}))
+            : nativeTracks.map((track,index) => ({
+                label:track.label || track.language || 'Caption ' + (index + 1),
+                value:String(index),
+            }));
         if (captions) {
-            captions.hidden = !hasCaptions;
-            captions.disabled = !hasCaptions;
-            if (!hasCaptions) captions.setAttribute('aria-pressed', 'false');
+            const selected = captions.value;
+            captions.replaceChildren(new Option('Off', '-1'));
+            available.forEach(track => captions.add(new Option(track.label, track.value)));
+            captions.hidden = !available.length;
+            captions.disabled = !available.length;
+            if (captionWrap) captionWrap.hidden = !available.length;
+            captions.value = available.some(track => track.value === selected) ? selected : '-1';
         }
         const supportsPip = Boolean(document.pictureInPictureEnabled
             && video.requestPictureInPicture && !video.disablePictureInPicture);
@@ -658,16 +687,23 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
             fullscreen.disabled = !supportsFullscreen;
         }
     };
-    if (!secure) {
-        captions?.addEventListener('click', () => {
-            const tracks = Array.from(video.textTracks || []).filter(track =>
-                ['captions', 'subtitles'].includes(track.kind));
-            if (!tracks.length) return tell('No captions are available for this video.');
-            const enabled = tracks.some(track => track.mode === 'showing');
-            tracks.forEach((track, i) => { track.mode = !enabled && i === 0 ? 'showing' : 'disabled'; });
-            captions.setAttribute('aria-pressed', String(!enabled));
-        });
-    }
+    captions?.addEventListener('change', () => {
+        const index = Number(captions.value);
+        if (!Number.isInteger(index)) return;
+        if (secure && hlsCaptions.length) {
+            video.dispatchEvent(new CustomEvent('gomovie:subtitle-selected', {
+                detail:{index},
+            }));
+            return;
+        }
+        const tracks = Array.from(video.textTracks || []).filter(track =>
+            ['captions','subtitles'].includes(track.kind));
+        tracks.forEach((track,i) => {track.mode = i === index ? 'showing' : 'disabled';});
+    });
+    video.addEventListener('gomovie:subtitles-change', event => {
+        hlsCaptions = Array.isArray(event.detail?.tracks) ? event.detail.tracks : [];
+        updateCapabilities();
+    });
     const togglePip = async () => {
         try {
             if (!document.pictureInPictureEnabled || !video.requestPictureInPicture)
