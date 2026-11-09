@@ -116,7 +116,27 @@ echo "========== VERIFY ROUTES AND TEMPLATES =========="
   runuser -u www -- "$PHP" artisan route:clear --no-interaction
   runuser -u www -- "$PHP" artisan view:clear --no-interaction
   runuser -u www -- "$PHP" artisan view:cache --no-interaction
-  runuser -u www -- "$PHP" artisan route:list --path=upload-studio
+  runuser -u www -- "$PHP" artisan route:list --path=upload-studio --json |
+    "$PHP" -r '
+      $routes=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);
+      foreach([
+        ["GET","upload-studio","QuickUploadController@index"],
+        ["POST","upload-studio/quick","QuickUploadController@store"],
+        ["GET","upload-studio/advanced","UploadStudioController@index"],
+      ] as $expected) {
+        $matched=false;
+        foreach($routes as $row) {
+          if(($row["uri"]??"")!==$expected[1])continue;
+          $verbs=explode("|",(string)($row["method"]??""));
+          if(in_array($expected[0],$verbs,true)
+            && str_contains((string)($row["action"]??""),$expected[2])) {
+            $matched=true;break;
+          }
+        }
+        if(!$matched){fwrite(STDERR,"MISSING_UPLOAD_ROUTE=".$expected[1]."\n");exit(71);}
+      }
+      echo "QUICK_UPLOAD_ROUTES=VERIFIED\n";
+    '
 )
 for endpoint in / /browse /login; do
   code="$(curl --noproxy '*' -ksS --connect-timeout 5 --max-time 20 \
@@ -125,6 +145,11 @@ for endpoint in / /browse /login; do
   echo "PAGE=$endpoint HTTP=$code"
   test "$code" = 200
 done
+code="$(curl --noproxy '*' -ksS --connect-timeout 5 --max-time 20 \
+  --resolve gomovie.tonsamith.com:443:127.0.0.1 \
+  -o /dev/null -w '%{http_code}' "https://gomovie.tonsamith.com/upload-studio")"
+test "$code" = 302
+echo "QUICK_UPLOAD_ANONYMOUS=REDIRECTED_TO_LOGIN"
 systemctl is-active --quiet gomovie-media-worker.service
 COMPLETE=1
 echo "QUICK_UPLOAD_DEPLOYMENT=SUCCESS"
