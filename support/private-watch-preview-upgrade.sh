@@ -123,13 +123,29 @@ while IFS= read -r path; do
 done < <(files)
 
 echo "========== VERIFY SECURE PREVIEW ROUTE =========="
-ROUTES="$(
+(
   cd "$APP"
   runuser -u www -- "$PHP" artisan optimize:clear
-  runuser -u www -- "$PHP" artisan route:list --path=dashboard/media/ingests
+)
+# Human-readable route:list truncates route names with an ellipsis. Use
+# machine-readable JSON and verify the complete name, URI and GET method.
+ROUTES_JSON="$(
+  cd "$APP"
+  runuser -u www -- "$PHP" artisan route:list --path=dashboard/media/ingests --json
 )"
-printf '%s\n' "$ROUTES"
-printf '%s\n' "$ROUTES" | grep -Fq "media.ingest-preview"
+printf '%s\n' "$ROUTES_JSON" | "$PHP" -r '
+$routes = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
+foreach ($routes as $route) {
+    if (($route["name"] ?? "") === "admin.media.ingest-preview"
+        && ($route["uri"] ?? "") === "dashboard/media/ingests/{ingest}/preview"
+        && in_array("GET", explode("|", (string) ($route["method"] ?? "")), true)) {
+        echo "PRIVATE_PREVIEW_ROUTE=VERIFIED\n";
+        exit(0);
+    }
+}
+fwrite(STDERR, "PRIVATE_PREVIEW_ROUTE=NOT_FOUND\n");
+exit(1);
+'
 
 echo "========== PUBLIC PAGE SMOKE CHECK =========="
 for route in / /login /register /browse /watch/movie/a-story-of-derry-1813355; do
