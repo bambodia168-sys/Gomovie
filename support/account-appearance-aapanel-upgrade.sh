@@ -147,6 +147,85 @@ check_appearance_view_dir() {
 }
 check_appearance_view_dir
 
+# Read-only audit of the Laravel package manifest cache. Some older
+# root-run maintenance commands leave cache files inaccessible to www.
+# Never touch application configuration, .env, or arbitrary directories.
+CACHE_DIR="$APP/bootstrap/cache"
+bootstrap_cache_audit() {
+  local file owner mode
+  test -d "$APP/bootstrap" && test ! -L "$APP/bootstrap" || {
+    echo "BLOCKED_BOOTSTRAP_PARENT"; return 1;
+  }
+  runuser -u www -- test -x "$APP/bootstrap" || {
+    echo "BLOCKED_BOOTSTRAP_PARENT_NOT_TRAVERSABLE"; return 1;
+  }
+  test -d "$CACHE_DIR" && test ! -L "$CACHE_DIR" || {
+    echo "BLOCKED_BOOTSTRAP_CACHE_DIR_TYPE"; return 1;
+  }
+  if ! runuser -u www -- test -w "$CACHE_DIR"; then
+    owner="$(stat -c '%u' "$CACHE_DIR")"
+    mode="$(stat -c '%a' "$CACHE_DIR")"
+    if [ "$owner" != 0 ] || [[ ! "$mode" =~ ^(700|750|755|770|775)$ ]]; then
+      echo "BLOCKED_BOOTSTRAP_CACHE_DIR_OWNER_MODE=$owner:$mode"; return 1;
+    fi
+    echo "BOOTSTRAP_CACHE_DIR=REPAIRABLE_ROOT_OWNED:$mode"
+  else
+    echo "BOOTSTRAP_CACHE_DIR=WRITABLE_BY_WWW"
+  fi
+  for file in "$CACHE_DIR"/*.php; do
+    if [ -L "$file" ]; then
+      echo "BLOCKED_BOOTSTRAP_CACHE_SYMLINK=$file"; return 1
+    fi
+    if [ ! -e "$file" ]; then continue; fi
+    test -f "$file" || { echo "BLOCKED_BOOTSTRAP_CACHE_FILE_TYPE=$file"; return 1; }
+    if runuser -u www -- test -r "$file" &&
+       runuser -u www -- test -w "$file"; then
+      echo "BOOTSTRAP_CACHE_FILE=ACCESSIBLE:${file##*/}"
+      continue
+    fi
+    owner="$(stat -c '%u' "$file")"
+    mode="$(stat -c '%a' "$file")"
+    if [ "$owner" != 0 ] || [[ ! "$mode" =~ ^(600|640|644|660|664)$ ]]; then
+      echo "BLOCKED_BOOTSTRAP_CACHE_FILE_OWNER_MODE=${file##*/}:$owner:$mode"; return 1
+    fi
+    echo "BOOTSTRAP_CACHE_FILE=REPAIRABLE_ROOT_OWNED:${file##*/}:$mode"
+  done
+}
+bootstrap_cache_audit
+
+repair_bootstrap_cache() {
+  local file
+  # This is only called after private source and MySQL backups succeed.
+  if ! runuser -u www -- test -w "$CACHE_DIR"; then
+    chgrp www "$CACHE_DIR"
+    chmod 0770 "$CACHE_DIR"
+    echo "BOOTSTRAP_CACHE_DIR=REPAIRED"
+  fi
+  runuser -u www -- test -w "$CACHE_DIR" || {
+    echo "BLOCKED_BOOTSTRAP_CACHE_DIR_NOT_WRITABLE"; return 1;
+  }
+  for file in "$CACHE_DIR"/*.php; do
+    [ -e "$file" ] || continue
+    if ! runuser -u www -- test -r "$file" ||
+       ! runuser -u www -- test -w "$file"; then
+      test ! -L "$file" && test "$(stat -c '%u' "$file")" = 0 || {
+        echo "BLOCKED_BOOTSTRAP_CACHE_FILE_CHANGED=$file"; return 1;
+      }
+      case "$(stat -c '%a' "$file")" in
+        600|640|644|660|664) ;;
+        *) echo "BLOCKED_BOOTSTRAP_CACHE_MODE_CHANGED=$file"; return 1 ;;
+      esac
+      chgrp www "$file"
+      chmod 0660 "$file"
+      echo "BOOTSTRAP_CACHE_FILE=REPAIRED:${file##*/}"
+    fi
+    runuser -u www -- test -r "$file" &&
+    runuser -u www -- test -w "$file" || {
+      echo "BLOCKED_BOOTSTRAP_CACHE_FILE_NOT_ACCESSIBLE=$file"; return 1;
+    }
+  done
+}
+
 # Create any missing source subdirectories with explicit traverse permissions.
 # Existing directories retain their ownership and mode. Reject symlinks.
 prepare_live_parent() {
@@ -563,6 +642,9 @@ fi
 runuser -u www -- test -x "$APPEARANCE_VIEW_DIR" || {
   echo "BLOCKED_APPEARANCE_DIRECTORY_NOT_TRAVERSABLE"; exit 1;
 }
+echo "========== REPAIR TRUSTED BOOTSTRAP CACHE PERMISSIONS =========="
+bootstrap_cache_audit
+repair_bootstrap_cache
 for migration in \
   database/migrations/2026_11_09_000400_create_studio_appearance_tables.php \
   database/migrations/2026_11_09_000500_create_studio_content_slots_table.php \
