@@ -1,8 +1,8 @@
 @extends('layouts.auth')
-@section('title',\App\Support\StudioAppearance::text('register','seo_title','Create your account'))
+@section('title',\App\Support\StudioAppearance::text('register','seo_title','Create Account'))
 @section('content')
-<h1 class="gm-auth-title">{{ \App\Support\StudioAppearance::text('register','heading','Create your account') }}</h1>
-<p class="gm-auth-subtitle">{{ \App\Support\StudioAppearance::text('register','description','Join Gomovie and build your own movie and series watchlist.') }}</p>
+<h1 class="gm-auth-title">{{ \App\Support\StudioAppearance::text('register','heading','Create Account') }}</h1>
+<p class="gm-auth-subtitle">{{ \App\Support\StudioAppearance::text('register','description','Build your own movies and series watchlist.') }}</p>
 <form method="POST" action="{{ route('register') }}" class="gm-auth-form">
   @csrf
   @include('auth.partials.input',['name'=>'name','label'=>'Full name','autocomplete'=>'name'])
