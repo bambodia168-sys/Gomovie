@@ -66,6 +66,11 @@ jobs:
           assert 'QUICK_UPLOAD_DEPLOYMENT=SUCCESS' in shell
           assert 'QUICK_UPLOAD_ROLLBACK=ATTEMPTED' in shell
           assert 'QUICK_UPLOAD_ROUTES=VERIFIED' in shell
+          assert 'ea9aae9fb49d323556f3cffdd074ed285fca7377' in shell
+          assert '58689d4635a3142ae8f126068f3dd5361f99ae7c' in shell
+          assert 'validate_live_route_patch' in shell
+          assert 'LIVE_ROUTES=MINIMALLY_PATCHED' in shell
+          assert 'BLOCKED_CUSTOM_FILE=' in shell
           assert 'artisan migrate' not in shell
           assert 'systemctl restart' not in shell
           assert re.search(r'SOURCE="[a-f0-9]{40}"',shell)
