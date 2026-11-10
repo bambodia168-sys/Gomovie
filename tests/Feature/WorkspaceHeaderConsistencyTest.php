@@ -26,7 +26,7 @@ final class WorkspaceHeaderConsistencyTest extends TestCase
             ->assertSee('gm-workspace-backdrop')
             ->assertSee('id="gomovie-workspace-sidebar-controller"', false)
             ->assertSee('gomovie.workspace.sidebar.collapsed')
-            ->assertSee('gm-workspace-sidebar-nav>a.is-current .gm-workspace-link-label')
+            ->assertSee('gm-workspace-sidebar-nav>a.is-current .gm-workspace-link-label', false)
             ->assertSee('User Manager');
     }
 
