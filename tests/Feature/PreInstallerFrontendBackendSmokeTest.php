@@ -39,7 +39,7 @@ final class PreInstallerFrontendBackendSmokeTest extends TestCase
             '/watch/movie/smoke-test-movie' => 'Smoke Test Movie',
             '/watch/series/smoke-test-series' => 'First Season',
             '/login' => 'Sign in',
-            '/register' => 'Create your account',
+            '/register' => 'Create Account',
             '/forgot-password' => 'Forgot password',
             '/reset-password/nonproduction-token?email=viewer%40example.test' => 'Choose a new password',
         ] as $path => $expected) {
