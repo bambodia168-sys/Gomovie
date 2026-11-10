@@ -88,7 +88,7 @@ final class NavigationProfileWatchTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user)->post('/account/settings/avatar', [
             'avatar' => UploadedFile::fake()->image('profile.jpg', 140, 140),
-        ])->assertRedirect();
+        ])->assertRedirect()->assertSessionHasNoErrors();
         $path = $user->fresh()->avatar_path;
         self::assertNotNull($path);
         Storage::disk('local')->assertExists($path);
