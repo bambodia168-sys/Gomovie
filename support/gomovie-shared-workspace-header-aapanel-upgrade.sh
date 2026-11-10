@@ -162,7 +162,134 @@ while IFS=$'\t' read -r relative base_sha target_sha; do
     else
       baseline="$TMP/base/$relative"
       download_blob "$base_sha" "$baseline"
-      if ! git merge-file -p -- "$live" "$baseline" "$target" > "$prepared"; then
+      if git merge-file -p -- "$live" "$baseline" "$target" > "$prepared"; then
+        echo "CUSTOM_WORKSPACE_MERGED=$relative"
+      elif [ "$relative" = "resources/views/layouts/admin.blade.php" ] &&
+           [ "$live_sha" = "70cd912960cf3f9d371a8bda7790c43187064896" ]; then
+        echo "========== PRESERVE VERIFIED CUSTOM ADMIN STRUCTURE =========="
+        echo "CUSTOM_ADMIN_LAYOUT_BLOB=VERIFIED:$live_sha"
+        # This is a narrow, fail-closed adapter for the exact production blob
+        # reported on 2026-11-10. It replaces only the navigation/header
+        # regions and adds the new shared includes, retaining unrelated
+        # custom assets, application content, and layout markup.
+        if ! python3 - "$live" "$prepared" <<'PY_CUSTOM_ADMIN'
+from pathlib import Path
+import re
+import sys
+
+live=Path(sys.argv[1])
+dest=Path(sys.argv[2])
+text=live.read_text(encoding="utf-8")
+original=text
+
+def require(condition, error):
+    if not condition:
+        raise SystemExit("BLOCKED_CUSTOM_ADMIN_STRUCTURE="+error)
+
+def unique_region(tag, identifying_class):
+    global text
+    opens=list(re.finditer(r"<"+tag+r"\b[^>]*>",text,re.S|re.I))
+    matches=[m for m in opens if re.search(
+        r'\bclass\s*=\s*(["\'])(.*?)\1',m.group(),re.S)
+        and identifying_class in m.group()]
+    require(len(matches)==1,tag+"-start-count")
+    opening=matches[0]
+    closing="</"+tag+">"
+    # The existing Studio shell has a single top-level sidebar and topbar.
+    # Disallow nested same-type tags and ambiguous closing boundaries.
+    following=text.find(closing,opening.end())
+    require(following>=0,tag+"-end-missing")
+    require(not re.search(r"<"+tag+r"\b",text[opening.end():following],re.I),
+            tag+"-nested")
+    return opening.start(), following+len(closing)
+
+def replace_region(tag, cls, replacement):
+    global text
+    start,end=unique_region(tag,cls)
+    text=text[:start]+replacement+text[end:]
+
+def add_class_to_tag(tag,needle,extra):
+    global text
+    opens=list(re.finditer(r"<"+tag+r"\b[^>]*>",text,re.S|re.I))
+    matches=[]
+    for m in opens:
+        cl=re.search(r'\bclass\s*=\s*(["\'])(.*?)\1',m.group(),re.S)
+        if cl and needle in cl.group(2).split():
+            matches.append((m,cl))
+    require(len(matches)==1,tag+"-"+needle+"-count")
+    match,cl=matches[0]
+    opening=match.group()
+    require(extra not in cl.group(2).split(),tag+"-"+extra+"-already")
+    changed=opening[:cl.start(2)]+cl.group(2)+" "+extra+opening[cl.end(2):]
+    text=text[:match.start()]+changed+text[match.end():]
+
+require(len(re.findall(r"<aside\b",text,re.I))==1,"aside-count")
+require(len(re.findall(r"</aside\s*>",text,re.I))==1,"aside-end-count")
+require(len(re.findall(r"<header\b",text,re.I))==1,"topbar-count")
+require(len(re.findall(r"</header\s*>",text,re.I))==1,"topbar-end-count")
+require(text.count("@yield('content')")==1,"content-outlet")
+require(text.count("@include('partials.brand-head')")==1,"brand-head")
+require(text.count("@include('partials.header-ui')")==1,"header-ui")
+require(text.count("@vite(")==1,"vite")
+require("partials.workspace-header" not in text,"already-migrated-header")
+require("partials.workspace-sidebar" not in text,"already-migrated-sidebar")
+require("partials.workspace-ui" not in text,"already-migrated-style")
+require("data-gm-workspace" not in text,"already-migrated-data")
+require(text.count("</head>")==1 and text.count("</body>")==1,"document-tags")
+
+replace_region("aside","gm-studio-sidebar",
+               "@php $workspaceMode='admin'; @endphp\n  @include('partials.workspace-sidebar')")
+replace_region("header","gm-studio-topbar",
+               "@include('partials.workspace-header')")
+add_class_to_tag("div","min-h-screen","gm-workspace-frame")
+add_class_to_tag("div","gm-studio-main","gm-workspace-main")
+
+body=re.search(r"<body\b[^>]*>",text,re.S|re.I)
+require(body is not None,"body-opening")
+opening=body.group()
+cl=re.search(r'\bclass\s*=\s*(["\'])(.*?)\1',opening,re.S)
+require(cl is not None and "gm-studio-shell" in cl.group(2).split(),"body-class")
+opening=opening[:cl.start(2)]+cl.group(2)+" gm-workspace-shell"+opening[cl.end(2):]
+opening=opening.replace(' x-data="{menu:false}"',"")
+opening=opening[:-1]+' data-gm-workspace="studio">'
+text=text[:body.start()]+opening+text[body.end():]
+require(text.count('data-gm-workspace="studio"')==1,"workspace-mode")
+
+main=list(re.finditer(r"<main\b[^>]*>",text,re.S|re.I))
+matches=[m for m in main if re.search(r'\bid\s*=\s*["\']studio-content["\']',m.group())]
+require(len(matches)==1,"main-content-id")
+m=matches[0]
+opening=m.group()
+cm=re.search(r'\bclass\s*=\s*(["\'])(.*?)\1',opening,re.S)
+if cm:
+    opening=opening[:cm.start(2)]+cm.group(2)+" gm-workspace-content"+opening[cm.end(2):]
+else:
+    opening=opening[:-1]+' class="gm-workspace-content">'
+text=text[:m.start()]+opening+text[m.end():]
+text=text.replace("</head>","@include('partials.workspace-ui')\n</head>",1)
+text=text.replace("</body>",'''<button class="gm-workspace-backdrop" type="button"
+        data-gm-sidebar-backdrop aria-label="Close navigation" hidden></button>
+</body>''',1)
+
+for token in (
+    "partials.workspace-sidebar","partials.workspace-header",
+    "partials.workspace-ui",'data-gm-workspace="studio"',
+    'gm-workspace-frame','gm-workspace-main','gm-workspace-content',
+    'data-gm-sidebar-backdrop',"@yield('content')",
+    "partials.brand-head","partials.header-ui",
+):
+    require(token in text,"missing-"+token)
+require(text!=original,"no-changes")
+require("<<<<<<<" not in text and ">>>>>>>" not in text,"conflict-markers")
+dest.write_text(text,encoding="utf-8")
+print("CUSTOM_ADMIN_LAYOUT_PRESERVED=YES")
+print("CUSTOM_ADMIN_REPLACED_REGIONS=SIDEBAR_AND_TOPBAR_ONLY")
+PY_CUSTOM_ADMIN
+        then
+          echo "BLOCKED_CUSTOM_ADMIN_ADAPTER=$relative"
+          exit 1
+        fi
+      else
         echo "BLOCKED_CUSTOM_WORKSPACE_MERGE=$relative"
         echo "LIVE_BLOB=$live_sha"
         exit 1
@@ -170,7 +297,6 @@ while IFS=$'\t' read -r relative base_sha target_sha; do
       if grep -Eq '^(<<<<<<<|=======|>>>>>>>)' "$prepared"; then
         echo "BLOCKED_MERGE_CONFLICT_MARKERS=$relative"; exit 1;
       fi
-      echo "CUSTOM_WORKSPACE_MERGED=$relative"
     fi
   fi
 done < "$TMP/manifest"
