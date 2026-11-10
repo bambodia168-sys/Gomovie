@@ -73,9 +73,20 @@ class SettingsController extends Controller
         $prefix = 'avatars/'.$user->id.'/';
         $path = $prefix.Str::random(40).'.'.$ext;
         $disk = Storage::disk('local');
-        $stored = $disk->putFileAs($prefix, $file, basename($path));
-        if ($stored !== $path) {
-            if ($stored) $disk->delete($stored);
+        // Use a validated file stream rather than putFileAs: local filesystem
+        // drivers (including the CI fake) can return differently normalized
+        // paths. The generated object key is the authoritative destination.
+        $stream = fopen($file->getRealPath(), 'rb');
+        if ($stream === false) {
+            throw ValidationException::withMessages(['avatar' => 'The image could not be opened.']);
+        }
+        try {
+            $stored = $disk->put($path, $stream);
+        } finally {
+            fclose($stream);
+        }
+        if ($stored !== true || !$disk->exists($path)) {
+            $disk->delete($path);
             throw ValidationException::withMessages(['avatar' => 'Image upload could not be completed.']);
         }
         $old = $user->avatar_path;
