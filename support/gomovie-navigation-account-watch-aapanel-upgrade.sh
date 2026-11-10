@@ -8,7 +8,7 @@ fi
 MODE="$1"
 REPO="bambodia168-sys/Gomovie"
 BASE="22115263a57504a6e6753ebc4891c7efaa08bab8"
-SOURCE="f26b8bcb3879be68e08b4c8c36f1c3ded059b3fb"
+SOURCE="014a371fafb43c0ffb899d6c8a85ad62acf13f92"
 APP="/www/wwwroot/gomovie.tonsamith.com"
 HOST="gomovie.tonsamith.com"
 PHP="/www/server/php/85/bin/php"
@@ -84,7 +84,7 @@ trap cleanup EXIT
 
 echo "========== VERIFY EXACT SOURCE AND CI ACCEPTANCE =========="
 test "$(gh api "repos/$REPO/commits/$SOURCE" --jq .sha)" = "$SOURCE"
-for run in 42836838933 42836838702 42836838704; do
+for run in 42838046677 42838046633 42838046862; do
  result="$(gh api "repos/$REPO/actions/runs/$run" --jq '[.head_sha,.conclusion] | join(":")')"
  if [ "$result" != "$SOURCE:success" ]; then
    echo "BLOCKED_GITHUB_CI=$run:$result"; exit 1
