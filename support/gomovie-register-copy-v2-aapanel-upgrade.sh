@@ -115,7 +115,9 @@ view,appearance,tmp=map(Path,sys.argv[1:])
 data=view.read_text(encoding="utf8")
 support=appearance.read_text(encoding="utf8")
 if not data or len(data)>1048576 or "\x00" in data:raise SystemExit("BLOCKED_REGISTER_BLADE")
-if "StudioAppearance::text" not in support or "studio_pages" not in support:raise SystemExit("BLOCKED_APPEARANCE_SUPPORT")
+if not re.search(r'(?m)^\s*public\s+static\s+function\s+text\s*\(',support) or "studio_pages" not in support:
+ raise SystemExit("BLOCKED_APPEARANCE_SUPPORT")
+print("REGISTER_APPEARANCE_TEXT_METHOD=VERIFIED")
 slot=lambda field:bool(re.search(r"StudioAppearance::text\s*\(\s*['\"]register['\"]\s*,\s*['\"]"+field+r"['\"]",data))
 h,d=slot("heading"),slot("description")
 old_h="Create your account";new_h="Create Account"
