@@ -203,8 +203,8 @@ for relative in (tmp/'paths').read_text().splitlines():
                         'gm-brand-copy' in contents or
                         bool(re.search(r'GO\s*(?:<span[^>]*>)?\s*MOVIE',contents,re.I)))
             if recognized:
-                if '<a' in contents.lower() or '@' in contents or
-                   re.search(r'<(?:form|button|script|input)\b',contents,re.I):
+                if ('<a' in contents.lower() or '@' in contents or
+                    re.search(r'<(?:form|button|script|input)\b',contents,re.I)):
                     raise SystemExit('BLOCKED_AUTH_BRAND_COMPLEX_CONTENT='+relative)
                 html=html[:match.start(2)]+"@include('partials.brand-logo')"+html[match.end(2):]
                 print('AUTH_CUSTOM_BRAND_ANCHOR_REPLACED='+relative)
