@@ -76,15 +76,31 @@ body.gm-auth-body .gm-auth-card .gm-brand-mark > *,
   line-height:1.25 !important;
   text-indent:0 !important;
 }
+/* Default: empty, unfocused label centered vertically beside the SVG. */
 .gm-auth-card .gm-auth-input label {
   position:absolute;
   z-index:2;
-  top:.48rem !important;
+  top:50% !important;
   left:3.25rem !important;
   margin:0 !important;
   line-height:1.15 !important;
-  transform:none !important;
+  transform:translateY(-50%) !important;
+  transform-origin:left center !important;
   pointer-events:none;
+  transition:top .17s ease, transform .17s ease, font-size .17s ease, color .17s ease;
+}
+/* Active, manually filled, or browser-autofilled: float inside the field. */
+.gm-auth-card .gm-auth-input:focus-within label,
+.gm-auth-card .gm-auth-input.gm-auth-has-value label,
+.gm-auth-card .gm-auth-input:has(input:-webkit-autofill) label,
+.gm-auth-card .gm-auth-input:has(input:autofill) label {
+  top:.48rem !important;
+  transform:translateY(0) !important;
+  font-size:.72rem !important;
+  transform-origin:left top !important;
+}
+@media (prefers-reduced-motion:reduce) {
+  .gm-auth-card .gm-auth-input label {transition:none !important;}
 }
 .gm-auth-card .gm-auth-input input:-webkit-autofill,
 .gm-auth-card .gm-auth-input input:-webkit-autofill:hover,
@@ -102,3 +118,40 @@ body.gm-auth-body .gm-auth-card .gm-brand-mark > *,
   }
 }
 </style>
+
+{{-- Never inspect or retain credentials: only track whether an input is empty.
+     Needed because Chrome and password managers may restore values without a
+     normal input event, and these customized fields have no placeholders. --}}
+<script id="gomovie-auth-floating-labels">
+(() => {
+  'use strict';
+  const selector = '.gm-auth-card .gm-auth-input';
+  const fieldSelector = 'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea';
+  function sync(field) {
+    if (!field) return;
+    const input = field.querySelector(fieldSelector);
+    if (!input) return;
+    field.classList.toggle('gm-auth-has-value', input.value.length > 0);
+  }
+  function syncAll() {
+    document.querySelectorAll(selector).forEach(sync);
+  }
+  function onFieldInput(event) {
+    const field = event.target && event.target.closest
+      ? event.target.closest(selector) : null;
+    if (field) sync(field);
+  }
+  document.addEventListener('input', onFieldInput, true);
+  document.addEventListener('change', onFieldInput, true);
+  document.addEventListener('focusin', onFieldInput, true);
+  document.addEventListener('DOMContentLoaded', () => {
+    syncAll();
+    window.requestAnimationFrame(syncAll);
+    window.setTimeout(syncAll, 300);
+    window.setTimeout(syncAll, 1200);
+  }, {once:true});
+  window.addEventListener('pageshow', syncAll);
+  if (document.readyState !== 'loading') syncAll();
+})();
+</script>
+
