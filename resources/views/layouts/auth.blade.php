@@ -9,6 +9,10 @@
 @include('partials.feedback')
 @include('partials.brand-head')
 <style>{!! \App\Support\StudioAppearance::css() !!}</style>
+<style id="gomovie-auth-brand-mark">
+.gm-auth-card-mark.gm-auth-card-mark--favicon{background:transparent;box-shadow:none;padding:0;transform:none;overflow:visible}
+.gm-auth-card-mark--favicon img{display:block;width:100%;height:100%;object-fit:contain;border-radius:15px}
+</style>
 </head>
 <body class="gm-auth-body text-white antialiased">
 <a href="#auth-content" class="gm-skip">Skip to sign-in form</a>
@@ -31,7 +35,7 @@
       </div>
     </div>
     <section class="gm-auth-card" aria-label="@yield('title','Account') form">
-      <div class="gm-auth-card-mark" aria-hidden="true">▶</div>
+      <div class="gm-auth-card-mark gm-auth-card-mark--favicon" aria-hidden="true"><img src="{{ asset('apple-touch-icon.png') }}?v=20261110" alt="" width="65" height="65" decoding="async"></div>
       @yield('content')
     </section>
   </main>
