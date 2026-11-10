@@ -193,7 +193,7 @@ bootstrap_cache_audit() {
     fi
     owner="$(stat -c '%u' "$file")"
     mode="$(stat -c '%a' "$file")"
-    if [ "$owner" != 0 ] || [[ ! "$mode" =~ ^(600|640|644|660|664)$ ]]; then
+    if [ "$owner" != 0 ] || [[ ! "$mode" =~ ^(600|640|644|660|664|700)$ ]]; then
       echo "BLOCKED_BOOTSTRAP_CACHE_FILE_OWNER_MODE=${file##*/}:$owner:$mode"; return 1
     fi
     echo "BOOTSTRAP_CACHE_FILE=REPAIRABLE_ROOT_OWNED:${file##*/}:$mode"
@@ -223,7 +223,7 @@ repair_bootstrap_cache() {
         echo "BLOCKED_BOOTSTRAP_CACHE_FILE_CHANGED=$file"; return 1;
       }
       case "$(stat -c '%a' "$file")" in
-        600|640|644|660|664) ;;
+        600|640|644|660|664|700) ;;
         *) echo "BLOCKED_BOOTSTRAP_CACHE_MODE_CHANGED=$file"; return 1 ;;
       esac
       chgrp www "$file"
