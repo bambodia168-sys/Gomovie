@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserProfile;
+use App\Support\StudioNavigation;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
@@ -20,8 +21,11 @@ use Illuminate\View\View;
 
 class SessionController extends Controller
 {
-    public function loginForm(): View
+    public function loginForm(Request $request): View
     {
+        if ($return = StudioNavigation::watchReturn($request->query('return'))) {
+            $request->session()->put('gomovie.watchReturn', $return);
+        }
         return view('auth.login');
     }
 
@@ -47,7 +51,18 @@ class SessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('account.overview'));
+        // Only allow the known on-site watch route as an explicit return URL.
+        // Otherwise send users to the verified account appropriate to their role.
+        $return = StudioNavigation::watchReturn($request->input('return'))
+            ?? StudioNavigation::watchReturn($request->session()->get('gomovie.watchReturn'));
+        if (!$request->user()->hasVerifiedEmail()) {
+            if ($return) $request->session()->put('gomovie.watchReturn', $return);
+            return redirect()->route('verification.notice');
+        }
+        $request->session()->forget('gomovie.watchReturn');
+        return $return
+            ? redirect($return)
+            : redirect(StudioNavigation::landing($request->user()));
     }
 
     public function registerForm(): View
@@ -92,14 +107,16 @@ class SessionController extends Controller
     public function verificationNotice(): View|RedirectResponse
     {
         return request()->user()->hasVerifiedEmail()
-            ? redirect()->route('account.overview')
+            ? redirect(StudioNavigation::landing(request()->user()))
             : view('auth.verify-email');
     }
 
     public function verify(EmailVerificationRequest $request): RedirectResponse
     {
         $request->fulfill();
-        return redirect()->route('account.overview')->with('status', 'Your email is verified.');
+        $return = StudioNavigation::watchReturn($request->session()->pull('gomovie.watchReturn'));
+        return redirect($return ?? StudioNavigation::landing($request->user()))
+            ->with('status', 'Your email is verified.');
     }
 
     public function resend(Request $request): RedirectResponse
