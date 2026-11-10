@@ -139,7 +139,7 @@ final class CinematicFrontendTest extends TestCase
             ->assertSee('Forgot password?')->assertSee('name="email"', false)
             ->assertSee('action="'.route('login').'"', false)
             ->assertDontSee('Continue with Google');
-        $this->get('/register')->assertOk()->assertSee('Create your account')
+        $this->get('/register')->assertOk()->assertSee('Create Account')
             ->assertSee('name="password_confirmation"', false)
             ->assertDontSee('Continue with Google');
         $this->get('/forgot-password')->assertOk()->assertSee('Forgot password');
