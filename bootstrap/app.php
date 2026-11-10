@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ApplyGoMovieLocale;
 use App\Http\Middleware\ApplySecurityHeaders;
 use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsureStaff;
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->web(append: [ApplyGoMovieLocale::class]);
         $middleware->append(ApplySecurityHeaders::class);
         $middleware->alias([
             'staff' => EnsureStaff::class,
