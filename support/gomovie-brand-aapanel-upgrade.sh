@@ -72,14 +72,54 @@ trap cleanup EXIT
 
 echo "========== DOWNLOAD EXACT GITHUB BRAND RELEASE =========="
 test "$(gh api "repos/$REPO/commits/$SOURCE" --jq '.sha')" = "$SOURCE"
-gh api "repos/$REPO/git/trees/$SOURCE?recursive=1" > "$TMP/tree.json"
+gh api -H 'Accept: application/vnd.github+json' \
+  "repos/$REPO/git/trees/$SOURCE?recursive=1" > "$TMP/tree.json"
+
+# GitHub's raw contents API may fail to transform binary icon/WebP assets.
+# Fetch JSON blob objects instead, then decode and validate exact Git bytes.
+# This is entirely within the private temporary directory for both modes.
 while IFS= read -r relative; do
   dest="$TMP/source/$relative"
   mkdir -p "$(dirname "$dest")"
-  gh api -H 'Accept: application/vnd.github.raw+json' \
-    "repos/$REPO/contents/$relative?ref=$SOURCE" > "$dest"
-  test -s "$dest" || { echo "BLOCKED_EMPTY_RELEASE_ASSET=$relative"; exit 1; }
+  expected="$(python3 - "$TMP/tree.json" "$relative" <<'PY_LOOKUP'
+import json,sys,re
+tree=json.load(open(sys.argv[1],encoding='utf8'))
+if tree.get('truncated'):raise SystemExit('BLOCKED_TRUNCATED_GITHUB_TREE')
+matches=[x for x in tree.get('tree',[]) if x.get('path')==sys.argv[2] and x.get('type')=='blob']
+if len(matches)!=1 or not re.fullmatch(r'[0-9a-f]{40}',matches[0].get('sha','')):
+    raise SystemExit('BLOCKED_RELEASE_BLOB_PATH='+sys.argv[2])
+print(matches[0]['sha'])
+PY_LOOKUP
+  )"
+  echo "FETCH_VERIFIED_GITHUB_BLOB=$relative:$expected"
+  gh api -H 'Accept: application/vnd.github+json' \
+    "repos/$REPO/git/blobs/$expected" > "$TMP/blob-response.json" || {
+      echo "BLOCKED_GITHUB_BLOB_DOWNLOAD=$relative"; exit 1;
+    }
+  python3 - "$TMP/blob-response.json" "$dest" "$expected" "$relative" <<'PY_DECODE'
+import sys,pathlib,json,base64,hashlib,re,binascii
+response,dest,expected,relative=sys.argv[1:]
+try:
+    obj=json.loads(pathlib.Path(response).read_text(encoding='utf8'))
+except (UnicodeDecodeError,json.JSONDecodeError) as exc:
+    raise SystemExit('BLOCKED_GITHUB_BLOB_JSON='+relative) from exc
+if obj.get('encoding')!='base64' or obj.get('sha')!=expected:
+    raise SystemExit('BLOCKED_GITHUB_BLOB_METADATA='+relative)
+content=obj.get('content')
+if not isinstance(content,str):
+    raise SystemExit('BLOCKED_GITHUB_BLOB_CONTENT='+relative)
+try:
+    data=base64.b64decode(re.sub(r'\s+','',content),validate=True)
+except (binascii.Error,ValueError) as exc:
+    raise SystemExit('BLOCKED_GITHUB_BLOB_BASE64='+relative) from exc
+got=hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()
+if got!=expected or not data:
+    raise SystemExit('BLOCKED_GITHUB_BLOB_HASH='+relative)
+pathlib.Path(dest).write_bytes(data)
+print('VERIFIED_DOWNLOADED_GIT_BLOB='+relative)
+PY_DECODE
 done < "$TMP/paths"
+rm -f -- "$TMP/blob-response.json"
 python3 - "$TMP" <<'PY_VERIFY'
 import pathlib,sys,json,hashlib
 root=pathlib.Path(sys.argv[1]); tree=json.loads((root/'tree.json').read_text())
