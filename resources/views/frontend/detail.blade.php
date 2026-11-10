@@ -18,7 +18,7 @@
       <section class="gm-player-stage" aria-label="{{ $portrait ? 'Portrait' : 'Widescreen' }} watch player">
         @if($still)<img class="gm-player-background" src="{{ $still }}" alt="" loading="eager" decoding="async">@endif
         <div class="gm-player-vignette" aria-hidden="true"></div>
-        @if($publicAsset)
+        @if($publicAsset && $viewerAuthorized)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
                data-gomovie-player data-public-hls-url="{{ route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false) }}"
                data-profile-id="0" data-modern-player
@@ -36,6 +36,8 @@
               <p data-playback-status role="status" aria-live="polite">Ready to watch for free.</p>
             </div>
           </div>
+        @elseif(!auth()->check())
+          @include('frontend.partials.guest-watch-signin')
         @elseif($privatePreviewIngest && !$playerEnabled)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
                data-gomovie-private-preview data-modern-player
