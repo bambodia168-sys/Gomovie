@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Go Movie: replace the legacy red auth-card play symbol with the approved favicon.
-# Preserves the production auth layout, forms, and all account functionality.
+# Go Movie: apply approved favicon appearance to legacy red authentication-card marks.
+# Only updates the existing shared brand-head partial; forms and layouts remain untouched.
 set -Eeuo pipefail
 umask 077
 
@@ -8,18 +8,18 @@ if [ "$#" -ne 1 ] || { [ "$1" != "--check" ] && [ "$1" != "--apply" ]; }; then
   echo "Usage: bash gomovie-auth-favicon-aapanel-upgrade.sh --check|--apply" >&2
   exit 2
 fi
-
 MODE="$1"
 REPO="bambodia168-sys/Gomovie"
-SOURCE="0448777dd589246bab8869b1998be5434d5fe4d3"
-TARGET_BLOB="c6f5c2cac43e27460c77b5fab133c3c555034301"
+SOURCE="742956d7a02d1fba68c950457aa3bd1548c44167"
+SOURCE_BLOB="25052373307436b06ae795d1c85e32599d5a40a5"
+BASE_BLOB="a7936ac10f8a08208beddc1f9edc9b301aa307d0"
 FAVICON_BLOB="769cd796dacd4091df5dc1103e2030046ddb152f"
 HOST="gomovie.tonsamith.com"
 APP="/www/wwwroot/gomovie.tonsamith.com"
-LIVE="$APP/resources/views/layouts/auth.blade.php"
+LIVE="$APP/resources/views/partials/brand-head.blade.php"
 PHP="/www/server/php/85/bin/php"
 
-echo "========== GO MOVIE AUTH FAVICON =========="
+echo "========== GO MOVIE AUTH FAVICON COMPATIBILITY =========="
 echo "MODE=$MODE"
 test "$(id -u)" -eq 0
 for bin in gh git python3 runuser curl cmp install cp stat; do
@@ -32,8 +32,13 @@ id www >/dev/null
 test -f "$LIVE" && test ! -L "$LIVE"
 test -f "$APP/public/apple-touch-icon.png" && test ! -L "$APP/public/apple-touch-icon.png"
 test "$(git hash-object "$APP/public/apple-touch-icon.png")" = "$FAVICON_BLOB" || {
-  echo "BLOCKED_LIVE_FAVICON_NOT_APPROVED"; exit 1;
+  echo "BLOCKED_LIVE_FAVICON_ASSET_CHANGED"; exit 1;
 }
+LIVE_BLOB="$(git hash-object "$LIVE")"
+case "$LIVE_BLOB" in
+  "$BASE_BLOB"|"$SOURCE_BLOB") echo "LIVE_BRAND_PARTIAL=TRUSTED:$LIVE_BLOB" ;;
+  *) echo "BLOCKED_CUSTOM_BRAND_PARTIAL=$LIVE_BLOB"; exit 1 ;;
+esac
 
 TMP="$(mktemp -d /root/Gomovie-Auth-Favicon-XXXXXXXX)"
 chmod 700 "$TMP"
@@ -44,8 +49,8 @@ on_exit() {
   trap - EXIT
   if [ "$CHANGED" = 1 ] && [ "$COMPLETE" = 0 ]; then
     set +e
-    echo "========== RESTORE AUTH LAYOUT =========="
-    cp -p "$TMP/original-auth.blade.php" "$LIVE"
+    echo "========== RESTORE PREVIOUS BRAND PARTIAL =========="
+    cp -p "$TMP/original-brand-head.blade.php" "$LIVE"
     (cd "$APP" && runuser -u www -- "$PHP" artisan optimize:clear --no-interaction) >/dev/null 2>&1
     echo "AUTH_FAVICON_ROLLBACK=COMPLETE"
   fi
@@ -58,137 +63,97 @@ on_exit() {
 }
 trap on_exit EXIT
 
-echo "========== VERIFY PINNED GITHUB RELEASE =========="
+echo "========== VERIFY PINNED GITHUB UPDATE =========="
 test "$(gh api "repos/$REPO/commits/$SOURCE" --jq '.sha')" = "$SOURCE"
 gh api -H 'Accept: application/vnd.github+json' \
-  "repos/$REPO/git/blobs/$TARGET_BLOB" > "$TMP/target-blob.json"
-python3 - "$TMP/target-blob.json" "$TMP/target-auth.blade.php" "$TARGET_BLOB" <<'PY_SOURCE'
+  "repos/$REPO/git/blobs/$SOURCE_BLOB" > "$TMP/source.json"
+python3 - "$TMP/source.json" "$TMP/source.blade.php" "$SOURCE_BLOB" <<'PY_SOURCE'
 import base64,binascii,hashlib,json,pathlib,re,sys
 payload,destination,expected=sys.argv[1:]
 obj=json.loads(pathlib.Path(payload).read_text(encoding='utf-8'))
-if obj.get('sha')!=expected or obj.get('encoding')!='base64':
-    raise SystemExit('BLOCKED_SOURCE_BLOB_METADATA')
+if obj.get('encoding')!='base64' or obj.get('sha')!=expected:
+    raise SystemExit('BLOCKED_BRAND_SOURCE_METADATA')
 try:
     data=base64.b64decode(re.sub(r'\s+','',obj['content']),validate=True)
 except (binascii.Error,KeyError,TypeError):
-    raise SystemExit('BLOCKED_SOURCE_BLOB_ENCODING')
+    raise SystemExit('BLOCKED_BRAND_SOURCE_ENCODING')
 actual=hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()
-if actual!=expected:
-    raise SystemExit('BLOCKED_SOURCE_BLOB_HASH')
+if actual!=expected: raise SystemExit('BLOCKED_BRAND_SOURCE_HASH')
+text=data.decode('utf-8')
+for required in ('id="gomovie-auth-favicon-card"', 'body.gm-auth-body .gm-auth-card-mark',
+                 "asset('apple-touch-icon.png')",'gm-brand-logo--dark'):
+    if required not in text: raise SystemExit('BLOCKED_BRAND_SOURCE_CONTENT='+required)
 pathlib.Path(destination).write_bytes(data)
-print('AUTH_FAVICON_GITHUB_SOURCE=VERIFIED')
+print('AUTH_FAVICON_SOURCE=VERIFIED')
 PY_SOURCE
 
-echo "========== PREPARE SAFE CUSTOM AUTH LAYOUT UPDATE =========="
-python3 - "$LIVE" "$TMP/target-auth.blade.php" "$TMP/new-auth.blade.php" <<'PY_PREPARE'
-import html,pathlib,re,sys
-live_path,target_path,result_path=map(pathlib.Path,sys.argv[1:])
-original=live_path.read_text(encoding='utf-8')
-target=target_path.read_text(encoding='utf-8')
-if not original or len(original)>1048576 or '\0' in original:
-    raise SystemExit('BLOCKED_AUTH_LAYOUT_TEXT')
-if original.count("@include('partials.brand-head')")!=1:
-    raise SystemExit('BLOCKED_AUTH_FAVICON_HEAD_MISSING')
-if original.count('@yield(\'content\')')!=1 or '@vite(' not in original:
-    raise SystemExit('BLOCKED_AUTH_CONTENT_LAYOUT')
-if original.count('</head>')!=1:
-    raise SystemExit('BLOCKED_AUTH_HEAD_STRUCTURE')
-
-mark=re.compile(
-    r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*\bgm-auth-card-mark\b[^"\']*["\'][^>]*>.*?</div\s*>',
-    re.I|re.S
-)
-css=re.compile(r'<style\s+id="gomovie-auth-brand-mark">.*?</style>',re.I|re.S)
-new_marks=mark.findall(target)
-new_styles=css.findall(target)
-old_marks=mark.findall(original)
-if len(new_marks)!=1 or len(new_styles)!=1 or len(old_marks)!=1:
-    raise SystemExit('BLOCKED_AUTH_CARD_MARK_COUNT')
-desired_mark=new_marks[0]
-desired_style=new_styles[0]
-if 'gm-auth-card-mark--favicon' not in desired_mark or 'apple-touch-icon.png' not in desired_mark:
-    raise SystemExit('BLOCKED_TARGET_FAVICON_MARKUP')
-current_mark=old_marks[0]
-if 'gm-auth-card-mark--favicon' in current_mark:
-    if current_mark!=desired_mark:
-        raise SystemExit('BLOCKED_UNEXPECTED_CUSTOM_FAVICON_MARKUP')
-    updated=original
-    print('AUTH_CARD_ICON=ALREADY_BRANDED')
-else:
-    inside=re.sub(r'^<div\b[^>]*>|</div\s*>$','',current_mark,flags=re.I|re.S)
-    inside=re.sub(r'</?span\b[^>]*>','',inside,flags=re.I|re.S)
-    plain=html.unescape(inside).strip()
-    if plain not in ('▶','►','▷'):
-        raise SystemExit('BLOCKED_UNRECOGNIZED_LEGACY_CARD_ICON')
-    updated=original.replace(current_mark,desired_mark,1)
-    print('AUTH_CARD_ICON=REPLACE_LEGACY_PLAY')
-present_styles=css.findall(updated)
-if len(present_styles)>1:
-    raise SystemExit('BLOCKED_DUPLICATE_FAVICON_STYLE')
-if present_styles:
-    if present_styles[0]!=desired_style:
-        raise SystemExit('BLOCKED_UNEXPECTED_FAVICON_STYLE')
-else:
-    if 'gomovie-auth-brand-mark' in updated:
-        raise SystemExit('BLOCKED_CONFLICTING_FAVICON_STYLE')
-    updated=updated.replace('</head>',desired_style+'\n</head>',1)
-    print('AUTH_CARD_STYLE=PREPARED')
-if updated.count('gm-auth-card-mark--favicon')<2:
-    raise SystemExit('BLOCKED_NEW_AUTH_CARD_STYLE')
-if updated.count("@include('partials.brand-head')")!=1 or updated.count('@yield(\'content\')')!=1:
-    raise SystemExit('BLOCKED_AUTH_LAYOUT_STRUCTURE')
-if updated.count('@csrf')!=original.count('@csrf') or updated.count('<form')!=original.count('<form'):
-    raise SystemExit('BLOCKED_AUTH_FORM_MUTATION')
-if updated==original:
-    print('AUTH_CARD_BRANDING=ALREADY_INSTALLED')
-result_path.write_text(updated,encoding='utf-8')
-print('AUTH_FAVICON_PREFLIGHT=PASS')
-PY_PREPARE
+echo "========== READ-ONLY AUTH PAGES INSPECTION =========="
+for route in /login /register /forgot-password; do
+  slug="${route#/}"
+  html="$TMP/${slug}.html"
+  status="$(curl --noproxy '*' -sS --connect-timeout 5 --max-time 20 \
+    --resolve "$HOST:443:127.0.0.1" -o "$html" -w '%{http_code}' \
+    "https://$HOST$route")"
+  test "$status" = 200 || { echo "BLOCKED_AUTH_HTTP=$route:$status"; exit 1; }
+  python3 - "$html" "$route" <<'PY_INSPECT'
+import pathlib,re,sys
+page=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8',errors='replace')
+route=sys.argv[2]
+classes=re.findall(r'\bclass\s*=\s*["\']([^"\']+)["\']',page,re.I)
+marks=[value for value in classes if 'gm-auth-card-mark' in value.split() or
+       'gm-brand-mark' in value.split()]
+if len(marks)!=1:
+    related=[c for c in classes if any(x in c.lower() for x in ('auth','logo','brand','mark','play','badge'))]
+    print('AUTH_ICON_CANDIDATE_COUNT='+route+':'+str(len(marks)))
+    for candidate in related[:12]:print('AUTH_ICON_CLASS_CANDIDATE='+route+':'+candidate[:130])
+    raise SystemExit('BLOCKED_UNKNOWN_CUSTOM_AUTH_ICON='+route)
+if 'favicon-32x32.png' not in page:
+    raise SystemExit('BLOCKED_BROWSER_FAVICON_MISSING='+route)
+print('AUTH_ICON_CLASS_VERIFIED='+route+':'+marks[0])
+PY_INSPECT
+done
 
 if [ "$MODE" = "--check" ]; then
+  echo "AUTH_FAVICON_PREFLIGHT=PASS"
   echo "LIVE_FILES_CHANGED=NO"
   echo "DATABASE_CHANGED=NO"
   exit 0
 fi
 
-echo "========== BACKUP AND RECHECK PRODUCTION =========="
-cp -p "$LIVE" "$TMP/original-auth.blade.php"
-cmp -s "$TMP/original-auth.blade.php" "$LIVE"
-echo "AUTH_LAYOUT_BACKUP=VERIFIED"
-
-echo "========== INSTALL AUTH CARD FAVICON =========="
+echo "========== BACKUP AND INSTALL SHARED BRAND STYLE =========="
+cp -p "$LIVE" "$TMP/original-brand-head.blade.php"
+test "$(git hash-object "$LIVE")" = "$LIVE_BLOB"
+echo "AUTH_BRAND_PARTIAL_BACKUP=VERIFIED"
 CHANGED=1
-install -o root -g www -m 0644 "$TMP/new-auth.blade.php" "$LIVE"
-cmp -s "$TMP/new-auth.blade.php" "$LIVE"
+install -o root -g www -m 0644 "$TMP/source.blade.php" "$LIVE"
+cmp -s "$TMP/source.blade.php" "$LIVE"
 
-echo "========== LARAVEL COMPILE AND HTTP ACCEPTANCE =========="
 (
   cd "$APP"
   runuser -u www -- "$PHP" artisan optimize:clear --no-interaction
   runuser -u www -- "$PHP" artisan view:cache --no-interaction
 )
 for route in /login /register /forgot-password; do
-  output="$TMP/route.html"
+  slug="${route#/}"
+  html="$TMP/${slug}-after.html"
   status="$(curl --noproxy '*' -sS --connect-timeout 5 --max-time 20 \
-    --resolve "$HOST:443:127.0.0.1" -o "$output" -w '%{http_code}' \
+    --resolve "$HOST:443:127.0.0.1" -o "$html" -w '%{http_code}' \
     "https://$HOST$route")"
-  test "$status" = 200 || { echo "BLOCKED_AUTH_HTTP=$route:$status"; exit 1; }
-  python3 - "$output" "$route" <<'PY_HTML'
+  test "$status" = 200 || { echo "BLOCKED_AUTH_HTTP_AFTER=$route:$status"; exit 1; }
+  python3 - "$html" "$route" <<'PY_ACCEPT'
 import pathlib,re,sys
-page=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8',errors='replace')
+page=pathlib.Path(sys.argv[1]).read_text(encoding='utf8',errors='replace')
 route=sys.argv[2]
-if 'favicon-32x32.png' not in page:
-    raise SystemExit('BLOCKED_AUTH_FAVICON_HEAD='+route)
-pattern=r'<div\b[^>]*class=["\'][^"\']*gm-auth-card-mark--favicon[^"\']*["\'][^>]*>\s*<img\b[^>]*apple-touch-icon\.png'
-if not re.search(pattern,page,re.S|re.I):
-    raise SystemExit('BLOCKED_AUTH_FAVICON_CARD='+route)
+for needle in ('favicon-32x32.png','gomovie-auth-favicon-card','apple-touch-icon.png'):
+    if needle not in page:raise SystemExit('BLOCKED_AUTH_FAVICON_HTML='+route+':'+needle)
+if not re.search(r'class\s*=\s*["\'][^"\']*(?:gm-auth-card-mark|gm-brand-mark)[^"\']*["\']',page,re.I):
+    raise SystemExit('BLOCKED_AUTH_ICON_TARGET_HTML='+route)
 print('AUTH_FAVICON_HTML='+route+':PASS')
-PY_HTML
+PY_ACCEPT
 done
-cmp -s "$TMP/new-auth.blade.php" "$LIVE"
+cmp -s "$TMP/source.blade.php" "$LIVE"
 COMPLETE=1
 echo "GOMOVIE_AUTH_FAVICON_DEPLOYMENT=SUCCESS"
-echo "AUTH_CARD_LEGACY_RED_ICON=REPLACED"
-echo "AUTH_FAVICON_ALL_PAGES=SHARED_LAYOUT"
+echo "AUTH_CARD_LEGACY_RED_ICON=VISUALLY_REPLACED"
+echo "AUTH_TEMPLATES_AND_FORMS=UNCHANGED"
 echo "DATABASE_CHANGED=NO"
-echo "AUTH_FORMS=UNCHANGED"
