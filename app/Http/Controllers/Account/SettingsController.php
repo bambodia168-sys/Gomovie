@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -18,6 +20,78 @@ use Illuminate\View\View;
 
 class SettingsController extends Controller
 {
+    /**
+     * Serve only the signed-in user's approved image from private storage.
+     * Never expose a user-controlled storage path or an unauthenticated URL.
+     */
+    public function showAvatar(Request $request): BinaryFileResponse
+    {
+        $user = $request->user();
+        $path = (string) ($user->avatar_path ?? '');
+        $prefix = 'avatars/'.$user->id.'/';
+        abort_unless(str_starts_with($path, $prefix)
+            && preg_match('/\A[a-zA-Z0-9]{40}\.(?:jpg|png|webp)\z/D', substr($path, strlen($prefix))), 404);
+
+        $disk = Storage::disk('local');
+        $root = realpath($disk->path('avatars/'.$user->id));
+        $candidate = realpath($disk->path($path));
+        abort_unless($root && $candidate && str_starts_with($candidate, $root.DIRECTORY_SEPARATOR)
+            && is_file($candidate) && is_readable($candidate) && !is_link($disk->path($path)), 404);
+
+        $type = match (pathinfo($candidate, PATHINFO_EXTENSION)) {
+            'jpg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            default => abort(404),
+        };
+        return response()->file($candidate, [
+            'Content-Type' => $type,
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cross-Origin-Resource-Policy' => 'same-origin',
+        ]);
+    }
+
+    public function updateAvatar(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'avatar' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:2048',
+                'dimensions:min_width=64,min_height=64,max_width=2048,max_height=2048'],
+        ]);
+        $file = $data['avatar'];
+        $mime = $file->getMimeType();
+        $ext = match ($mime) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => null,
+        };
+        if ($ext === null) throw ValidationException::withMessages([
+            'avatar' => 'Upload a JPEG, PNG, or WebP image.',
+        ]);
+        $user = $request->user();
+        $prefix = 'avatars/'.$user->id.'/';
+        $path = $prefix.Str::random(40).'.'.$ext;
+        $disk = Storage::disk('local');
+        $stored = $disk->putFileAs($prefix, $file, basename($path));
+        if ($stored !== $path) {
+            if ($stored) $disk->delete($stored);
+            throw ValidationException::withMessages(['avatar' => 'Image upload could not be completed.']);
+        }
+        $old = $user->avatar_path;
+        try {
+            $user->forceFill(['avatar_path' => $path])->save();
+        } catch (\Throwable $error) {
+            $disk->delete($path);
+            throw $error;
+        }
+        if (is_string($old) && str_starts_with($old, $prefix)
+            && preg_match('/\A[a-zA-Z0-9]{40}\.(?:jpg|png|webp)\z/D', substr($old, strlen($prefix)))) {
+            $disk->delete($old);
+        }
+        return back()->with('status', 'Your profile photo has been updated.');
+    }
+
     public function index(Request $request): View
     {
         return view('account.settings', [
