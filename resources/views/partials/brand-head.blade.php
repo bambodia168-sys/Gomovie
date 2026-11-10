@@ -38,3 +38,65 @@ body.gm-auth-body .gm-auth-card .gm-brand-mark > *,
 .gm-auth-card .gm-auth-card-icon::before,
 .gm-auth-card .gm-auth-card-icon::after {content:none !important;}
 </style>
+
+{{-- Shared, scoped fix for customized auth fields. Icon, floating label, typed
+     value, browser autofill, and password toggle must have independent space.
+     No form markup, saved credentials, or frontend page layout is changed. --}}
+<style id="gomovie-auth-field-spacing">
+.gm-auth-body .gm-auth-card .gm-auth-input {
+  position:relative;
+  min-width:0;
+}
+.gm-auth-body .gm-auth-card .gm-auth-input-icon {
+  position:absolute;
+  z-index:2;
+  left:1rem;
+  top:50%;
+  width:1.25rem;
+  height:1.25rem;
+  display:grid;
+  place-items:center;
+  transform:translateY(-50%);
+  pointer-events:none;
+}
+.gm-auth-body .gm-auth-card .gm-auth-input-control {
+  min-width:0;
+}
+.gm-auth-body .gm-auth-card .gm-auth-input input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.gm-auth-body .gm-auth-card .gm-auth-input textarea {
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  min-height:3.8rem;
+  padding-left:3.25rem !important;
+  padding-right:3.35rem !important;
+  padding-top:1.65rem !important;
+  padding-bottom:.4rem !important;
+  line-height:1.25 !important;
+  text-indent:0 !important;
+}
+.gm-auth-body .gm-auth-card .gm-auth-input label {
+  position:absolute;
+  z-index:2;
+  top:.48rem !important;
+  left:3.25rem !important;
+  margin:0 !important;
+  line-height:1.15 !important;
+  transform:none !important;
+  pointer-events:none;
+}
+.gm-auth-body .gm-auth-card .gm-auth-input input:-webkit-autofill,
+.gm-auth-body .gm-auth-card .gm-auth-input input:-webkit-autofill:hover,
+.gm-auth-body .gm-auth-card .gm-auth-input input:-webkit-autofill:focus {
+  padding-left:3.25rem !important;
+  padding-right:3.35rem !important;
+  padding-top:1.65rem !important;
+  padding-bottom:.4rem !important;
+}
+@media (max-width:480px) {
+  .gm-auth-body .gm-auth-card .gm-auth-input input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  .gm-auth-body .gm-auth-card .gm-auth-input textarea {
+    font-size:16px;
+  }
+}
+</style>
