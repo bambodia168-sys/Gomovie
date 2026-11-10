@@ -5,7 +5,7 @@
   $workspaceIsAdmin = \App\Support\StudioNavigation::administrator(auth()->user());
   $workspaceIsStaff = \App\Support\StudioNavigation::staff(auth()->user());
 @endphp
-<aside id="gm-workspace-sidebar" class="gm-studio-sidebar gm-workspace-sidebar"
+<aside id="gm-workspace-sidebar" class="gm-studio-sidebar gm-workspace-sidebar {{ $workspaceIsStudio ? '' : 'gm-account-nav' }}"
        data-gm-sidebar aria-label="{{ $workspaceIsStudio ? 'Management Studio navigation' : 'My Account navigation' }}">
   <a class="gm-studio-brand gm-workspace-brand" href="{{ $workspaceIsStudio ? route('admin.dashboard') : route('account.overview') }}"
      aria-label="{{ $workspaceIsStudio ? 'Management Studio' : 'My Account' }}">
