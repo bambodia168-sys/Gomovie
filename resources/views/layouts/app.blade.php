@@ -10,6 +10,7 @@
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')
 @include('partials.brand-head')
+@include('partials.header-ui')
 <style>{!! \App\Support\StudioAppearance::css() !!}</style>
 </head>
 <body class="gm-site min-h-screen text-white antialiased">
@@ -34,13 +35,7 @@
       <span aria-hidden="true">⌕</span>
       <input id="gm-search" name="q" maxlength="100" value="{{ request('q') }}" placeholder="Search movies & series">
     </form>
-    <span class="gm-language-label" aria-label="Current language English">◎ EN</span>
-    @auth
-      <a href="{{ auth()->user()->hasVerifiedEmail() ? route('account.overview') : route('verification.notice') }}"
-         class="gm-account-trigger" title="My account" aria-label="My account">♙</a>
-    @else
-      <a href="{{ route('login') }}" class="gm-account-trigger" title="Sign in" aria-label="Sign in">♙</a>
-    @endauth
+    @include('partials.header-actions')
   </div>
 </header>
 <main id="main-content" class="gm-container gm-main-content">
