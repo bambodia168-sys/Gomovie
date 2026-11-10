@@ -14,3 +14,22 @@ html.dark .gm-brand-logo--dark{display:block}
 .gm-studio-brand .gm-brand-logo{width:152px}
 @media (max-width:640px){.gm-site-header .gm-brand-logo{width:125px}.gm-auth-topbar .gm-brand-logo{width:137px}}
 </style>
+
+{{-- Auth-only compatibility: render the approved favicon over the original
+     red play badge in customized authentication templates, without modifying
+     login, registration, or reset form markup. --}}
+<style id="gomovie-auth-favicon-card">
+body.gm-auth-body .gm-auth-card-mark:not(.gm-auth-card-mark--favicon),
+body.gm-auth-body .gm-auth-card .gm-brand-mark {
+  background:transparent url('{{ asset('apple-touch-icon.png') }}?v=20261110') center / contain no-repeat !important;
+  box-shadow:none !important;
+  color:transparent !important;
+  font-size:0 !important;
+  text-shadow:none !important;
+  padding:0 !important;
+  transform:none !important;
+  border:0 !important;
+}
+body.gm-auth-body .gm-auth-card-mark:not(.gm-auth-card-mark--favicon) > *,
+body.gm-auth-body .gm-auth-card .gm-brand-mark > * {visibility:hidden !important;}
+</style>
