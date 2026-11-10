@@ -108,6 +108,6 @@ final class DashboardVisualCardsTest extends TestCase
             ->assertSee('gm-workspace-home')
             ->assertSee('gm-header-language')
             ->assertSee('background:transparent!important', false)
-            ->assertDontSee('gm-dashboard-metric-grid--four');
+            ->assertDontSee('id="gm-metric-movies"', false);
     }
 }
