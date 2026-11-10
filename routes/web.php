@@ -17,11 +17,14 @@ use App\Http\Controllers\Admin\PlayerSettingsController;
 use App\Http\Controllers\Admin\TmdbController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\Frontend\BrowseController;
 use App\Http\Controllers\Frontend\PublicHlsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [BrowseController::class, 'home'])->name('home');
+Route::post('/language', [LocaleController::class, 'change'])
+    ->middleware('throttle:30,1')->name('locale.change');
 Route::get('/browse', [BrowseController::class, 'index'])->name('browse');
 Route::view('/about', 'frontend.about')->name('about');
 Route::get('/watch/{type}/{slug}', [BrowseController::class, 'show'])->name('watch.show');
@@ -32,7 +35,7 @@ Route::get('/appearance/font.woff2', [AppearanceController::class, 'font'])->nam
 // Only integrity-verified FREE HLS assets; raw private ingests have no public route.
 Route::get('/hls/{asset}/{path}', PublicHlsController::class)
     ->whereNumber('asset')->where('path', '.*')
-    ->middleware('throttle:240,1')->name('public-hls.show');
+    ->middleware(['auth','active','verified','throttle:240,1'])->name('public-hls.show');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [SessionController::class, 'loginForm'])->name('login');
@@ -46,6 +49,8 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::post('/logout', [SessionController::class, 'logout'])->middleware('auth')->name('logout');
+Route::get('/account/avatar', [SettingsController::class, 'showAvatar'])
+    ->middleware(['auth','active','throttle:120,1'])->name('account.avatar');
 
 Route::middleware(['auth', 'active'])->group(function (): void {
     Route::get('/email/verify', [SessionController::class, 'verificationNotice'])->name('verification.notice');
@@ -59,6 +64,8 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/account/watchlist/toggle',[LibraryController::class,'toggle'])->name('account.watchlist.toggle');
         Route::get('/account/settings', [SettingsController::class,'index'])->name('account.settings');
         Route::patch('/account/settings/identity',[SettingsController::class,'updateIdentity'])->name('account.identity');
+        Route::post('/account/settings/avatar',[SettingsController::class,'updateAvatar'])
+            ->middleware('throttle:6,1')->name('account.avatar.update');
         Route::patch('/account/settings/password',[SettingsController::class,'changePassword'])
             ->middleware('throttle:5,1')->name('account.password');
         Route::post('/account/profiles',[SettingsController::class,'storeProfile'])->name('account.profiles.store');
