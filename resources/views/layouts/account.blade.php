@@ -1,25 +1,35 @@
-@extends('layouts.app')
-@section('content')
-<div class="gm-account-shell">
-  <aside class="gm-account-nav" aria-label="Account sections">
-    <div class="gm-account-identity">
-      <span class="gm-account-avatar">@include('partials.account-avatar')</span>
-      <div><strong>{{ auth()->user()->name }}</strong><small>{{ str_replace('_',' ',ucfirst(auth()->user()->role)) }}</small></div>
-    </div>
-    <p class="gm-studio-nav-heading">Workspace</p>
-    <a href="{{ route('account.overview') }}" @class(['is-current'=>request()->routeIs('account.overview')])>@include('partials.studio-icon',['name'=>'grid']) Overview</a>
-    <p class="gm-studio-nav-heading">Your library</p>
-    <a href="{{ route('account.library',['section'=>'watchlist']) }}" @class(['is-current'=>request()->routeIs('account.library')&&request()->route('section')==='watchlist'])>@include('partials.studio-icon',['name'=>'heart']) My List</a>
-    <a href="{{ route('account.library',['section'=>'history']) }}" @class(['is-current'=>request()->routeIs('account.library')&&request()->route('section')==='history'])>@include('partials.studio-icon',['name'=>'history']) Watch history</a>
-    <p class="gm-studio-nav-heading">Account</p>
-    <a href="{{ route('account.settings') }}" @class(['is-current'=>request()->routeIs('account.settings')])>@include('partials.studio-icon',['name'=>'settings']) Settings & profiles</a>
-    @if(in_array(auth()->user()->role,['admin','super_admin','editor'],true))
-    <a href="{{ route('admin.dashboard') }}">@include('partials.studio-icon',['name'=>'grid']) Management Studio</a>
-    @endif
-    <div class="gm-account-nav-bottom"><a href="{{ route('browse') }}">@include('partials.studio-icon',['name'=>'external']) Explore catalog</a></div>
-  </aside>
-  <div class="gm-account-main">
-    @yield('account_content')
+<!doctype html>
+<html lang="{{ str_replace('_','-',app()->getLocale()) }}" class="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b0c11">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta name="description" content="Manage your Go Movie account, settings, and viewing library.">
+<title>@yield('title','My Account') — Go Movie</title>
+@vite(['resources/css/app.css','resources/js/app.js'])
+@include('partials.feedback')
+@include('partials.brand-head')
+@include('partials.header-ui')
+@include('partials.workspace-ui')
+<style>{!! \App\Support\StudioAppearance::css() !!}</style>
+</head>
+<body class="gm-studio-shell gm-workspace-shell gm-account-workspace antialiased" data-gm-workspace="account">
+<a href="#studio-content" class="gm-skip">Skip to content</a>
+@php $workspaceMode='account'; @endphp
+<div class="gm-workspace-frame">
+  @include('partials.workspace-sidebar')
+  <div class="gm-studio-main gm-workspace-main">
+    @include('partials.workspace-header')
+    <main id="studio-content" class="gm-workspace-content gm-workspace-account-content">
+      <div class="gm-account-shell">
+        <div class="gm-account-main">
+          @yield('account_content')
+        </div>
+      </div>
+    </main>
   </div>
 </div>
-@endsection
+<button class="gm-workspace-backdrop" type="button" data-gm-sidebar-backdrop
+        aria-label="Close navigation" hidden></button>
+</body>
+</html>
