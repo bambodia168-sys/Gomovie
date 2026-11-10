@@ -3,7 +3,7 @@
 <div class="gm-account-shell">
   <aside class="gm-account-nav" aria-label="Account sections">
     <div class="gm-account-identity">
-      <span class="gm-account-avatar">{{ strtoupper(mb_substr(auth()->user()->name,0,1)) }}</span>
+      <span class="gm-account-avatar">@include('partials.account-avatar')</span>
       <div><strong>{{ auth()->user()->name }}</strong><small>{{ str_replace('_',' ',ucfirst(auth()->user()->role)) }}</small></div>
     </div>
     <p class="gm-studio-nav-heading">Workspace</p>
