@@ -7,6 +7,24 @@
 <button type="button" class="gm-studio-button" data-studio-open="gm-password-dialog">@include('partials.studio-icon',['name'=>'shield']) Change password</button>
 @if($profiles->count()<5)<button type="button" class="gm-studio-button is-primary" data-studio-open="gm-new-profile-dialog">@include('partials.studio-icon',['name'=>'plus']) Add profile</button>@endif
 </div></div>
+<section class="gm-studio-panel mb-6" aria-labelledby="gm-account-photo-heading">
+  <div class="gm-studio-panel-head"><div><h3 id="gm-account-photo-heading">Profile photo</h3>
+    <small>Shown in the navigation and account workspace</small></div></div>
+  <div class="gm-studio-panel-body">
+    <form method="POST" action="{{ route('account.avatar.update') }}" enctype="multipart/form-data"
+          class="flex flex-wrap items-center gap-4">
+      @csrf
+      <div class="gm-avatar-preview">@include('partials.account-avatar')</div>
+      <label class="gm-studio-field flex-1 min-w-48">
+        <span>Choose a photo (JPEG, PNG, WebP · maximum 2 MB)</span>
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp" required
+               class="gm-studio-input">
+      </label>
+      <button type="submit" class="gm-studio-button is-primary">@include('partials.studio-icon',['name'=>'upload']) Upload photo</button>
+    </form>
+    @error('avatar')<p class="text-sm text-rose-300 mt-3" role="alert">{{ $message }}</p>@enderror
+  </div>
+</section>
 <div class="grid gap-5 lg:grid-cols-2">
 <section class="gm-studio-panel"><div class="gm-studio-panel-head"><div><h3>Personal details</h3><small>Verified account identity</small></div></div>
 <div class="gm-studio-panel-body"><div class="mb-4"><p class="gm-studio-muted text-xs">Full name</p><p class="mt-1 font-semibold">{{ auth()->user()->name }}</p></div><div><p class="gm-studio-muted text-xs">Email address</p><p class="mt-1 font-semibold break-all">{{ auth()->user()->email }}</p></div><span class="gm-studio-pill {{ auth()->user()->hasVerifiedEmail()?'is-ok':'is-warn' }} mt-4">{{ auth()->user()->hasVerifiedEmail()?'Verified email':'Pending verification' }}</span></div>
