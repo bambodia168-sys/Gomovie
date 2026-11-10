@@ -184,7 +184,41 @@ for relative in (tmp/'paths').read_text().splitlines():
             html=html.replace(old,"@include('partials.brand-logo')",1)
     else:
         html=old_brand.sub("@include('partials.brand-logo')",html)
-    if html.count("@include('partials.brand-logo')") != layouts[relative]:
+    if relative.endswith('/auth.blade.php') and "@include('partials.brand-logo')" not in html:
+        # Custom authentication layouts frequently remove the old header
+        # entirely. Do not reintroduce it or overwrite a bespoke home link.
+        # When there is one recognizably old brand anchor, change only the
+        # children while preserving the existing anchor and its attributes.
+        anchor=re.compile(
+            r'(<a\b(?=[^>]*\bclass\s*=\s*["\'][^"\']*\bgm-brand\b)[^>]*>)(.*?)(</a\s*>)',
+            re.I|re.S
+        )
+        matches=list(anchor.finditer(html))
+        if len(matches)>1:
+            raise SystemExit('BLOCKED_AUTH_MULTIPLE_BRAND_ANCHORS='+relative)
+        if matches:
+            match=matches[0]
+            contents=match.group(2)
+            recognized=('gm-brand-mark' in contents or
+                        'gm-brand-copy' in contents or
+                        bool(re.search(r'GO\s*(?:<span[^>]*>)?\s*MOVIE',contents,re.I)))
+            if recognized:
+                if '<a' in contents.lower() or '@' in contents or
+                   re.search(r'<(?:form|button|script|input)\b',contents,re.I):
+                    raise SystemExit('BLOCKED_AUTH_BRAND_COMPLEX_CONTENT='+relative)
+                html=html[:match.start(2)]+"@include('partials.brand-logo')"+html[match.end(2):]
+                print('AUTH_CUSTOM_BRAND_ANCHOR_REPLACED='+relative)
+        if "@include('partials.brand-logo')" not in html:
+            # No recognizable old logo exists. Preserve its intentional
+            # removal while still installing the favicon in <head>.
+            if re.search(r'gm-brand-(?:mark|copy)',html) or re.search(
+                r'<strong>\s*GO\s*<span>\s*MOVIE\s*</span>',html,re.I):
+                raise SystemExit('BLOCKED_AUTH_UNMATCHED_LEGACY_BRAND='+relative)
+            print('AUTH_CUSTOM_LOGO_INTENTIONALLY_ABSENT='+relative)
+    required=layouts[relative]
+    if relative.endswith('/auth.blade.php') and "@include('partials.brand-logo')" not in html:
+        required=0
+    if html.count("@include('partials.brand-logo')") != required:
         raise SystemExit('BLOCKED_BRAND_POSITION_COUNT='+relative)
     if 'gm-brand-mark' in html or 'gm-brand-copy' in html:
         raise SystemExit('BLOCKED_LEGACY_BRAND_REMAINING='+relative)
