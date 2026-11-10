@@ -10,8 +10,9 @@ if [ "$#" -ne 1 ] || { [ "$1" != "--check" ] && [ "$1" != "--apply" ]; }; then
 fi
 MODE="$1"
 REPO="bambodia168-sys/Gomovie"
-SOURCE="742956d7a02d1fba68c950457aa3bd1548c44167"
-SOURCE_BLOB="25052373307436b06ae795d1c85e32599d5a40a5"
+SOURCE="502c7d4782fee628205fce1be93e94170347e23c"
+SOURCE_BLOB="c2bd8d0c13c26a5b39cf3136850d93c5eeddf030"
+PREVIOUS_BLOB="25052373307436b06ae795d1c85e32599d5a40a5"
 BASE_BLOB="a7936ac10f8a08208beddc1f9edc9b301aa307d0"
 FAVICON_BLOB="769cd796dacd4091df5dc1103e2030046ddb152f"
 HOST="gomovie.tonsamith.com"
@@ -36,7 +37,7 @@ test "$(git hash-object "$APP/public/apple-touch-icon.png")" = "$FAVICON_BLOB" |
 }
 LIVE_BLOB="$(git hash-object "$LIVE")"
 case "$LIVE_BLOB" in
-  "$BASE_BLOB"|"$SOURCE_BLOB") echo "LIVE_BRAND_PARTIAL=TRUSTED:$LIVE_BLOB" ;;
+  "$BASE_BLOB"|"$PREVIOUS_BLOB"|"$SOURCE_BLOB") echo "LIVE_BRAND_PARTIAL=TRUSTED:$LIVE_BLOB" ;;
   *) echo "BLOCKED_CUSTOM_BRAND_PARTIAL=$LIVE_BLOB"; exit 1 ;;
 esac
 
@@ -80,7 +81,7 @@ except (binascii.Error,KeyError,TypeError):
 actual=hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()
 if actual!=expected: raise SystemExit('BLOCKED_BRAND_SOURCE_HASH')
 text=data.decode('utf-8')
-for required in ('id="gomovie-auth-favicon-card"', 'body.gm-auth-body .gm-auth-card-mark',
+for required in ('id="gomovie-auth-favicon-card"', '.gm-auth-card .gm-auth-card-icon',
                  "asset('apple-touch-icon.png')",'gm-brand-logo--dark'):
     if required not in text: raise SystemExit('BLOCKED_BRAND_SOURCE_CONTENT='+required)
 pathlib.Path(destination).write_bytes(data)
@@ -101,7 +102,7 @@ page=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8',errors='replace')
 route=sys.argv[2]
 classes=re.findall(r'\bclass\s*=\s*["\']([^"\']+)["\']',page,re.I)
 marks=[value for value in classes if 'gm-auth-card-mark' in value.split() or
-       'gm-brand-mark' in value.split()]
+       'gm-brand-mark' in value.split() or 'gm-auth-card-icon' in value.split()]
 if len(marks)!=1:
     related=[c for c in classes if any(x in c.lower() for x in ('auth','logo','brand','mark','play','badge'))]
     print('AUTH_ICON_CANDIDATE_COUNT='+route+':'+str(len(marks)))
@@ -146,8 +147,10 @@ page=pathlib.Path(sys.argv[1]).read_text(encoding='utf8',errors='replace')
 route=sys.argv[2]
 for needle in ('favicon-32x32.png','gomovie-auth-favicon-card','apple-touch-icon.png'):
     if needle not in page:raise SystemExit('BLOCKED_AUTH_FAVICON_HTML='+route+':'+needle)
-if not re.search(r'class\s*=\s*["\'][^"\']*(?:gm-auth-card-mark|gm-brand-mark)[^"\']*["\']',page,re.I):
+if not re.search(r'class\s*=\s*["\'][^"\']*(?:gm-auth-card-icon|gm-auth-card-mark|gm-brand-mark)[^"\']*["\']',page,re.I):
     raise SystemExit('BLOCKED_AUTH_ICON_TARGET_HTML='+route)
+if '.gm-auth-card .gm-auth-card-icon' not in page:
+    raise SystemExit('BLOCKED_AUTH_ICON_CSS_NOT_RENDERED='+route)
 print('AUTH_FAVICON_HTML='+route+':PASS')
 PY_ACCEPT
 done
