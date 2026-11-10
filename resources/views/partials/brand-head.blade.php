@@ -20,8 +20,10 @@ html.dark .gm-brand-logo--dark{display:block}
      login, registration, or reset form markup. --}}
 <style id="gomovie-auth-favicon-card">
 body.gm-auth-body .gm-auth-card-mark:not(.gm-auth-card-mark--favicon),
-body.gm-auth-body .gm-auth-card .gm-brand-mark {
+body.gm-auth-body .gm-auth-card .gm-brand-mark,
+.gm-auth-card .gm-auth-card-icon {
   background:transparent url('{{ asset('apple-touch-icon.png') }}?v=20261110') center / contain no-repeat !important;
+  background-color:transparent !important;
   box-shadow:none !important;
   color:transparent !important;
   font-size:0 !important;
@@ -31,5 +33,8 @@ body.gm-auth-body .gm-auth-card .gm-brand-mark {
   border:0 !important;
 }
 body.gm-auth-body .gm-auth-card-mark:not(.gm-auth-card-mark--favicon) > *,
-body.gm-auth-body .gm-auth-card .gm-brand-mark > * {visibility:hidden !important;}
+body.gm-auth-body .gm-auth-card .gm-brand-mark > *,
+.gm-auth-card .gm-auth-card-icon > * {visibility:hidden !important;}
+.gm-auth-card .gm-auth-card-icon::before,
+.gm-auth-card .gm-auth-card-icon::after {content:none !important;}
 </style>
