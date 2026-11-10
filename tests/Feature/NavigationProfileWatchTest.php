@@ -80,6 +80,11 @@ final class NavigationProfileWatchTest extends TestCase
             'email' => $viewer->email, 'password' => 'ExampleStrong123',
             'return' => 'https://example.com/steal',
         ])->assertRedirect(route('account.overview'));
+        $this->post('/logout');
+        $this->post('/login', [
+            'email' => $viewer->email, 'password' => 'ExampleStrong123',
+            'return' => ['https://example.com/steal'],
+        ])->assertRedirect(route('account.overview'));
     }
 
     public function test_avatar_upload_is_private_and_used_in_account_header(): void
