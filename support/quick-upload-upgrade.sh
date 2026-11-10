@@ -9,6 +9,8 @@ APP="/www/wwwroot/gomovie.tonsamith.com"
 PHP="/www/server/php/85/bin/php"
 REPO="bambodia168-sys/Gomovie"
 SOURCE="e842034b8adb43bb07db2c0e0581fd382772aecd"
+LIVE_ROUTES="ea9aae9fb49d323556f3cffdd074ed285fca7377"
+PATCHED_ROUTES="58689d4635a3142ae8f126068f3dd5361f99ae7c"
 FILES=(
   app/Http/Controllers/Admin/QuickUploadController.php
   resources/views/admin/quick-upload.blade.php
@@ -38,7 +40,7 @@ test "$(id -u)" -eq 0
 test -d "$APP" && test ! -L "$APP"
 test -f "$APP/.env" && test ! -L "$APP/.env"
 test -f "$APP/vendor/autoload.php" && test -x "$PHP"
-for cmd in gh git runuser mktemp cp install curl systemctl; do command -v "$cmd" >/dev/null; done
+for cmd in gh git runuser mktemp cp install curl systemctl python3; do command -v "$cmd" >/dev/null; done
 id www >/dev/null
 systemctl is-active --quiet gomovie-media-worker.service
 for i in "${!FILES[@]}"; do
@@ -53,12 +55,51 @@ for i in "${!FILES[@]}"; do
     echo "BASELINE=${FILES[$i]}"
   elif [ "$hash" = "${NEW[$i]}" ]; then
     echo "ALREADY_INSTALLED=${FILES[$i]}"
+  elif [ "${FILES[$i]}" = "routes/web.php" ] && [ "$hash" = "$LIVE_ROUTES" ]; then
+    echo "KNOWN_LEGACY_ROUTES=PROTECT_AND_PATCH_ONLY_UPLOAD_ENDPOINTS"
+  elif [ "${FILES[$i]}" = "routes/web.php" ] && [ "$hash" = "$PATCHED_ROUTES" ]; then
+    echo "QUICK_UPLOAD_ROUTES=ALREADY_PATCHED_WITH_LEGACY_ROUTES_PRESERVED"
   else
     echo "BLOCKED_CUSTOM_FILE=${FILES[$i]}"
     echo "CURRENT_BLOB=$hash"
     exit 30
   fi
 done
+
+# The live site carries a legitimate earlier routes revision. Explicitly
+# recognize its blob rather than replacing the entire file with new Main
+# routes (which could discard routes added or removed independently).
+validate_live_route_patch() {
+  input="$1"
+  output="$2"
+  python3 - "$input" "$output" <<'PY'
+from pathlib import Path
+import sys
+source=Path(sys.argv[1]).read_text()
+destination=sys.argv[2]
+old_import=r'use App\Http\Controllers\Admin\UploadStudioController;'
+quick_import=r'use App\Http\Controllers\Admin\QuickUploadController;'
+old_route="    Route::get('/upload-studio', [UploadStudioController::class, 'index'])->name('upload-studio.index');"
+new_routes="""    Route::get('/upload-studio', [QuickUploadController::class, 'index'])->name('upload-studio.index');
+    Route::post('/upload-studio/quick', [QuickUploadController::class, 'store'])
+        ->middleware('throttle:12,1')->name('upload-studio.quick');
+    Route::get('/upload-studio/advanced', [UploadStudioController::class, 'index'])
+        ->name('upload-studio.advanced');"""
+if source.count(old_import)!=1 or quick_import in source or source.count(old_route)!=1:
+    raise SystemExit('BLOCKED: legacy upload routes differ from the verified live version')
+result=source.replace(old_import,old_import+'\n'+quick_import,1).replace(old_route,new_routes,1)
+assert result.count(quick_import)==1
+assert result.count("name('upload-studio.quick')")==1
+assert result.count("name('upload-studio.advanced')")==1
+if destination!="--check":
+    Path(destination).write_text(result)
+print('KNOWN_LEGACY_ROUTE_TRANSFORM=VERIFIED')
+PY
+}
+if [ "$(git hash-object "$APP/routes/web.php")" = "$LIVE_ROUTES" ]; then
+  validate_live_route_patch "$APP/routes/web.php" --check
+fi
+
 if [ "$MODE" = --check ]; then
   echo "QUICK_UPLOAD_PREFLIGHT=PASS"
   echo "PRODUCTION_UNCHANGED=YES"
@@ -107,6 +148,22 @@ CHANGED=1
 echo "========== INSTALL ONLY SIX APPLICATION FILES =========="
 for i in "${!FILES[@]}"; do
   rel="${FILES[$i]}"
+  if [ "$rel" = "routes/web.php" ]; then
+    live_hash="$(git hash-object "$APP/$rel")"
+    if [ "$live_hash" = "$LIVE_ROUTES" ]; then
+      patched="$BACKUP/new/routes/live-web-patched.php"
+      validate_live_route_patch "$APP/$rel" "$patched"
+      "$PHP" -l "$patched" >/dev/null
+      test "$(git hash-object "$patched")" = "$PATCHED_ROUTES"
+      install -o www -g www -m 0644 "$patched" "$APP/$rel"
+      test "$(git hash-object "$APP/$rel")" = "$PATCHED_ROUTES"
+      echo "LIVE_ROUTES=MINIMALLY_PATCHED"
+      continue
+    elif [ "$live_hash" = "$PATCHED_ROUTES" ]; then
+      echo "LIVE_ROUTES=PATCH_ALREADY_PRESENT"
+      continue
+    fi
+  fi
   install -o www -g www -m 0644 "$BACKUP/new/$rel" "$APP/$rel"
   test "$(git hash-object "$APP/$rel")" = "${NEW[$i]}"
 done
