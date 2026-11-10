@@ -43,11 +43,11 @@ body.gm-auth-body .gm-auth-card .gm-brand-mark > *,
      value, browser autofill, and password toggle must have independent space.
      No form markup, saved credentials, or frontend page layout is changed. --}}
 <style id="gomovie-auth-field-spacing">
-.gm-auth-body .gm-auth-card .gm-auth-input {
+.gm-auth-card .gm-auth-input {
   position:relative;
   min-width:0;
 }
-.gm-auth-body .gm-auth-card .gm-auth-input-icon {
+.gm-auth-card .gm-auth-input-icon {
   position:absolute;
   z-index:2;
   left:1rem;
@@ -59,11 +59,12 @@ body.gm-auth-body .gm-auth-card .gm-brand-mark > *,
   transform:translateY(-50%);
   pointer-events:none;
 }
-.gm-auth-body .gm-auth-card .gm-auth-input-control {
+.gm-auth-card .gm-auth-input-control {
   min-width:0;
 }
-.gm-auth-body .gm-auth-card .gm-auth-input input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-.gm-auth-body .gm-auth-card .gm-auth-input textarea {
+.gm-auth-card .gm-auth-input input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.gm-auth-card input.gm-auth-input-control:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  .gm-auth-card .gm-auth-input textarea {
   box-sizing:border-box;
   width:100%;
   min-width:0;
@@ -75,7 +76,7 @@ body.gm-auth-body .gm-auth-card .gm-brand-mark > *,
   line-height:1.25 !important;
   text-indent:0 !important;
 }
-.gm-auth-body .gm-auth-card .gm-auth-input label {
+.gm-auth-card .gm-auth-input label {
   position:absolute;
   z-index:2;
   top:.48rem !important;
@@ -85,17 +86,18 @@ body.gm-auth-body .gm-auth-card .gm-brand-mark > *,
   transform:none !important;
   pointer-events:none;
 }
-.gm-auth-body .gm-auth-card .gm-auth-input input:-webkit-autofill,
-.gm-auth-body .gm-auth-card .gm-auth-input input:-webkit-autofill:hover,
-.gm-auth-body .gm-auth-card .gm-auth-input input:-webkit-autofill:focus {
+.gm-auth-card .gm-auth-input input:-webkit-autofill,
+.gm-auth-card .gm-auth-input input:-webkit-autofill:hover,
+.gm-auth-card .gm-auth-input input:-webkit-autofill:focus {
   padding-left:3.25rem !important;
   padding-right:3.35rem !important;
   padding-top:1.65rem !important;
   padding-bottom:.4rem !important;
 }
 @media (max-width:480px) {
-  .gm-auth-body .gm-auth-card .gm-auth-input input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-  .gm-auth-body .gm-auth-card .gm-auth-input textarea {
+  .gm-auth-card .gm-auth-input input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  .gm-auth-card input.gm-auth-input-control:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  .gm-auth-card .gm-auth-input textarea {
     font-size:16px;
   }
 }
