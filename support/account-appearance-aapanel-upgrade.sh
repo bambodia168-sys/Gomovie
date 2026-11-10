@@ -178,6 +178,14 @@ bootstrap_cache_audit() {
     fi
     if [ ! -e "$file" ]; then continue; fi
     test -f "$file" || { echo "BLOCKED_BOOTSTRAP_CACHE_FILE_TYPE=$file"; return 1; }
+    # When the parent is root:0700, www cannot inspect even its own
+    # cached files; defer that specific check until after parent repair.
+    if ! runuser -u www -- test -x "$CACHE_DIR" &&
+       [ "$(stat -c '%u:%a' "$CACHE_DIR")" = "0:700" ] &&
+       [ "$(stat -c '%u' "$file")" = "$(id -u www)" ]; then
+      echo "BOOTSTRAP_CACHE_FILE=CHECK_AFTER_DIRECTORY_REPAIR:${file##*/}"
+      continue
+    fi
     if runuser -u www -- test -r "$file" &&
        runuser -u www -- test -w "$file"; then
       echo "BOOTSTRAP_CACHE_FILE=ACCESSIBLE:${file##*/}"
@@ -196,6 +204,9 @@ bootstrap_cache_audit
 repair_bootstrap_cache() {
   local file
   # This is only called after private source and MySQL backups succeed.
+  test -d "$CACHE_DIR" && test ! -L "$CACHE_DIR" || {
+    echo "BLOCKED_BOOTSTRAP_CACHE_DIR_CHANGED"; return 1;
+  }
   if ! runuser -u www -- test -w "$CACHE_DIR"; then
     chgrp www "$CACHE_DIR"
     chmod 0770 "$CACHE_DIR"
