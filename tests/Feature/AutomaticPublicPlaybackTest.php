@@ -167,6 +167,11 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->assertDatabaseCount('public_media_files', 3);
         $this->assertDatabaseHas('movies', ['id' => $movie->id, 'status' => 'published']);
         $manifest = route('public-hls.show', ['asset' => $asset, 'path' => 'master.m3u8']);
+        $this->get($manifest)->assertRedirect(route('login'));
+        $this->get('/watch/movie/'.$movie->slug)->assertOk()
+            ->assertSee('Sign In to Watch')
+            ->assertDontSee('data-public-hls-url=');
+        $this->actingAs(User::factory()->create());
         $this->get($manifest)->assertOk()->assertHeader('Content-Type', 'application/vnd.apple.mpegurl');
         $this->get(route('public-hls.show', ['asset' => $asset, 'path' => '480p/segment_00000.ts']))
             ->assertOk()->assertHeader('Content-Type', 'video/mp2t');
@@ -206,6 +211,9 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->assertDatabaseHas('episodes', ['id' => $episode->id, 'status' => 'published']);
         $this->assertDatabaseHas('series', ['id' => $parent->id, 'status' => 'published']);
         $url = '/watch/series/'.$parent->slug.'?episode='.$episode->id;
+        $this->get($url)->assertOk()->assertSee('Sign In to Watch')
+            ->assertDontSee('data-public-hls-url=');
+        $this->actingAs(User::factory()->create());
         $this->get($url)->assertOk()->assertSee('data-public-hls-url=');
 
         $parent->forceFill(['is_premium' => true])->save();
@@ -279,9 +287,10 @@ final class AutomaticPublicPlaybackTest extends TestCase
             $this->assertDatabaseHas('movies', [
                 'id' => $movie->id, 'status' => 'published',
             ]);
-            $this->get(route('public-hls.show', [
-                'asset' => $asset->id, 'path' => 'master.m3u8',
-            ]))->assertOk();
+            $this->actingAs(User::factory()->create())
+                ->get(route('public-hls.show', [
+                    'asset' => $asset->id, 'path' => 'master.m3u8',
+                ]))->assertOk();
         } finally {
             @unlink($scanner);
             @rmdir($scannerDir);
@@ -295,6 +304,7 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->enable();
         [$id, $movie] = $this->package();
         $asset = app(AutomaticPublicationService::class)->finalize($id);
+        $this->actingAs(User::factory()->create());
         $this->get(route('public-hls.show', ['asset' => $asset, 'path' => 'original.mp4']))
             ->assertNotFound();
         $this->get(route('public-hls.show', ['asset' => $asset, 'path' => '480p/other.ts']))
