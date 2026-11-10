@@ -23,7 +23,8 @@ class SessionController extends Controller
 {
     public function loginForm(Request $request): View
     {
-        if ($return = StudioNavigation::watchReturn($request->query('return'))) {
+        $candidate = $request->query('return');
+        if ($return = StudioNavigation::watchReturn(is_string($candidate) ? $candidate : null)) {
             $request->session()->put('gomovie.watchReturn', $return);
         }
         return view('auth.login');
@@ -53,7 +54,8 @@ class SessionController extends Controller
 
         // Only allow the known on-site watch route as an explicit return URL.
         // Otherwise send users to the verified account appropriate to their role.
-        $return = StudioNavigation::watchReturn($request->input('return'))
+        $candidate = $request->input('return');
+        $return = StudioNavigation::watchReturn(is_string($candidate) ? $candidate : null)
             ?? StudioNavigation::watchReturn($request->session()->get('gomovie.watchReturn'));
         if (!$request->user()->hasVerifiedEmail()) {
             if ($return) $request->session()->put('gomovie.watchReturn', $return);
