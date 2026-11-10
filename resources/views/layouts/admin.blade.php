@@ -7,6 +7,7 @@
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')
 @include('partials.brand-head')
+@include('partials.header-ui')
 </head>
 <body class="gm-studio-shell antialiased" x-data="{menu:false}">
 <div class="min-h-screen flex">
@@ -43,9 +44,7 @@
         <div><small>Gomovie Studio</small><h1>@yield('title','Dashboard')</h1></div>
       </div>
       <div class="gm-studio-top-actions">
-        <span class="hidden sm:block text-zinc-400">{{ auth()->user()->name }}</span>
-        <span class="role">{{ str_replace('_',' ',ucfirst(auth()->user()->role)) }}</span>
-        <form method="POST" action="{{ route('logout') }}">@csrf<button class="gm-studio-button" type="submit">Sign out</button></form>
+        @include('partials.header-actions')
       </div>
     </header>
     <main id="studio-content">@yield('content')</main>
