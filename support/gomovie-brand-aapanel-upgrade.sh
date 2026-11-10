@@ -293,11 +293,31 @@ for route in / /login /register /favicon.ico /favicon-32x32.png /brand/gomovie-l
   echo "BRAND_HTTP=$route:$status"
   test "$status" = 200 || { echo "BLOCKED_BRAND_HTTP=$route"; exit 1; }
 done
-for route in / /login; do
+# Accept the deliberately logo-free custom auth layout, but ALWAYS require
+# updated favicon markup on the homepage and both public authentication pages.
+# The homepage must expose both image sources for light/dark switching.
+AUTH_LOGO_EXPECTED=NO
+if grep -Fq "@include('partials.brand-logo')" "$TMP/new/resources/views/layouts/auth.blade.php"; then
+  AUTH_LOGO_EXPECTED=YES
+fi
+for route in / /login /register; do
   html="$(curl --noproxy '*' -fsS --connect-timeout 5 --max-time 20 \
     --resolve "$HOST:443:127.0.0.1" "https://$HOST$route")"
-  [[ "$html" == *gomovie-logo-dark.webp* ]] || { echo "BLOCKED_BRAND_HTML=$route"; exit 1; }
-  [[ "$html" == *gomovie-logo-light.webp* ]] || { echo "BLOCKED_BRAND_LIGHT_HTML=$route"; exit 1; }
+  [[ "$html" == *favicon-32x32.png* ]] || {
+    echo "BLOCKED_BRAND_FAVICON_HTML=$route"; exit 1;
+  }
+  echo "BRAND_FAVICON_HTML=$route:PASS"
+  if [ "$route" = "/" ] || [ "$AUTH_LOGO_EXPECTED" = YES ]; then
+    [[ "$html" == *gomovie-logo-dark.webp* ]] || {
+      echo "BLOCKED_BRAND_DARK_HTML=$route"; exit 1;
+    }
+    [[ "$html" == *gomovie-logo-light.webp* ]] || {
+      echo "BLOCKED_BRAND_LIGHT_HTML=$route"; exit 1;
+    }
+    echo "BRAND_HEADER_HTML=$route:PASS"
+  else
+    echo "AUTH_CUSTOM_NO_HEADER_LOGO_PRESERVED=$route"
+  fi
 done
 while IFS= read -r relative; do
   cmp -s "$APP/$relative" "$TMP/new/$relative" || { echo "BLOCKED_BRAND_INSTALLED_HASH=$relative"; exit 1; }
