@@ -9,15 +9,15 @@
 <title>@yield('title','Discover') — Gomovie</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')
+@include('partials.brand-head')
 <style>{!! \App\Support\StudioAppearance::css() !!}</style>
 </head>
 <body class="gm-site min-h-screen text-white antialiased">
 <a href="#main-content" class="gm-skip">Skip to content</a>
 <header class="gm-site-header">
   <div class="gm-container gm-header-inner" x-data="{ mobileOpen:false }">
-    <a class="gm-brand" href="{{ route('home') }}" aria-label="Gomovie homepage">
-      <span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span>
-      <span class="gm-brand-copy"><strong>GO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span>
+    <a class="gm-brand" href="{{ route('home') }}" aria-label="Go Movie homepage">
+      @include('partials.brand-logo')
     </a>
     <button class="gm-mobile-toggle" type="button" @click="mobileOpen=!mobileOpen"
       :aria-expanded="mobileOpen.toString()" aria-controls="gm-main-nav" aria-label="Toggle menu">☰</button>
@@ -48,7 +48,7 @@
 </main>
 <footer class="gm-site-footer">
   <div class="gm-container gm-footer-inner">
-    <a class="gm-brand gm-brand-small" href="{{ route('home') }}"><span class="gm-brand-mark" aria-hidden="true"><span>▶</span></span><span class="gm-brand-copy"><strong>GO<span>MOVIE</span></strong><small>MOVIES · SERIES · MORE</small></span></a>
+    <a class="gm-brand gm-brand-small" href="{{ route('home') }}" aria-label="Go Movie homepage">@include('partials.brand-logo')</a>
     <nav aria-label="Footer"><a href="{{ route('about') }}">{{ \App\Support\StudioAppearance::slot('footer-about-label') }}</a><a href="{{ route('browse') }}">{{ \App\Support\StudioAppearance::slot('footer-browse-label') }}</a><a href="https://tonsamith.com">{{ \App\Support\StudioAppearance::slot('footer-publisher-label') }}</a></nav>
     <span>© {{ date('Y') }} Gomovie · Licensed media only</span>
   </div>

@@ -6,11 +6,12 @@
 <title>@yield('title','Studio') — Gomovie Studio</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')
+@include('partials.brand-head')
 </head>
 <body class="gm-studio-shell antialiased" x-data="{menu:false}">
 <div class="min-h-screen flex">
   <aside class="gm-studio-sidebar" :class="menu ? 'is-open' : ''" @keydown.escape="menu=false" aria-label="Management Studio navigation">
-    <a class="gm-studio-brand" href="{{ route('admin.dashboard') }}"><strong>GO<span>MOVIE</span></strong><small>MANAGEMENT STUDIO</small></a>
+    <a class="gm-studio-brand" href="{{ route('admin.dashboard') }}" aria-label="Go Movie Management Studio">@include('partials.brand-logo')<small>MANAGEMENT STUDIO</small></a>
     <nav aria-label="Management Studio">
       <p class="gm-studio-nav-heading">Overview</p>
       <a href="{{ route('admin.dashboard') }}" @class(['is-current'=>request()->routeIs('admin.dashboard')])>@include('partials.studio-icon',['name'=>'grid']) Dashboard</a>
