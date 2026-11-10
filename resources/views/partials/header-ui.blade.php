@@ -61,6 +61,26 @@ html.light .gm-studio-shell .gm-studio-main{background:#f7f8fc;color:#202939}
 html.light .gm-account-shell .gm-account-nav a,html.light .gm-studio-shell .gm-studio-sidebar nav a{color:#505b70}
 html.light .gm-account-shell .gm-account-nav a:hover,html.light .gm-studio-shell .gm-studio-sidebar nav a:hover{background:#eef1f7;color:#1b263a}
 html.light .gm-account-shell .gm-account-nav a.is-current,html.light .gm-studio-shell .gm-studio-sidebar nav a.is-current{color:#8b1530;background:#fcebef}
+.gm-guest-watch{width:100%;position:relative;display:flex;justify-content:center}
+.gm-guest-watch-card{max-width:590px;padding:30px 24px;text-align:center}
+.gm-guest-watch-card .gm-button{margin:6px 4px;display:inline-flex;align-items:center;justify-content:center}
+.gm-watch-login-dialog{position:fixed;inset:0;margin:auto;border:1px solid #eeb86a55;border-radius:20px;background:#171421;color:#f6f3fa;box-shadow:0 24px 85px #000b;padding:0;width:min(440px,calc(100vw - 32px));max-height:min(88vh,760px);overflow:auto}
+.gm-watch-login-dialog::backdrop{background:rgba(4,3,11,.79);backdrop-filter:blur(9px)}
+.gm-watch-login-content{padding:26px 28px 28px;text-align:left;position:relative}
+.gm-watch-login-close{position:absolute;top:14px;right:14px;background:transparent;border:1px solid #ffffff35;color:#d8d4e1;border-radius:8px;width:33px;height:33px;font-size:23px;cursor:pointer}
+.gm-watch-login-mark{margin:0 auto 14px;object-fit:contain;display:block}
+.gm-watch-login-content h2{font-size:23px;font-weight:850;line-height:1.2;text-align:center;color:#fff;margin:0 0 9px}
+.gm-watch-login-description{color:#afa8ba;font-size:13px;line-height:1.5;text-align:center;margin-bottom:20px}
+.gm-watch-login-form{display:flex;flex-direction:column;gap:9px}
+.gm-watch-login-form>label:not(.gm-watch-login-remember){font-size:12px;font-weight:740;color:#cbc4d1;margin-top:7px}
+.gm-watch-login-form>input{width:100%;min-height:46px;border-radius:11px;border:1px solid #ffffff32;background:#0e0c17;color:white;padding:10px 13px;outline:none}
+.gm-watch-login-form>input:focus{border-color:#e7b965;box-shadow:0 0 0 3px #f5c96720}
+.gm-watch-login-remember{display:flex;align-items:center;gap:9px;color:#bbb4c8;font-size:12px;margin:7px 0 9px}
+.gm-watch-login-form .gm-button{width:100%;justify-content:center}
+.gm-watch-login-links{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:16px;font-size:12px}
+.gm-watch-login-links a{color:#ffcd79}
+.gm-watch-login-note{font-size:11px;color:#9189a3;line-height:1.45;margin-top:18px;text-align:center}
+.gm-watch-login-error{padding:10px 12px;border:1px solid #fa658366;border-radius:9px;background:#cf355124;color:#ffd0d8;font-size:12px;margin-bottom:12px}
 @media(max-width:780px){
  .gm-header-tools{gap:5px}
  .gm-header-tool{height:35px;min-width:35px;padding:0 6px}
