@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AppearanceController;
 use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\RightsEvidenceController;
 use App\Http\Controllers\Admin\PrivateIngestPreviewController;
 use App\Http\Controllers\Admin\UploadStudioController;
 use App\Http\Controllers\Admin\QuickUploadController;
@@ -151,6 +152,21 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
         return redirect()->route('admin.media.index');
     })->whereNumber('ingest')->name('upload-studio.legacy-review');
     Route::get('/media', [MediaController::class, 'index'])->name('media.index');
+    // Issue #10: administrator-only rights documentation and independently reviewed activation.
+    Route::get('/rights-evidence', [RightsEvidenceController::class, 'index'])
+        ->name('rights-evidence.index');
+    Route::post('/rights-evidence', [RightsEvidenceController::class, 'submit'])
+        ->middleware('throttle:6,1')->name('rights-evidence.submit');
+    Route::get('/rights-evidence/{evidence}/document', [RightsEvidenceController::class, 'document'])
+        ->middleware('throttle:30,1')->whereNumber('evidence')->name('rights-evidence.document');
+    Route::post('/rights-evidence/{evidence}/verify', [RightsEvidenceController::class, 'verify'])
+        ->middleware('throttle:10,1')->whereNumber('evidence')->name('rights-evidence.verify');
+    Route::post('/rights-evidence/{evidence}/revoke', [RightsEvidenceController::class, 'revoke'])
+        ->middleware('throttle:10,1')->whereNumber('evidence')->name('rights-evidence.revoke');
+    Route::post('/rights-evidence/ingests/{ingest}/review', [RightsEvidenceController::class, 'reviewPackage'])
+        ->middleware('throttle:8,1')->whereNumber('ingest')->name('rights-evidence.review-package');
+    Route::post('/rights-evidence/ingests/{ingest}/publish', [RightsEvidenceController::class, 'publish'])
+        ->middleware('throttle:5,1')->whereNumber('ingest')->name('rights-evidence.publish');
     // Admin-only preview; never grants public playback, rights or stream entitlements.
     Route::get('/media/ingests/{ingest}/preview', PrivateIngestPreviewController::class)
         ->middleware('throttle:120,1')->whereNumber('ingest')->name('media.ingest-preview');
