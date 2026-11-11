@@ -35,7 +35,8 @@ final class ResumableUploadService
             abort_unless(DB::table('users')->where('id', $user->id)
                 ->lockForUpdate()->first(), 403);
             $active = DB::table('resumable_upload_sessions')
-                ->where('uploaded_by', $user->id)->where('status', 'uploading')
+                ->where('uploaded_by', $user->id)
+                ->whereIn('status', ['uploading', 'finalizing', 'blocked'])
                 ->where('expires_at', '>', now())->count();
             abort_if($active >= self::MAX_OPEN_SESSIONS, 429,
                 'Finish or cancel an active upload before starting another.');
