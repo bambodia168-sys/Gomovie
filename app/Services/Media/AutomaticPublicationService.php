@@ -53,6 +53,26 @@ final class AutomaticPublicationService
             ->where('ingests.rights_review_status', 'verified')
             ->whereNotNull('ingests.approved_at')
             ->whereNotNull('ingests.approved_by')
+            ->whereColumn('ingests.approved_by', '!=', 'ingests.uploaded_by')
+            ->join('media_publication_reviews as reviews', function ($join): void {
+                $join->on('reviews.id', '=', 'assets.media_publication_review_id')
+                    ->on('reviews.media_ingest_id', '=', 'ingests.id');
+            })
+            ->where('reviews.status', 'reviewed')
+            ->whereColumn('reviews.reviewed_by', '!=', 'ingests.uploaded_by')
+            ->whereColumn('reviews.reviewed_by', '!=', 'ingests.approved_by')
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('content_rights as documented')
+                ->whereColumn('documented.licensable_type', 'ingests.ingestable_type')
+                ->whereColumn('documented.licensable_id', 'ingests.ingestable_id')
+                ->whereColumn('documented.rights_reference', 'reviews.rights_reference')
+                ->where('documented.status', 'active')
+                ->whereNotNull('documented.rights_reference')
+                ->where('documented.rights_reference', 'not like', 'OWNER-DECLARED-%')
+                ->whereNull('documented.territories')
+                ->where(fn ($q) => $q->whereNull('documented.starts_at')
+                    ->orWhere('documented.starts_at', '<=', now()))
+                ->where(fn ($q) => $q->whereNull('documented.ends_at')
+                    ->orWhere('documented.ends_at', '>', now())))
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('public_media_files as files')
                 ->whereColumn('files.media_asset_id', 'assets.id'))
             ->select('assets.id', 'assets.manifest_key')
@@ -85,6 +105,17 @@ final class AutomaticPublicationService
         if (!$this->enabled() || config('gomovie.transcoding_enabled') !== true) return;
         $ingest = DB::table('media_ingests')->where('id', $ingestId)->first();
         if (!$ingest || $ingest->status !== 'quarantined') return;
+
+        // ISSUE #10: automated malware scanning does not establish copyright,
+        // independent operator approval or an immutable package review.
+        // Never promote this ingest or run public encoding from this worker.
+        DB::table('media_ingests')->where('id', $ingestId)
+            ->where('status', 'quarantined')
+            ->update([
+                'pipeline_error' => 'independent_rights_and_publication_review_required',
+                'updated_at' => now(),
+            ]);
+        return;
         $kind = (string) $ingest->ingestable_type;
         $titleId = (int) $ingest->ingestable_id;
         if (!$this->eligibleTitle($kind, $titleId, false)
@@ -170,7 +201,8 @@ final class AutomaticPublicationService
         abort_unless($ingest && $ingest->status === 'encoded'
             && $ingest->security_scan_status === 'clean'
             && $ingest->rights_review_status === 'verified'
-            && $ingest->approved_by && $ingest->approved_at, 403,
+            && $ingest->approved_by && $ingest->approved_at
+            && (int) $ingest->approved_by !== (int) $ingest->uploaded_by, 403,
             'Scanned, approved encoding is required.');
         $kind = (string) $ingest->ingestable_type;
         $id = (int) $ingest->ingestable_id;
@@ -180,8 +212,22 @@ final class AutomaticPublicationService
             'A documented active global distribution-rights record is required.');
         // The package inspector enforces safe manifests, relative paths, bytes and checksums.
         $package = app(MediaPackageInspector::class)->inspect($ingestId, true);
+        $review = DB::table('media_publication_reviews')
+            ->where('media_ingest_id', $ingestId)
+            ->where('status', 'reviewed')->first();
+        abort_unless($review
+            && (int) $review->reviewed_by !== (int) $ingest->uploaded_by
+            && (int) $review->reviewed_by !== (int) $ingest->approved_by
+            && hash_equals((string) $review->manifest_sha256, $package['manifest_sha256'])
+            && hash_equals((string) $review->package_sha256, $package['package_sha256'])
+            && DB::table('content_rights')->where('licensable_type', $kind)
+                ->where('licensable_id', $id)->where('status', 'active')
+                ->where('rights_reference', $review->rights_reference)
+                ->where('rights_reference', 'not like', 'OWNER-DECLARED-%')
+                ->whereNull('territories')->exists(), 403,
+            'Independent current media package and rights review is required.');
 
-        return DB::transaction(function () use ($ingest, $kind, $id, $package, $ingestId): int {
+        return DB::transaction(function () use ($ingest, $kind, $id, $package, $ingestId, $review): int {
             $locked = DB::table('media_ingests')->where('id', $ingestId)->lockForUpdate()->first();
             abort_unless($locked && $locked->status === 'encoded'
                 && $locked->encoded_manifest_key === $ingest->encoded_manifest_key
@@ -200,14 +246,28 @@ final class AutomaticPublicationService
             if ($title->status !== 'published') {
                 $title->forceFill(['status' => 'published', 'published_at' => now()])->save();
             }
+            $freshReview = DB::table('media_publication_reviews')
+                ->where('id', $review->id)->where('media_ingest_id', $ingestId)
+                ->where('status', 'reviewed')->lockForUpdate()->first();
+            abort_unless($freshReview && $freshReview->rights_reference === $review->rights_reference
+                && hash_equals((string) $freshReview->manifest_sha256, $package['manifest_sha256'])
+                && hash_equals((string) $freshReview->package_sha256, $package['package_sha256'])
+                && (int) $freshReview->reviewed_by !== (int) $locked->uploaded_by
+                && (int) $freshReview->reviewed_by !== (int) $locked->approved_by, 403,
+                'Reviewed package changed during publication.');
             $existing = DB::table('media_assets')->where('streamable_type', $kind)
                 ->where('streamable_id', $id)->where('manifest_key', $ingest->encoded_manifest_key)
                 ->first();
-            if ($existing) return (int) $existing->id;
+            if ($existing) {
+                abort_unless((int) $existing->media_publication_review_id === (int) $review->id,
+                    409, 'Existing media asset lacks the accepted independent review.');
+                return (int) $existing->id;
+            }
             $assetId = (int) DB::table('media_assets')->insertGetId([
                 'streamable_type' => $kind, 'streamable_id' => $id,
                 'storage_disk' => 'local', 'manifest_key' => $ingest->encoded_manifest_key,
                 'format' => 'hls', 'status' => 'ready', 'drm_scheme' => null,
+                'media_publication_review_id' => $review->id,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             foreach ($package['files'] as $name => $file) {
@@ -228,6 +288,7 @@ final class AutomaticPublicationService
             ->where('licensable_id', $id)->where('status', 'active')
             ->whereNull('territories')->whereNotNull('rights_reference')
             ->where('rights_reference', '!=', '')
+            ->where('rights_reference', 'not like', 'OWNER-DECLARED-%')
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))
             ->exists();
