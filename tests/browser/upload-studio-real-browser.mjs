@@ -109,7 +109,7 @@ for(const target of [
     assert.ok(pointer?.id,'Interrupted upload must persist a resumable session pointer.');
     const current=await page.evaluate(async id=>{
       const resp=await fetch('/upload-studio/resumable/'+encodeURIComponent(id),{credentials:'same-origin'});
-      assert.ok(resp.ok);
+      if(!resp.ok)throw new Error('Unable to inspect private session status');
       return resp.json();
     },pointer.id);
     assert.equal(current.status,'uploading');
