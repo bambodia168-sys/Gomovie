@@ -16,6 +16,14 @@ final class ResumableQuickUploadTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Shared test workers may reuse the same user ID across refreshed DBs.
+        // Disable only request rate limiting, not authentication or staff gates.
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+    }
+
     private array $temporaryFiles = [];
 
     protected function tearDown(): void
