@@ -133,8 +133,8 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->actingAs($admin)->postJson('/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
             'video' => $video,
-        ])->assertCreated()->assertJsonPath('automatic_publication_enabled', true);
-        Queue::assertPushed(AutoPublishUploadedVideo::class, 1);
+        ])->assertCreated()->assertJsonPath('automatic_publication_enabled', false);
+        Queue::assertNotPushed(AutoPublishUploadedVideo::class);
         $this->assertDatabaseHas('media_ingests', [
             'ingestable_type' => 'movie', 'status' => 'quarantined',
             'security_scan_status' => 'pending',
