@@ -59,7 +59,7 @@ final class ResumableUploadService
         $row = DB::table('resumable_upload_sessions')
             ->where('id', $id)->where('uploaded_by', $user->id)->first();
         abort_unless($row, 404);
-        abort_if($row->expires_at <= now(), 410, 'Upload session expired.');
+        abort_if(\Illuminate\Support\Carbon::parse($row->expires_at)->isPast(), 410, 'Upload session expired.');
         return $row;
     }
 
@@ -78,7 +78,7 @@ final class ResumableUploadService
                 ->where('id', $id)->where('uploaded_by', $user->id)
                 ->lockForUpdate()->first();
             abort_unless($row, 404);
-            abort_if($row->expires_at <= now(), 410, 'Upload session expired.');
+            abort_if(\Illuminate\Support\Carbon::parse($row->expires_at)->isPast(), 410, 'Upload session expired.');
             abort_unless($row->status === 'uploading', 409, 'Upload is no longer writable.');
 
             $total = (int) $row->total_bytes;
@@ -139,7 +139,7 @@ final class ResumableUploadService
                 ->where('id', $id)->where('uploaded_by', $user->id)
                 ->lockForUpdate()->first();
             abort_unless($row, 404);
-            abort_if($row->expires_at <= now(), 410, 'Upload session expired.');
+            abort_if(\Illuminate\Support\Carbon::parse($row->expires_at)->isPast(), 410, 'Upload session expired.');
             if ($row->status === 'completed') return $row;
             if ($row->status === 'finalizing') {
                 $this->repairCompleted($row);
