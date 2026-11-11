@@ -208,6 +208,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
   const file=get('video-file');
   const drop=get('video-drop');
   const submit=get('video-submit');
+  const cancel=get('upload-cancel');
+  const retry=get('upload-retry');
+  const review=get('upload-review');
   const max=Number(form.dataset.max||0);
   const statusTemplate=form.dataset.statusTemplate;
   const resume=Number(form.dataset.resume||0);
@@ -228,9 +231,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
   function error(text){get('upload-error').textContent=text;get('upload-error').hidden=false;}
   function notify(text){window.GomovieFeedback?.show(text,'success');}
   function displayStatus(value){
-    return ({quarantined:'Uploaded · Processing queued',approved:'Security scan complete',
-      processing:'Converting video',encoded:'Encoding complete',
-      rejected:'Upload rejected',public:'Public and playable'})[value]||'Saved privately';
+    return ({quarantined:'Private quarantine',approved:'Safety review recorded',
+      processing:'Private processing',encoded:'Encoded (publication pending)',
+      rejected:'Upload rejected',public:'Published and playable'})[value]||'Saved privately';
   }
   function setFile(){
     const selected=file.files?.[0];
@@ -238,14 +241,26 @@ button:disabled{opacity:.5;cursor:not-allowed}
     get('video-size').textContent=selected
       ? (selected.size/1048576).toFixed(1)+' MB'
       : 'MP4, MOV, MKV, WebM · Maximum '+(max/1048576).toFixed(1)+' MB';
+    drop.classList.remove('invalid');
     get('upload-error').hidden=true;
+    if(selected && (!selected.size || selected.size>max ||
+        !/\.(mp4|mov|mkv|webm)$/i.test(selected.name))) {
+      drop.classList.add('invalid');
+      error(!selected.size || selected.size>max
+        ? 'Choose a non-empty video within the upload limit.'
+        : 'Please choose an MP4, MOV, MKV or WebM file.');
+    }
+    if(!xhr && !ingest && retry.hidden===false)retry.hidden=false;
   }
   file.addEventListener('change',setFile);
-  for(const ev of ['dragenter','dragover']) drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag');});
+  for(const ev of ['dragenter','dragover']) drop.addEventListener(ev,e=>{
+    e.preventDefault();
+    if(!xhr)drop.classList.add('drag');
+  });
   drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
   drop.addEventListener('drop',e=>{
     e.preventDefault();drop.classList.remove('drag');
-    if(!e.dataTransfer?.files?.length) return;
+    if(xhr || !e.dataTransfer?.files?.length) return;
     try{const dt=new DataTransfer();dt.items.add(e.dataTransfer.files[0]);file.files=dt.files;setFile();}
     catch{error('Use the file chooser to select a video.');}
   });
@@ -267,8 +282,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
       if(data.public&&data.watch_url){watch.href=data.watch_url;setResult('Your video is ready to watch.');}
       else if(requestedAccess==='private')setResult('Saved privately. Only administrators can access the original.');
       else if(requestedAccess==='paid')setResult('Saved as a private paid-video draft. Checkout is not enabled.');
-      else if(data.status==='quarantined')setResult('Uploaded. Waiting for automatic processing.');
-      else if(data.status==='processing'||data.status==='approved')setResult('Gomovie is converting your video.');
+      else if(data.status==='quarantined')setResult('Your upload is in private quarantine. Safety, rights, or processing checks may still be pending.');
+      else if(data.status==='processing'||data.status==='approved')setResult('Your video is under private review or processing. It is not public yet.');
       if(data.public||data.status==='rejected'||data.publication_error){
         if(timer){clearInterval(timer);timer=null;}
       }
@@ -291,59 +306,147 @@ button:disabled{opacity:.5;cursor:not-allowed}
     timer=setInterval(()=>{if(++count>=60){clearInterval(timer);timer=null;return;}refresh();},5000);
   }
   get('result-refresh').addEventListener('click',refresh);
+  function transferBusy(busy){
+    for(const control of form.querySelectorAll('input:not([type="hidden"]),textarea')) {
+      control.disabled=busy || (control.name==='access' && control.value==='free' && !@json($autoReady));
+    }
+    submit.disabled=busy || !!ingest;
+    cancel.hidden=!busy;
+    drop.classList.toggle('is-busy',busy);
+    if(busy){retry.hidden=true;review.hidden=true;}
+  }
+  function resetTransfer(){
+    get('progress-fill').style.width='0%';
+    get('upload-progress').querySelector('[role="progressbar"]').setAttribute('aria-valuenow','0');
+    get('progress-text').textContent='Uploading 0%';
+  }
+  function retryableFailure(text){
+    error(text);
+    retry.hidden=false;
+    review.hidden=true;
+    get('progress-text').textContent='Not uploaded. Correct the issue and retry.';
+  }
+  function uncertainFailure(text){
+    error(text+' The server may have already saved the upload. Check Media Library before starting another.');
+    retry.hidden=true;
+    review.hidden=false;
+    get('progress-text').textContent='Upload outcome unconfirmed — check your library first.';
+  }
+  cancel.addEventListener('click',()=>{
+    if(xhr && xhr.readyState!==XMLHttpRequest.DONE)xhr.abort();
+  });
+  retry.addEventListener('click',()=>{
+    if(xhr||ingest)return;
+    retry.hidden=true;
+    get('upload-error').hidden=true;
+    form.requestSubmit();
+  });
   form.addEventListener('submit',e=>{
     if(!window.XMLHttpRequest)return;
     e.preventDefault();
     if(xhr||ingest)return;
     const selected=file.files?.[0];
     if(!form.reportValidity())return;
-    if(!selected||!selected.size||selected.size>max){error('Choose a non-empty video within the upload limit.');return;}
-    if(!/\.(mp4|mov|mkv|webm)$/i.test(selected.name)){error('Please choose an MP4, MOV, MKV or WebM file.');return;}
+    if(!selected||!selected.size||selected.size>max){
+      drop.classList.add('invalid');
+      error('Choose a non-empty video within the upload limit.');
+      return;
+    }
+    if(!/\.(mp4|mov|mkv|webm)$/i.test(selected.name)){
+      drop.classList.add('invalid');
+      error('Please choose an MP4, MOV, MKV or WebM file.');
+      return;
+    }
     const access=form.querySelector('input[name="access"]:checked')?.value;
     requestedAccess=access||'private';
+    // Snapshot the multipart data BEFORE disabling the controls.
     const payload=new FormData(form);
     const token=form.querySelector('[name="_token"]')?.value;
-    xhr=new XMLHttpRequest();
-    xhr.open('POST',form.action,true);
-    xhr.withCredentials=true;
-    xhr.timeout=900000;
-    xhr.setRequestHeader('Accept','application/json');
-    if(token)xhr.setRequestHeader('X-CSRF-TOKEN',token);
-    submit.disabled=true;get('upload-error').hidden=true;
+    const request=new XMLHttpRequest();
+    xhr=request;
+    request.open('POST',form.action,true);
+    request.withCredentials=true;
+    request.timeout=900000;
+    request.setRequestHeader('Accept','application/json');
+    if(token)request.setRequestHeader('X-CSRF-TOKEN',token);
+    get('upload-error').hidden=true;
     get('upload-progress').hidden=false;
-    xhr.upload.onprogress=ev=>{
-      if(!ev.lengthComputable)return;
-      const pct=Math.min(100,Math.round(100*ev.loaded/ev.total));
+    resetTransfer();
+    transferBusy(true);
+    request.upload.onprogress=event=>{
+      if(xhr!==request||!event.lengthComputable)return;
+      const pct=Math.min(100,Math.round(100*event.loaded/event.total));
       get('progress-fill').style.width=pct+'%';
-      get('upload-progress').querySelector('[role="progressbar"]').setAttribute('aria-valuenow',String(pct));
-      get('progress-text').textContent='Uploading '+pct+'%';
+      get('upload-progress').querySelector('[role="progressbar"]')
+        .setAttribute('aria-valuenow',String(pct));
+      get('progress-text').textContent=pct>=100
+        ? 'File transferred. Waiting for a confirmed server receipt…'
+        : 'Uploading '+pct+'%';
     };
-    xhr.onload=()=>{
+    function finish(){
+      if(xhr!==request)return;
+      xhr=null;
+      transferBusy(false);
+    }
+    request.onload=()=>{
+      if(xhr!==request)return;
       let data={};
-      try{data=JSON.parse(xhr.responseText)}catch{}
-      if(xhr.status===201&&data.ok===true&&Number(data.upload_id)>0){
+      try{data=JSON.parse(request.responseText)}catch{}
+      if(request.status===201 && data.ok===true && Number.isSafeInteger(Number(data.upload_id))
+          && Number(data.upload_id)>0){
         ingest=Number(data.upload_id);
         get('progress-fill').style.width='100%';
-        get('progress-text').textContent='Upload complete';
+        get('upload-progress').querySelector('[role="progressbar"]').setAttribute('aria-valuenow','100');
+        get('progress-text').textContent='Upload saved in private storage';
         setResult(data.message||'Video uploaded.');
-        get('result-status').textContent='Uploaded';
+        get('result-status').textContent='Private intake received';
         form.hidden=true;
         notify(data.message||'Video uploaded successfully.');
         window.history.replaceState({},'',window.location.pathname+'?ingest='+encodeURIComponent(String(ingest)));
         startPoll();
         get('upload-result').scrollIntoView({behavior:'smooth',block:'center'});
       }else{
-        let msg=data.message||'Upload failed. Please try again.';
+        let msg=data.message||'Upload could not be completed.';
         if(data.errors){const messages=Object.values(data.errors).flat();if(messages.length)msg=messages[0];}
-        if(xhr.status===413)msg='The file exceeds the server upload limit.';
-        if(xhr.status===419)msg='Your session expired. Refresh and try again.';
-        error(msg);
+        if(request.status===413)msg='The file exceeds your server upload limit. Choose a smaller video.';
+        if(request.status===409)msg='This visibility option is not configured. Choose Private to save your video safely.';
+        if(request.status===419){
+          uncertainFailure('Your session expired.');
+        }else if([400,409,413,415,422].includes(request.status) && data.ok!==true){
+          retryableFailure(msg);
+        }else{
+          uncertainFailure('The upload response was not confirmed.');
+        }
       }
-      xhr=null;submit.disabled=!!ingest;
+      finish();
     };
-    xhr.onerror=()=>{error('Connection interrupted. Check Media Library before retrying.');xhr=null;submit.disabled=false;};
-    xhr.ontimeout=()=>{error('Upload timed out. Check Media Library before retrying.');xhr=null;submit.disabled=false;};
-    xhr.send(payload);
+    request.onerror=()=>{
+      if(xhr!==request)return;
+      uncertainFailure('Your connection was interrupted.');
+      finish();
+    };
+    request.ontimeout=()=>{
+      if(xhr!==request)return;
+      uncertainFailure('The upload timed out.');
+      finish();
+    };
+    request.onabort=()=>{
+      if(xhr!==request)return;
+      uncertainFailure('The transfer was stopped in this browser.');
+      finish();
+    };
+    try{request.send(payload);}
+    catch(_){
+      if(xhr===request){
+        uncertainFailure('The browser could not send this upload.');
+        finish();
+      }
+    }
+  });
+  window.addEventListener('beforeunload',event=>{
+    if(!xhr)return;
+    event.preventDefault();
+    event.returnValue='';
   });
   if(ingest){form.hidden=true;setResult('Checking your saved upload...');startPoll();}
   window.addEventListener('pagehide',()=>{if(timer)clearInterval(timer);});
