@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Movie;
 use App\Services\Media\PrivateVideoIntake;
+use App\Services\Media\ResumableUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,6 +67,7 @@ final class QuickUploadController extends Controller
         return view('admin.quick-upload', [
             'maxUploadBytes' => $max,
             'resumableEnabled' => config('gomovie.resumable_uploads_enabled') === true,
+            'resumableMaxBytes' => ResumableUploadService::MAX_BYTES,
             'autoReady' => config('gomovie.automatic_publication_enabled') === true
                 && config('gomovie.public_hls_enabled') === true
                 && config('gomovie.transcoding_enabled') === true,
