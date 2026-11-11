@@ -65,6 +65,7 @@ final class QuickUploadController extends Controller
 
         return view('admin.quick-upload', [
             'maxUploadBytes' => $max,
+            'resumableEnabled' => config('gomovie.resumable_uploads_enabled') === true,
             'autoReady' => config('gomovie.automatic_publication_enabled') === true
                 && config('gomovie.public_hls_enabled') === true
                 && config('gomovie.transcoding_enabled') === true,
