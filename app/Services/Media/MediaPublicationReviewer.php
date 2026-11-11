@@ -34,6 +34,8 @@ final class MediaPublicationReviewer
         }
         abort_if(str_starts_with(strtoupper($rightsReference), 'OWNER-DECLARED-'), 403,
             'Uploader declarations cannot establish distribution rights.');
+        app(\App\Services\Rights\ReviewedDistributionRights::class)
+            ->requireCurrent($ingest->ingestable_type, (int)$ingest->ingestable_id, $rightsReference);
         $hasMatchingRights = DB::table('content_rights')
             ->where('licensable_type', $ingest->ingestable_type)
             ->where('licensable_id', $ingest->ingestable_id)
