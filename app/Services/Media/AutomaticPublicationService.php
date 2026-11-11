@@ -7,6 +7,7 @@ use App\Models\Movie;
 use App\Models\Series;
 use App\Models\User;
 use App\Services\Rights\GlobalRights;
+use App\Services\Rights\ReviewedDistributionRights;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -40,7 +41,7 @@ final class AutomaticPublicationService
             || !$this->hasDocumentedRights($kind, $titleId)) return null;
         $target = $this->eligibleTitle($kind, $titleId, true);
         if (!$target) return null;
-        return DB::table('media_assets as assets')
+        $candidate = DB::table('media_assets as assets')
             ->join('media_ingests as ingests', 'ingests.encoded_manifest_key', '=', 'assets.manifest_key')
             ->where('assets.streamable_type', $kind)
             ->where('assets.streamable_id', $titleId)
@@ -84,8 +85,12 @@ final class AutomaticPublicationService
                     ->orWhere('documented.ends_at', '>', now())))
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('public_media_files as files')
                 ->whereColumn('files.media_asset_id', 'assets.id'))
-            ->select('assets.id', 'assets.manifest_key')
+            ->select('assets.id', 'assets.manifest_key', 'reviews.rights_reference')
             ->orderByDesc('assets.id')->first();
+        if (!$candidate) return null;
+        if (!app(ReviewedDistributionRights::class)->allows(
+            $kind, $titleId, (string) $candidate->rights_reference)) return null;
+        return $candidate;
     }
 
     /** Preexisting verified distribution rights, never fabricated by upload. */
@@ -151,6 +156,10 @@ final class AutomaticPublicationService
         app(GlobalRights::class)->requireActive($kind, $id);
         abort_unless($this->hasDocumentedRights($kind, $id), 403,
             'A documented active global distribution-rights record is required.');
+        // A free-text content_rights row cannot authorize publication. Require
+        // current privately scanned, independently verified evidence.
+        // The same rule runs on every public-HLS request via readyAsset().
+        // The reference is checked again after selecting the immutable review.
         // The package inspector enforces safe manifests, relative paths, bytes and checksums.
         $package = app(MediaPackageInspector::class)->inspect($ingestId, true);
         $review = DB::table('media_publication_reviews')
@@ -170,6 +179,9 @@ final class AutomaticPublicationService
                 ->whereRaw('LOWER(rights_reference) NOT LIKE ?', ['owner-declared-%'])
                 ->whereNull('territories')->exists(), 403,
             'Independent current media package and rights review is required.');
+
+        app(ReviewedDistributionRights::class)->requireCurrent(
+            $kind, $id, (string) $review->rights_reference);
 
         return DB::transaction(function () use ($ingest, $kind, $id, $package, $ingestId, $review, $publisher): int {
             $locked = DB::table('media_ingests')->where('id', $ingestId)->lockForUpdate()->first();
@@ -195,6 +207,8 @@ final class AutomaticPublicationService
                 && (int) $publisher->id !== (int) $locked->uploaded_by
                 && (int) $publisher->id !== (int) $locked->approved_by, 403,
                 'Publisher authorization changed.');
+            app(ReviewedDistributionRights::class)->requireCurrent(
+                $kind, $id, (string) $review->rights_reference);
             $freshReview = DB::table('media_publication_reviews')
                 ->where('id', $review->id)->where('media_ingest_id', $ingestId)
                 ->where('status', 'reviewed')->lockForUpdate()->first();
