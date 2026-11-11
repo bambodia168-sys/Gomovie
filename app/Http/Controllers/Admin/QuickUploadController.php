@@ -19,9 +19,9 @@ use Throwable;
  * One-screen upload for ORIGINAL videos. The legacy catalog editor still
  * handles existing movie/episode metadata; it is not a prerequisite here.
  *
- * "Free" creates an explicitly self-attested global online publication
- * claim (not an independently verified license) and uses the existing
- * fail-closed scanning/transcoding/publication service.
+ * "Free" records an uploader DECLARATION as pending review, never a
+ * distribution license or authority to publish. Only independently reviewed
+ * media may later enter the publication process.
  *
  * "Private" and "paid" stay private. Paid does not imply a working paywall.
  */
@@ -124,7 +124,7 @@ final class QuickUploadController extends Controller
                     'licensable_type' => 'movie',
                     'licensable_id' => $movie->id,
                     'rights_reference' => $reference,
-                    'status' => 'active',
+                    'status' => 'pending',
                     'territories' => null,
                     'starts_at' => now(),
                     'ends_at' => null,
@@ -157,7 +157,7 @@ final class QuickUploadController extends Controller
 
         try {
             $ingestId = $intake->store('movie', (int) $movie->id,
-                $data['video'], $uploader, $request->ip(), $isFree, $resumableId);
+                $data['video'], $uploader, $request->ip(), false, $resumableId);
         } catch (Throwable $error) {
             // Do not delete a movie after a partially successful intake.
             // An existing ingest may already be queued or independently mirrored.
@@ -178,7 +178,7 @@ final class QuickUploadController extends Controller
         }
 
         $message = match ($data['access']) {
-            'free' => 'Upload received. Your video is processing for free public playback.',
+            'free' => 'Upload received privately. Distribution rights and publication require independent administrator review.',
             'paid' => 'Paid video saved privately. Sales will remain disabled until checkout is configured.',
             default => 'Video saved privately. It will not appear on the public website.',
         };
@@ -190,7 +190,7 @@ final class QuickUploadController extends Controller
                 'movie_id' => $movie->id,
                 'upload_id' => $ingestId,
                 'access' => $data['access'],
-                'will_publish_automatically' => $isFree,
+                'will_publish_automatically' => false,
                 'status_url' => route('upload-studio.status', ['ingest' => $ingestId]),
                 'watch_url' => route('watch.show', ['type' => 'movie', 'slug' => $slug]),
                 'media_library_url' => route('admin.media.index'),
