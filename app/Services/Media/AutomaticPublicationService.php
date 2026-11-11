@@ -57,6 +57,13 @@ final class AutomaticPublicationService
                 $join->on('reviews.id', '=', 'assets.media_publication_review_id')
                     ->on('reviews.media_ingest_id', '=', 'ingests.id');
             })
+            ->join('users as publishers', 'publishers.id', '=', 'assets.published_by')
+            ->where('publishers.is_active', true)
+            ->whereNotNull('publishers.email_verified_at')
+            ->whereIn('publishers.role', ['admin','super_admin'])
+            ->whereColumn('assets.published_by', '!=', 'ingests.uploaded_by')
+            ->whereColumn('assets.published_by', '!=', 'ingests.approved_by')
+            ->whereColumn('assets.published_by', '!=', 'reviews.reviewed_by')
             ->where('reviews.status', 'reviewed')
             ->whereColumn('reviews.reviewed_by', '!=', 'ingests.uploaded_by')
             ->whereColumn('reviews.reviewed_by', '!=', 'ingests.approved_by')
@@ -198,7 +205,8 @@ final class AutomaticPublicationService
                 ->where('streamable_id', $id)->where('manifest_key', $ingest->encoded_manifest_key)
                 ->first();
             if ($existing) {
-                abort_unless((int) $existing->media_publication_review_id === (int) $review->id,
+                abort_unless((int) $existing->media_publication_review_id === (int) $review->id
+                    && (int) $existing->published_by === (int) $publisher->id,
                     409, 'Existing media asset lacks the accepted independent review.');
                 return (int) $existing->id;
             }
