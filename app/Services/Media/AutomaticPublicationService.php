@@ -5,6 +5,7 @@ namespace App\Services\Media;
 use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Series;
+use App\Models\User;
 use App\Services\Rights\GlobalRights;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -120,9 +121,12 @@ final class AutomaticPublicationService
      * Called only after verified encoding; rechecks full HLS files and rights.
      * Exposed as a service for isolated, synthetic acceptance testing.
      */
-    public function finalize(int $ingestId): ?int
+    public function finalize(int $ingestId, ?User $publisher = null): ?int
     {
         if (!$this->enabled()) return null;
+        abort_unless($publisher && $publisher->is_active && $publisher->hasVerifiedEmail()
+            && in_array($publisher->role, ['admin','super_admin'], true), 403,
+            'An independent verified publication administrator is required.');
         $ingest = DB::table('media_ingests')->where('id', $ingestId)->first();
         abort_unless($ingest && $ingest->status === 'encoded'
             && $ingest->security_scan_status === 'clean'
@@ -146,6 +150,9 @@ final class AutomaticPublicationService
             && (int) $review->reviewed_by !== (int) $ingest->approved_by
             && hash_equals((string) $review->manifest_sha256, $package['manifest_sha256'])
             && hash_equals((string) $review->package_sha256, $package['package_sha256'])
+            && (int) $publisher->id !== (int) $ingest->uploaded_by
+            && (int) $publisher->id !== (int) $ingest->approved_by
+            && (int) $publisher->id !== (int) $review->reviewed_by
             && DB::table('content_rights')->where('licensable_type', $kind)
                 ->where('licensable_id', $id)->where('status', 'active')
                 ->where('rights_reference', $review->rights_reference)
@@ -153,7 +160,7 @@ final class AutomaticPublicationService
                 ->whereNull('territories')->exists(), 403,
             'Independent current media package and rights review is required.');
 
-        return DB::transaction(function () use ($ingest, $kind, $id, $package, $ingestId, $review): int {
+        return DB::transaction(function () use ($ingest, $kind, $id, $package, $ingestId, $review, $publisher): int {
             $locked = DB::table('media_ingests')->where('id', $ingestId)->lockForUpdate()->first();
             abort_unless($locked && $locked->status === 'encoded'
                 && $locked->encoded_manifest_key === $ingest->encoded_manifest_key
@@ -172,6 +179,11 @@ final class AutomaticPublicationService
             if ($title->status !== 'published') {
                 $title->forceFill(['status' => 'published', 'published_at' => now()])->save();
             }
+            abort_unless($publisher->is_active && $publisher->hasVerifiedEmail()
+                && in_array($publisher->role, ['admin','super_admin'], true)
+                && (int) $publisher->id !== (int) $locked->uploaded_by
+                && (int) $publisher->id !== (int) $locked->approved_by, 403,
+                'Publisher authorization changed.');
             $freshReview = DB::table('media_publication_reviews')
                 ->where('id', $review->id)->where('media_ingest_id', $ingestId)
                 ->where('status', 'reviewed')->lockForUpdate()->first();
@@ -179,7 +191,8 @@ final class AutomaticPublicationService
                 && hash_equals((string) $freshReview->manifest_sha256, $package['manifest_sha256'])
                 && hash_equals((string) $freshReview->package_sha256, $package['package_sha256'])
                 && (int) $freshReview->reviewed_by !== (int) $locked->uploaded_by
-                && (int) $freshReview->reviewed_by !== (int) $locked->approved_by, 403,
+                && (int) $freshReview->reviewed_by !== (int) $locked->approved_by
+                && (int) $freshReview->reviewed_by !== (int) $publisher->id, 403,
                 'Reviewed package changed during publication.');
             $existing = DB::table('media_assets')->where('streamable_type', $kind)
                 ->where('streamable_id', $id)->where('manifest_key', $ingest->encoded_manifest_key)
@@ -194,6 +207,7 @@ final class AutomaticPublicationService
                 'storage_disk' => 'local', 'manifest_key' => $ingest->encoded_manifest_key,
                 'format' => 'hls', 'status' => 'ready', 'drm_scheme' => null,
                 'media_publication_review_id' => $review->id,
+                'published_by' => $publisher->id,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             foreach ($package['files'] as $name => $file) {
@@ -202,7 +216,7 @@ final class AutomaticPublicationService
                     'sha256' => $file['sha256'], 'size_bytes' => $file['bytes'],
                 ]);
             }
-            $this->audit((int) $ingest->uploaded_by, $ingestId, 'media.auto_publication_ready',
+            $this->audit((int) $publisher->id, $ingestId, 'media.auto_publication_ready',
                 ['media_asset_id' => $assetId, 'package_sha256' => $package['package_sha256']]);
             return $assetId;
         });
