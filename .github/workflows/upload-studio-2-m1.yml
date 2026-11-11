@@ -1,0 +1,45 @@
+name: GoMovie Upload Studio 2.0 milestone 1
+
+on:
+  pull_request:
+    paths:
+      - 'resources/views/admin/quick-upload.blade.php'
+      - 'tests/js/quick-upload-m1.test.mjs'
+      - 'tests/Feature/QuickUploadTest.php'
+      - '.github/workflows/upload-studio-2-m1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-upload-states:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run isolated QuickUpload browser interaction simulation
+        run: node --test tests/js/quick-upload-m1.test.mjs
+      - name: Verify that upload security gates were not relaxed
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          blade=Path('resources/views/admin/quick-upload.blade.php').read_text()
+          ctl=Path('app/Http/Controllers/Admin/QuickUploadController.php').read_text()
+          intake=Path('app/Services/Media/PrivateVideoIntake.php').read_text()
+          assert 'request.onabort=' in blade
+          assert 'uncertainFailure(' in blade
+          assert 'Check Media Library before starting another' in blade
+          assert 'new FormData(form)' in blade
+          assert "window.history.replaceState" in blade
+          assert "Rule::in(['free', 'private', 'paid'])" in ctl
+          assert "'rights_confirmed' => ['accepted']" in ctl
+          assert "'status' => 'quarantined'" in intake
+          assert "'disk' => 'local'" in intake
+          assert "'rights_review_status' => 'verified'" not in intake
+          assert "'security_scan_status' => 'clean'" not in intake
+          print('UPLOAD_STUDIO_2_M1_SECURE_INTAKE=PASS')
+          PY

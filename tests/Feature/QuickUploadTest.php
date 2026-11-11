@@ -60,6 +60,60 @@ final class QuickUploadTest extends TestCase
             ->assertSee('gm-upload-studio-form');
     }
 
+    public function test_upload_studio_2_first_milestone_has_safe_transfer_controls_and_private_receipt(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        config()->set('gomovie.automatic_publication_enabled', false);
+        config()->set('gomovie.public_hls_enabled', false);
+        config()->set('gomovie.r2_enabled', false);
+
+        $this->actingAs($this->admin())->get('/upload-studio')->assertOk()
+            ->assertSee('id="upload-cancel"', false)
+            ->assertSee('id="upload-retry"', false)
+            ->assertSee('id="upload-review"', false)
+            ->assertSee('role="progressbar"', false)
+            ->assertSee('role="status" aria-live="polite"', false)
+            ->assertSee('Private safety checks')
+            ->assertSee('Your original stays private.')
+            ->assertSee('request.onabort', false)
+            ->assertSee('uncertainFailure(', false)
+            ->assertSee('retryableFailure(', false)
+            ->assertSee('form.requestSubmit()', false)
+            ->assertDontSee('No manual approval');
+
+        $result = $this->postJson('/upload-studio/quick', [
+            'title' => 'Upload Studio 2 QA Private',
+            'access' => 'private',
+            'rights_confirmed' => true,
+            'video' => $this->video(),
+        ]);
+        $result->assertCreated()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('will_publish_automatically', false);
+        $id = $result->json('upload_id');
+        $ingest = DB::table('media_ingests')->where('id', $id)->sole();
+        self::assertSame('quarantined', $ingest->status);
+        self::assertSame('pending', $ingest->security_scan_status);
+        self::assertSame('pending', $ingest->rights_review_status);
+        self::assertSame('local', $ingest->disk);
+        Storage::disk('local')->assertExists($ingest->object_key);
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseCount('content_rights', 0);
+        Queue::assertNotPushed(AutoPublishUploadedVideo::class);
+
+        $this->getJson(route('upload-studio.status', ['ingest' => $id]))
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('status', 'quarantined')
+            ->assertJsonPath('public', false)
+            ->assertJsonPath('watch_url', null);
+
+        $other = $this->admin();
+        $this->actingAs($other)->getJson(route('upload-studio.status', ['ingest' => $id]))
+            ->assertNotFound();
+    }
+
     public function test_public_original_creates_its_own_catalog_title_and_uploader_attestation(): void
     {
         Storage::fake('local');
