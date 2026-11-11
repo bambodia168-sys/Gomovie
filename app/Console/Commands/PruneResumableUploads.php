@@ -34,8 +34,7 @@ final class PruneResumableUploads extends Command
             $claimed = DB::transaction(function () use ($candidate): bool {
                 $row = DB::table('resumable_upload_sessions')
                     ->where('id', $candidate->id)->lockForUpdate()->first();
-                if (!$row || Carbon::parse($row->expires_at)->isFuture()
-                    || $row->status === 'pruning') return false;
+                if (!$row || Carbon::parse($row->expires_at)->isFuture()) return false;
                 // No database or source-media deletes here.
                 DB::table('resumable_upload_sessions')->where('id', $row->id)
                     ->update(['status' => 'pruning','updated_at' => now()]);
