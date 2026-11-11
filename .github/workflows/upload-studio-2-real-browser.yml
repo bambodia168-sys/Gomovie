@@ -80,6 +80,17 @@ jobs:
       - name: Run real Chromium desktop and mobile-emulation upload workflows
         run: |
           node tests/browser/upload-studio-real-browser.mjs
+      - name: Capture isolated Laravel error when browser acceptance fails
+        if: failure()
+        run: |
+          if [ -f storage/logs/laravel.log ]; then
+            echo "========== ISOLATED LARAVEL ERROR =========="
+            tail -n 95 storage/logs/laravel.log
+          fi
+          echo "========== ISOLATED WEB SERVER =========="
+          if [ -f /tmp/gomovie-browser-qa-server.log ]; then
+            tail -n 45 /tmp/gomovie-browser-qa-server.log
+          fi
       - name: Upload sanitized visual evidence
         if: always()
         uses: actions/upload-artifact@v4
