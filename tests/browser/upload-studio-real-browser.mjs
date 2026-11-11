@@ -34,6 +34,11 @@ async function login(page){
   await page.locator('#quick-upload-form').waitFor({state:'visible',timeout:5000});
 }
 function traceBrowser(page,label){
+  page.on('request',request=>{
+    if(request.url().includes('/upload-studio/'))
+      console.log('BROWSER_API_REQUEST='+label+':'+request.method()+
+        ':'+new URL(request.url()).pathname);
+  });
   page.on('pageerror',error=>console.error('BROWSER_SCRIPT_ERROR='+label+':'+error.message));
   page.on('console',message=>{
     if(message.type()==='error')
@@ -48,6 +53,23 @@ function traceBrowser(page,label){
     if(request.url().includes('/upload-studio/'))
       console.error('BROWSER_API_FAILED='+label+':'+request.failure()?.errorText);
   });
+}
+async function traceAfterClick(page,label){
+  const data=await page.evaluate(()=>{
+    const el=id=>document.getElementById(id);
+    return {
+      pathname:location.pathname,
+      valid:el('quick-upload-form')?.checkValidity()??null,
+      formHidden:el('quick-upload-form')?.hidden??null,
+      progress:el('progress-text')?.textContent||null,
+      progressHidden:el('upload-progress')?.hidden??null,
+      retryHidden:el('upload-retry')?.hidden??null,
+      reviewHidden:el('upload-review')?.hidden??null,
+      errorHidden:el('upload-error')?.hidden??null,
+      errorText:el('upload-error')?.textContent?.slice(0,180)||null
+    };
+  });
+  console.log('BROWSER_AFTER_CLICK='+label+':'+JSON.stringify(data));
 }
 async function traceUploadForm(page,label){
   const data=await page.evaluate(()=>{
@@ -110,7 +132,9 @@ for (const target of [
         body:JSON.stringify({message:'Synthetic validation failed',errors:{video:['Synthetic unsupported upload']}})});
     });
     await page.locator('#video-submit').click();
-    await page.locator('#upload-retry').waitFor({state:'visible',timeout:15000});
+    await page.waitForTimeout(700);
+    await traceAfterClick(page,target.label+'-validation');
+    await page.locator('#upload-retry').waitFor({state:'visible',timeout:6000});
     assert.match(await page.locator('#upload-error').innerText(),/Synthetic unsupported upload/);
     assert.equal(await page.locator('#upload-review').isVisible(),false);
     await page.unrouteAll({behavior:'wait'});
@@ -118,14 +142,18 @@ for (const target of [
   await check(target.label+'-connection-loss',async()=>{
     await page.route('**/upload-studio/quick',async route=>{await route.abort('failed');});
     await page.locator('#video-submit').click();
-    await page.locator('#upload-review').waitFor({state:'visible',timeout:15000});
+    await page.waitForTimeout(700);
+    await traceAfterClick(page,target.label+'-connection');
+    await page.locator('#upload-review').waitFor({state:'visible',timeout:6000});
     assert.equal(await page.locator('#upload-retry').isVisible(),false);
     assert.match(await page.locator('#upload-error').innerText(),/Check Media Library before starting another/);
     await page.unrouteAll({behavior:'wait'});
   });
   await check(target.label+'-private-ingest',async()=>{
     await page.locator('#video-submit').click();
-    await page.locator('#upload-result').waitFor({state:'visible',timeout:30000});
+    await page.waitForTimeout(700);
+    await traceAfterClick(page,target.label+'-private');
+    await page.locator('#upload-result').waitFor({state:'visible',timeout:16000});
     assert.equal(await page.locator('#result-watch').isVisible(),false);
     assert.match(await page.locator('#progress-text').innerText(),/Upload saved in private storage/);
     assert.match(await page.locator('#result-status').innerText(),/Private|quarantine/i);
