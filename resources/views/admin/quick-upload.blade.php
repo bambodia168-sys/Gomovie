@@ -112,7 +112,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
               data-resume="{{ $ingestId ?? '' }}" data-resume-access="{{ $resumeAccess ?? '' }}"
               @if($resumableEnabled) data-resumable-url="{{ route('upload-studio.resumable.start') }}"
               data-resumable-prefix="{{ url('/upload-studio/resumable') }}"
-              data-resumable-max="{{ AppServicesMediaResumableUploadService::MAX_BYTES }}" @endif>
+              data-resumable-max="{{ $resumableMaxBytes }}" @endif>
           @csrf
           <div class="field">
             <label class="label" for="video-title">Video title</label>
