@@ -95,9 +95,14 @@ final class QuickUploadController extends Controller
         }
 
         $uploader = (int) $request->user()->id;
+        // Only the server-side resumable completion controller may set this attribute.
+        $resumableId = $request->attributes->get('gomovie.resumable_session_id');
+        abort_unless($resumableId === null || (is_string($resumableId)
+            && Str::isUuid($resumableId) && $data['access'] === 'private'), 403);
         $slug = Str::slug($data['title'], '-');
         $slug = substr($slug !== '' ? $slug : 'original-video', 0, 175)
-            .'-'.strtolower(Str::random(16));
+            .'-'.($resumableId ? str_replace('-', '', $resumableId)
+                : strtolower(Str::random(16)));
         // A self-attestation is documented with the actual administrator
         // and a unique reference; it does not license any existing movie.
         $reference = 'OWNER-DECLARED-'.$uploader.'-'.strtoupper(Str::random(24));
@@ -149,7 +154,7 @@ final class QuickUploadController extends Controller
 
         try {
             $ingestId = $intake->store('movie', (int) $movie->id,
-                $data['video'], $uploader, $request->ip(), $isFree);
+                $data['video'], $uploader, $request->ip(), $isFree, $resumableId);
         } catch (Throwable $error) {
             // Do not delete a movie after a partially successful intake.
             // An existing ingest may already be queued or independently mirrored.
