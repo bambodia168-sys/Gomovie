@@ -70,6 +70,16 @@ final class ResumableQuickUploadTest extends TestCase
         ],['Accept'=>'application/json']);
     }
 
+    public function test_opt_in_quick_upload_page_renders_the_private_resume_controls(): void
+    {
+        config()->set('gomovie.resumable_uploads_enabled', true);
+        $this->actingAs($this->admin())->get('/upload-studio')->assertOk()
+            ->assertSee('id="upload-resumable"', false)
+            ->assertSee('data-resumable-url=', false)
+            ->assertSee('data-resumable-max=', false)
+            ->assertSee('Reliable upload (Private)');
+    }
+
     public function test_resumable_routes_are_disabled_by_default_and_forbidden_for_viewers(): void
     {
         config()->set('gomovie.resumable_uploads_enabled', false);
