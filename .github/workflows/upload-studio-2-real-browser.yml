@@ -5,6 +5,11 @@ on:
     paths:
       - 'resources/views/admin/quick-upload.blade.php'
       - 'tests/browser/upload-studio-real-browser.mjs'
+      - 'tests/browser/rights-evidence-browser.mjs'
+      - 'resources/views/admin/rights-evidence.blade.php'
+      - 'resources/views/admin/rights-evidence-inspect.blade.php'
+      - 'app/Http/Controllers/Admin/RightsEvidenceController.php'
+      - 'app/Services/Rights/RightsEvidenceService.php'
       - '.github/workflows/upload-studio-2-real-browser.yml'
   workflow_dispatch:
 
@@ -52,10 +57,10 @@ jobs:
           touch "$DB_DATABASE"
           php artisan migrate --force --no-interaction
           php artisan tinker --execute='$user = \App\Models\User::create(["name"=>"Synthetic Browser QA","email"=>"upload-browser-qa@example.test","password"=>"Synthetic-Upload-Test-Only-2026"]); $user->forceFill(["role"=>"super_admin","is_active"=>true,"email_verified_at"=>now()])->save();'
-      - name: Install actual Chromium browser runtime
+      - name: Install actual Chromium and WebKit browser runtimes
         run: |
           npm install --no-save --ignore-scripts playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
           npm run build
       - name: Create original synthetic test video
         run: |
@@ -84,6 +89,9 @@ jobs:
       - name: Run real Chromium desktop and mobile-emulation upload workflows
         run: |
           node tests/browser/upload-studio-real-browser.mjs
+      - name: Real Chromium and WebKit admin rights UI acceptance
+        run: |
+          node tests/browser/rights-evidence-browser.mjs
       - name: Capture isolated Laravel error when browser acceptance fails
         if: failure()
         run: |
@@ -100,7 +108,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gomovie-upload-studio-m1-browser-acceptance
-          path: artifacts/upload-studio-browser/*.png
+          path: |
+            artifacts/upload-studio-browser/*.png
+            artifacts/rights-evidence-browser/*.png
           if-no-files-found: ignore
           retention-days: 5
       - name: Stop local test server
