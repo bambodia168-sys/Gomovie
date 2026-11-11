@@ -29,6 +29,7 @@ jobs:
       GOMOVIE_PUBLIC_HLS_ENABLED: 'false'
       GOMOVIE_TRANSCODING_ENABLED: 'false'
       GOMOVIE_R2_ENABLED: 'false'
+      GOMOVIE_RESUMABLE_UPLOADS_ENABLED: 'true'
       GOMOVIE_QA_ORIGIN: http://127.0.0.1:8871
       GOMOVIE_QA_VIDEO_FILE: /tmp/gomovie-browser-qa-original.mp4
     steps:
@@ -62,6 +63,8 @@ jobs:
           ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=blue:s=160x90:r=15 \
             -t 1 -c:v mpeg4 -q:v 7 -y "$GOMOVIE_QA_VIDEO_FILE"
           test -s "$GOMOVIE_QA_VIDEO_FILE"
+          # Preserve a valid MP4 header while creating multiple test chunks.
+          truncate -s 2097199 "$GOMOVIE_QA_VIDEO_FILE"
           file --mime-type "$GOMOVIE_QA_VIDEO_FILE"
       - name: Start loopback-only Laravel fixture
         run: |
