@@ -147,11 +147,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
             <span class="label">Who can watch?</span>
             <div class="accesses" role="group" aria-label="Video visibility">
               <label class="access">
-                <input type="radio" name="access" value="free" {{ $autoReady ? 'checked' : 'disabled' }}>
-                <span><b>Free · Public</b><small>Available only on installations that explicitly enable reviewed media processing and public streaming. The video starts in private quarantine.</small></span>
+                <input type="radio" name="access" value="free" {{ $autoReady ? '' : 'disabled' }}>
+                <span><b>Free · Request review</b><small>Your original remains private until independently verified rights, a security scan and media package approval. Submission never grants publication.</small></span>
               </label>
               <label class="access">
-                <input type="radio" name="access" value="private" {{ $autoReady ? '' : 'checked' }}>
+                <input type="radio" name="access" value="private" checked>
                 <span><b>Private</b><small>Keep the original video in your private Media Library. No public playback.</small></span>
               </label>
               <label class="access">
@@ -172,7 +172,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
             <button type="button" class="btn btn-secondary" id="upload-cancel" hidden>Cancel transfer</button>
             <button type="button" class="btn btn-secondary" id="upload-retry" hidden>Retry upload</button>
             <a id="upload-review" class="upload-check" href="{{ route('admin.media.index') }}" hidden>Check Media Library first</a>
-            <span class="help">Uploaded files start in private quarantine. Public processing depends on your server's safety configuration.</span>
+            <span class="help">Uploads remain private. A separate administrator must verify rights and the media package before public playback.</span>
           </div>
           <div id="upload-progress" hidden>
             <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div>
@@ -201,7 +201,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
         <h3>That's all you need</h3>
         <div class="side-item"><b>1. Upload</b><p>Choose a title and original video file.</p></div>
         <div class="side-item"><b>2. Private safety checks</b><p>Your original stays in quarantine while security, rights, and processing requirements are checked.</p></div>
-        <div class="side-item"><b>3. Publish only when eligible</b><p>Approved free titles can become playable when configured safety checks pass. Private and paid drafts remain private.</p></div>
+        <div class="side-item"><b>3. Independent publication review</b><p>Only separately verified rights, clean security checks and approved media packages can become public. An uploader's declaration is not a license.</p></div>
       </div>
       <div class="notice">Only upload videos you own or are authorized to use. You can edit details later, and permissions can be revoked. Paid checkout is not active.
         <p style="margin:12px 0 0"><a href="{{ route('upload-studio.advanced') }}" style="text-decoration:underline">Advanced editor</a> for existing titles and optional artwork.</p>
@@ -240,7 +240,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   function permission(){
     const free=form.querySelector('input[name="access"]:checked')?.value==='free';
     get('permission-text').textContent=free
-      ? 'I created this video or have permission to publish it worldwide online.'
+      ? 'I declare I have worldwide online publishing permission. This is not independent verification.'
       : 'I own this video or have permission to upload and store it.';
   }
   radios.forEach(r=>r.addEventListener('change',permission));
