@@ -23,7 +23,7 @@ final class GlobalRights
             // Self-attestation is never independently verified distribution rights.
             // This also neutralizes legacy OWNER-DECLARED active records.
             ->whereNotNull('rights_reference')
-            ->where('rights_reference', 'not like', 'OWNER-DECLARED-%')
+            ->whereRaw('LOWER(rights_reference) NOT LIKE ?', ['owner-declared-%'])
             ->whereNull('territories')
             ->where(fn ($query) => $query->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))
