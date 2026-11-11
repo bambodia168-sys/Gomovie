@@ -143,6 +143,12 @@ final class RightsEvidenceService
             abort_unless($e && $e->status === 'pending', 409);
             abort_if((int) $e->submitted_by === (int) $reviewer->id, 403,
                 'A different administrator must verify evidence.');
+            abort_if(DB::table('media_ingests')
+                ->where('ingestable_type', $e->licensable_type)
+                ->where('ingestable_id', $e->licensable_id)
+                ->where(fn ($q) => $q->where('uploaded_by', $reviewer->id)
+                    ->orWhere('approved_by', $reviewer->id))->exists(),
+                403, 'The evidence verifier must differ from media uploader and ingest approver.');
             abort_unless(hash_equals((string) $e->document_sha256, $expectedSha)
                 && \Illuminate\Support\Carbon::parse($e->ends_at)->isFuture(), 409,
                 'Document fingerprint or license validity changed.');
@@ -199,12 +205,12 @@ final class RightsEvidenceService
                 ->where('licensable_id', $e->licensable_id)
                 ->where('rights_reference', $e->rights_reference)
                 ->update(['status' => 'revoked', 'updated_at' => now()]);
-            DB::table('media_publication_reviews as reviews')
-                ->join('media_ingests as ingests', 'ingests.id', '=', 'reviews.media_ingest_id')
-                ->where('ingests.ingestable_type', $e->licensable_type)
-                ->where('ingests.ingestable_id', $e->licensable_id)
-                ->where('reviews.rights_reference', $e->rights_reference)
-                ->update(['reviews.status' => 'revoked', 'reviews.updated_at' => now()]);
+            DB::table('media_publication_reviews')
+                ->whereIn('media_ingest_id', DB::table('media_ingests')
+                    ->select('id')->where('ingestable_type', $e->licensable_type)
+                    ->where('ingestable_id', $e->licensable_id))
+                ->where('rights_reference', $e->rights_reference)
+                ->update(['status' => 'revoked', 'updated_at' => now()]);
             $this->audit($actor, 'rights.evidence_revoked', $id, $ip, ['reason' => trim($reason)]);
         });
     }
