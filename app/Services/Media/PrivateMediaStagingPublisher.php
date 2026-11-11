@@ -22,7 +22,7 @@ final class PrivateMediaStagingPublisher
             && in_array($publisher->role, ['admin','super_admin'], true), 403,
             'A verified administrator is required.');
 
-        $package = app(MediaPackageInspector::class)->inspect($ingestId);
+        $package = app(MediaPackageInspector::class)->inspect($ingestId, true);
         $review = DB::table('media_publication_reviews')
             ->where('media_ingest_id', $ingestId)->where('status', 'reviewed')->first();
         abort_unless($review
@@ -30,15 +30,19 @@ final class PrivateMediaStagingPublisher
             && is_string($review->package_sha256)
             && hash_equals($review->package_sha256, $package['package_sha256']),
             403, 'Missing or outdated independent media package review.');
-        abort_if((int) $publisher->id === (int) $review->reviewed_by, 403,
-            'Staging operator must differ from package reviewer.');
+        abort_if((int) $publisher->id === (int) $review->reviewed_by
+            || (int) $publisher->id === (int) $package['ingest']->uploaded_by
+            || (int) $publisher->id === (int) $package['ingest']->approved_by,
+            403, 'Staging operator must be independent of uploader, approver and reviewer.');
 
         $ingest = $package['ingest'];
         $matching = DB::table('content_rights')
             ->where('licensable_type', $ingest->ingestable_type)
             ->where('licensable_id', $ingest->ingestable_id)
             ->where('rights_reference', $review->rights_reference)
-            ->where('status', 'active')->whereNull('territories')
+            ->where('status', 'active')
+            ->whereRaw('LOWER(rights_reference) NOT LIKE ?', ['owner-declared-%'])
+            ->whereNull('territories')
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))->exists();
         abort_unless($matching, 403, 'Reviewed distribution rights are no longer active.');

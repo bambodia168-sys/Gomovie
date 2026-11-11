@@ -69,7 +69,8 @@ final class WatchPageContinuationTest extends TestCase
         $type = $item instanceof Episode ? 'episode' : 'movie';
         DB::table('content_rights')->insert([
             'licensable_type' => $type, 'licensable_id' => $item->id,
-            'status' => 'active', 'territories' => null,
+            'status' => 'active', 'rights_reference'=>'QA-GLOBAL-WATCH-LICENSE-1',
+            'territories' => null,
             'created_at' => now(), 'updated_at' => now(),
         ]);
         MediaAsset::create([

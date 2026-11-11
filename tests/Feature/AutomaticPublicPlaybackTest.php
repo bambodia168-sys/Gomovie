@@ -9,6 +9,8 @@ use App\Models\Season;
 use App\Models\Episode;
 use App\Models\User;
 use App\Services\Media\AutomaticPublicationService;
+use App\Services\Media\MediaPackageInspector;
+use App\Services\Media\MediaPublicationReviewer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +81,12 @@ final class AutomaticPublicPlaybackTest extends TestCase
             ]);
         }
         $this->rights($type, (int) $target->id);
+        $approver = User::factory()->create();
+        $approver->forceFill(['role' => 'admin', 'is_active' => true, 'email_verified_at' => now()])->save();
+        $reviewer = User::factory()->create();
+        $reviewer->forceFill(['role' => 'admin', 'is_active' => true, 'email_verified_at' => now()])->save();
+        $publisher = User::factory()->create();
+        $publisher->forceFill(['role' => 'admin', 'is_active' => true, 'email_verified_at' => now()])->save();
         $disk = Storage::disk('local');
         $sourceKey = 'ingests/2026/11/'.Str::uuid().'.mp4';
         $source = 'SYNTHETIC ORIGINAL VIDEO TEST BYTES';
@@ -86,7 +94,7 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->temp[] = dirname($sourceKey);
         $id = DB::table('media_ingests')->insertGetId([
             'ingestable_type' => $type, 'ingestable_id' => $target->id,
-            'uploaded_by' => $admin->id, 'approved_by' => $admin->id,
+            'uploaded_by' => $admin->id, 'approved_by' => $approver->id,
             'approved_at' => now(), 'security_scan_status' => 'clean',
             'rights_review_status' => 'verified',
             'disk' => 'local', 'object_key' => $sourceKey,
@@ -105,7 +113,11 @@ final class AutomaticPublicPlaybackTest extends TestCase
         DB::table('media_ingests')->where('id', $id)->update([
             'encoded_manifest_key' => $prefix.'/master.m3u8',
         ]);
-        return [$id, $target, $parent, $prefix];
+        $package = app(MediaPackageInspector::class)->inspect((int) $id, true);
+        app(MediaPublicationReviewer::class)->review((int) $id, $reviewer,
+            'QA-ORIGINAL-WORLDWIDE-1', 'QA-SCAN-REPORT-2026', 'QA-QUALITY-REPORT-2026',
+            $package['manifest_sha256']);
+        return [$id, $target, $parent, $prefix, $publisher, $admin, $reviewer, $approver];
     }
 
     public function test_upload_is_queued_but_never_exposed_before_processing(): void
@@ -121,8 +133,8 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->actingAs($admin)->postJson('/upload-studio', [
             'type' => 'movie', 'title_id' => $movie->id,
             'video' => $video,
-        ])->assertCreated()->assertJsonPath('automatic_publication_enabled', true);
-        Queue::assertPushed(AutoPublishUploadedVideo::class, 1);
+        ])->assertCreated()->assertJsonPath('automatic_publication_enabled', false);
+        Queue::assertNotPushed(AutoPublishUploadedVideo::class);
         $this->assertDatabaseHas('media_ingests', [
             'ingestable_type' => 'movie', 'status' => 'quarantined',
             'security_scan_status' => 'pending',
@@ -148,7 +160,7 @@ final class AutomaticPublicPlaybackTest extends TestCase
         app(AutomaticPublicationService::class)->process($id);
         $this->assertDatabaseHas('media_ingests', [
             'id' => $id, 'status' => 'quarantined',
-            'pipeline_error' => 'active_free_distribution_rights_required',
+            'pipeline_error' => 'independent_rights_and_publication_review_required',
         ]);
         $this->assertDatabaseCount('content_rights', 0);
         $this->assertDatabaseCount('media_assets', 0);
@@ -157,12 +169,13 @@ final class AutomaticPublicPlaybackTest extends TestCase
     public function test_public_free_movie_delivers_only_fingerprinted_hls_and_is_revocable(): void
     {
         $this->enable();
-        [$id, $movie, , $prefix] = $this->package();
+        [$id, $movie, , $prefix, $publisher] = $this->package();
         $auto = app(AutomaticPublicationService::class);
-        $asset = $auto->finalize($id);
+        $asset = $auto->finalize($id, $publisher);
         self::assertIsInt($asset);
         $this->assertDatabaseHas('media_assets', [
             'id' => $asset, 'status' => 'ready', 'storage_disk' => 'local',
+            'published_by' => $publisher->id,
         ]);
         $this->assertDatabaseCount('public_media_files', 3);
         $this->assertDatabaseHas('movies', ['id' => $movie->id, 'status' => 'published']);
@@ -205,8 +218,8 @@ final class AutomaticPublicPlaybackTest extends TestCase
     public function test_episode_auto_publication_publishes_parent_series_but_never_premium(): void
     {
         $this->enable();
-        [$id, $episode, $parent] = $this->package('episode');
-        $asset = app(AutomaticPublicationService::class)->finalize($id);
+        [$id, $episode, $parent, , $publisher] = $this->package('episode');
+        $asset = app(AutomaticPublicationService::class)->finalize($id, $publisher);
         self::assertIsInt($asset);
         $this->assertDatabaseHas('episodes', ['id' => $episode->id, 'status' => 'published']);
         $this->assertDatabaseHas('series', ['id' => $parent->id, 'status' => 'published']);
@@ -222,7 +235,7 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->get($url)->assertOk()->assertDontSee('data-public-hls-url=');
     }
 
-    public function test_isolated_synthetic_video_completes_automatic_scan_encode_publish_pipeline(): void
+    public function test_synthetic_video_cannot_self_approve_even_when_automatic_flags_are_enabled(): void
     {
         $ffmpeg = '/usr/bin/ffmpeg';
         $ffprobe = '/usr/bin/ffprobe';
@@ -277,20 +290,19 @@ final class AutomaticPublicPlaybackTest extends TestCase
         config()->set('gomovie.malware_scanner_binary', $scanner);
 
         try {
+            // Even enabling all hosting flags and supplying a synthetic clean
+            // scanner cannot automatically grant legal rights or self-approval.
             app(AutomaticPublicationService::class)->process((int) $id);
             $asset = app(AutomaticPublicationService::class)->readyAsset('movie', (int) $movie->id);
-            self::assertNotNull($asset);
+            self::assertNull($asset);
             $this->assertDatabaseHas('media_ingests', [
-                'id' => $id, 'status' => 'encoded',
-                'security_scan_status' => 'clean', 'rights_review_status' => 'verified',
+                'id' => $id, 'status' => 'quarantined',
+                'pipeline_error' => 'independent_rights_and_publication_review_required',
             ]);
             $this->assertDatabaseHas('movies', [
-                'id' => $movie->id, 'status' => 'published',
+                'id' => $movie->id, 'status' => 'draft',
             ]);
-            $this->actingAs(User::factory()->create())
-                ->get(route('public-hls.show', [
-                    'asset' => $asset->id, 'path' => 'master.m3u8',
-                ]))->assertOk();
+            $this->assertDatabaseCount('media_assets', 0);
         } finally {
             @unlink($scanner);
             @rmdir($scannerDir);
@@ -299,11 +311,38 @@ final class AutomaticPublicPlaybackTest extends TestCase
         }
     }
 
+    public function test_reviewed_package_cannot_be_activated_by_uploader_approver_or_reviewer(): void
+    {
+        $this->enable();
+        [$id, $movie, , , $publisher, $uploader, $reviewer, $approver] = $this->package();
+        foreach ([$uploader, $reviewer, $approver] as $blockedActor) {
+            try {
+                app(AutomaticPublicationService::class)->finalize($id, $blockedActor);
+                self::fail('Overlapping operator roles must never activate public HLS.');
+            } catch (HttpException $exception) {
+                self::assertSame(403, $exception->getStatusCode());
+            }
+        }
+        $this->assertDatabaseCount('media_assets', 0);
+        $this->assertDatabaseHas('movies', ['id' => $movie->id, 'status' => 'draft']);
+        $assetId = app(AutomaticPublicationService::class)->finalize($id, $publisher);
+        self::assertIsInt($assetId);
+        $this->assertDatabaseHas('media_assets', [
+            'id' => $assetId, 'published_by' => $publisher->id,
+        ]);
+        DB::table('media_publication_reviews')->where('media_ingest_id', $id)
+            ->update(['status' => 'revoked']);
+        self::assertNull(app(AutomaticPublicationService::class)->readyAsset('movie', (int) $movie->id));
+        $this->actingAs(User::factory()->create())
+            ->get(route('public-hls.show', ['asset' => $assetId, 'path' => 'master.m3u8']))
+            ->assertNotFound();
+    }
+
     public function test_default_off_and_malicious_hls_paths_never_expose_private_video(): void
     {
         $this->enable();
-        [$id, $movie] = $this->package();
-        $asset = app(AutomaticPublicationService::class)->finalize($id);
+        [$id, $movie, , , $publisher] = $this->package();
+        $asset = app(AutomaticPublicationService::class)->finalize($id, $publisher);
         $this->actingAs(User::factory()->create());
         $this->get(route('public-hls.show', ['asset' => $asset, 'path' => 'original.mp4']))
             ->assertNotFound();

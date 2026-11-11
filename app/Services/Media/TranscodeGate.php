@@ -23,7 +23,8 @@ final class TranscodeGate
                 && $ingest->security_scan_status === 'clean'
                 && $ingest->rights_review_status === 'verified'
                 && $ingest->approved_at !== null
-                && $ingest->approved_by !== null,
+                && $ingest->approved_by !== null
+                && (int) $ingest->approved_by !== (int) $ingest->uploaded_by,
             403,
             'Security scanning, rights review, and operator approval are required.'
         );

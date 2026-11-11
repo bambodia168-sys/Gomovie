@@ -25,6 +25,7 @@ class CentralRightsPolicyTest extends TestCase
         DB::table('content_rights')->insert(array_merge([
             'licensable_type'=>$title instanceof Movie ? 'movie' : 'episode',
             'licensable_id'=>$title->id,'status'=>'active',
+            'rights_reference'=>'QA-VERIFIED-GLOBAL-LICENSE-1',
             'territories'=>null,'created_at'=>now(),'updated_at'=>now(),
         ], $overrides));
     }

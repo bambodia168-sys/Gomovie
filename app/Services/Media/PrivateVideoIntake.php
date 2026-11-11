@@ -105,8 +105,7 @@ final class PrivateVideoIntake
             }
         }
 
-        if ($autoPublish && config('gomovie.automatic_publication_enabled') === true
-            && config('gomovie.public_hls_enabled') === true) {
+        if ($autoPublish && app(AutomaticPublicationService::class)->enabled()) {
             try {
                 AutoPublishUploadedVideo::dispatch($id);
             } catch (Throwable $error) {

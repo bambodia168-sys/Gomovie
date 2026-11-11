@@ -17,9 +17,10 @@ final class MediaPublicationReviewer
     ): int {
         abort_unless($reviewer->is_active && $reviewer->hasVerifiedEmail()
             && in_array($reviewer->role, ['admin','super_admin'], true), 403);
-        $package = app(MediaPackageInspector::class)->inspect($ingestId);
+        $package = app(MediaPackageInspector::class)->inspect($ingestId, true);
         $ingest = $package['ingest'];
-        abort_if((int) $reviewer->id === (int) $ingest->uploaded_by
+        abort_if((int) $ingest->approved_by === (int) $ingest->uploaded_by
+            || (int) $reviewer->id === (int) $ingest->uploaded_by
             || (int) $reviewer->id === (int) $ingest->approved_by, 403,
             'The independent reviewer must differ from the uploader and ingest approver.');
         abort_unless(preg_match('/\A[a-f0-9]{64}\z/D', $expectedManifestSha)
@@ -31,6 +32,8 @@ final class MediaPublicationReviewer
                 && preg_match('/\A[a-zA-Z0-9][a-zA-Z0-9:._\/-]+\z/D', $reference),
                 422, 'External evidence reference is missing or invalid.');
         }
+        abort_if(str_starts_with(strtoupper($rightsReference), 'OWNER-DECLARED-'), 403,
+            'Uploader declarations cannot establish distribution rights.');
         $hasMatchingRights = DB::table('content_rights')
             ->where('licensable_type', $ingest->ingestable_type)
             ->where('licensable_id', $ingest->ingestable_id)

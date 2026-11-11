@@ -88,15 +88,17 @@ class MediaPipelineGateTest extends TestCase
         $manifest = null;
         try {
             $user = User::factory()->create();
+            $approver = User::factory()->create();
             $movie = Movie::create(['title'=>'Synthetic QA Film','slug'=>'synthetic-qa-film',
                 'status'=>'published','is_premium'=>false]);
             DB::table('content_rights')->insert([
                 'licensable_type'=>'movie','licensable_id'=>$movie->id,
-                'status'=>'active','territories'=>null,'created_at'=>now(),'updated_at'=>now(),
+                'status'=>'active','rights_reference'=>'QA-LICENSE-MEDIA-PIPELINE-1',
+                'territories'=>null,'created_at'=>now(),'updated_at'=>now(),
             ]);
             $id = DB::table('media_ingests')->insertGetId([
                 'ingestable_type'=>'movie','ingestable_id'=>$movie->id,
-                'uploaded_by'=>$user->id,'approved_by'=>$user->id,
+                'uploaded_by'=>$user->id,'approved_by'=>$approver->id,
                 'approved_at'=>now(),'security_scan_status'=>'clean',
                 'rights_review_status'=>'verified','disk'=>'local',
                 'object_key'=>$key,'original_name'=>'synthetic-qa.mp4',
