@@ -51,11 +51,30 @@ final class AutomaticPublicPlaybackTest extends TestCase
 
     private function rights(string $type, int $id): void
     {
+        $submitter=User::factory()->create();
+        $reviewer=User::factory()->create();
+        $reviewer->forceFill(['role'=>'admin','is_active'=>true,'email_verified_at'=>now()])->save();
         DB::table('content_rights')->insert([
             'licensable_type' => $type, 'licensable_id' => $id,
             'rights_reference' => 'QA-ORIGINAL-WORLDWIDE-1',
             'status' => 'active', 'territories' => null,
             'created_at' => now(), 'updated_at' => now(),
+        ]);
+        // Synthetic, independently reviewed evidence fixture. It is not a real license.
+        DB::table('rights_evidence')->insert([
+            'licensable_type'=>$type,'licensable_id'=>$id,
+            'rights_reference'=>'QA-ORIGINAL-WORLDWIDE-1',
+            'rights_holder'=>'Synthetic rights test fixture',
+            'license_scope'=>'global',
+            'starts_at'=>now()->subDay(),'ends_at'=>now()->addDays(30),
+            'document_key'=>'rights-evidence/'.\Illuminate\Support\Str::uuid().'.pdf',
+            'document_sha256'=>str_repeat('a',64),
+            'document_bytes'=>32,'document_mime'=>'application/pdf',
+            'document_scanned_at'=>now(),
+            'submitted_by'=>$submitter->id,'status'=>'approved',
+            'reviewed_by'=>$reviewer->id,'reviewed_at'=>now(),
+            'review_reference'=>'QA-LEGAL-REVIEW-2026',
+            'created_at'=>now(),'updated_at'=>now(),
         ]);
     }
 
@@ -309,6 +328,38 @@ final class AutomaticPublicPlaybackTest extends TestCase
             $manifest = DB::table('media_ingests')->where('id', $id)->value('encoded_manifest_key');
             if ($manifest) $this->temp[] = dirname($manifest);
         }
+    }
+
+    public function test_expired_or_revoked_legal_evidence_blocks_existing_hls_immediately(): void
+    {
+        $this->enable();
+        [$id, $movie, , , $publisher] = $this->package();
+        $auto = app(AutomaticPublicationService::class);
+        $asset = $auto->finalize($id, $publisher);
+        self::assertIsInt($asset);
+        $manifest = route('public-hls.show', ['asset' => $asset, 'path' => 'master.m3u8']);
+        $this->actingAs(User::factory()->create())->get($manifest)->assertOk();
+
+        DB::table('rights_evidence')->where('licensable_type', 'movie')
+            ->where('licensable_id', $movie->id)
+            ->update(['ends_at' => now()->subSecond()]);
+        $this->get($manifest)->assertNotFound();
+
+        DB::table('rights_evidence')->where('licensable_type', 'movie')
+            ->where('licensable_id', $movie->id)
+            ->update(['ends_at' => now()->addDays(30)]);
+        $this->get($manifest)->assertOk();
+
+        DB::table('rights_evidence')->where('licensable_type', 'movie')
+            ->where('licensable_id', $movie->id)
+            ->update(['status' => 'revoked']);
+        // Even though the legacy global rights record remains active,
+        // the independently reviewed document controls public playback.
+        $this->assertDatabaseHas('content_rights', [
+            'licensable_type' => 'movie',
+            'licensable_id' => $movie->id, 'status' => 'active',
+        ]);
+        $this->get($manifest)->assertNotFound();
     }
 
     public function test_reviewed_package_cannot_be_activated_by_uploader_approver_or_reviewer(): void

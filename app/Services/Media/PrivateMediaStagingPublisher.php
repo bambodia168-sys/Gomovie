@@ -46,6 +46,9 @@ final class PrivateMediaStagingPublisher
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))->exists();
         abort_unless($matching, 403, 'Reviewed distribution rights are no longer active.');
+        app(\App\Services\Rights\ReviewedDistributionRights::class)
+            ->requireCurrent($ingest->ingestable_type, (int)$ingest->ingestable_id,
+                (string)$review->rights_reference);
 
         $prefix = 'gomovie/unreleased/'.$ingest->ingestable_type.'/'
             .$ingest->ingestable_id.'/'.$ingestId.'/'.substr($package['manifest_sha256'], 0, 16);
