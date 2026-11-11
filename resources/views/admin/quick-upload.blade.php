@@ -250,7 +250,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
         ? 'Choose a non-empty video within the upload limit.'
         : 'Please choose an MP4, MOV, MKV or WebM file.');
     }
-    if(!xhr && !ingest && retry.hidden===false)retry.hidden=false;
   }
   file.addEventListener('change',setFile);
   for(const ev of ['dragenter','dragover']) drop.addEventListener(ev,e=>{
