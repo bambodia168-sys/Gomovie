@@ -31,7 +31,7 @@ final class ResumableQuickUploadTest extends TestCase
         return $user->fresh();
     }
 
-    private function startSession(User $user, int $size): array
+    private function openPrivateSession(User $user, int $size): array
     {
         $response = $this->actingAs($user)->postJson('/upload-studio/resumable', [
             'title'=>'A licensed original private QA video',
@@ -94,7 +94,7 @@ final class ResumableQuickUploadTest extends TestCase
             'title'=>'Fake public access', 'filename'=>'one.mp4',
             'size_bytes'=>512, 'access'=>'free', 'rights_confirmed'=>true,
         ])->assertUnprocessable();
-        $session=$this->startSession($owner, 100);
+        $session=$this->openPrivateSession($owner, 100);
         $id=$session['session_id'];
         $this->getJson('/upload-studio/resumable/'.$id)
             ->assertOk()->assertJsonPath('received_bytes',0)->assertJsonPath('upload_id',null);
@@ -113,7 +113,7 @@ final class ResumableQuickUploadTest extends TestCase
         config()->set('gomovie.resumable_uploads_enabled', true);
         $owner=$this->admin();
         $bytes=$this->videoBytes();
-        $session=$this->startSession($owner, strlen($bytes));
+        $session=$this->openPrivateSession($owner, strlen($bytes));
         $id=$session['session_id'];
         $first=substr($bytes,0,ResumableUploadService::CHUNK_SIZE);
         $last=substr($bytes,ResumableUploadService::CHUNK_SIZE);
@@ -144,7 +144,7 @@ final class ResumableQuickUploadTest extends TestCase
         config()->set('gomovie.transcoding_enabled', false);
         $owner=$this->admin();
         $bytes=$this->videoBytes();
-        $session=$this->startSession($owner,strlen($bytes));
+        $session=$this->openPrivateSession($owner,strlen($bytes));
         $id=$session['session_id'];
         $this->send($id,0,substr($bytes,0,ResumableUploadService::CHUNK_SIZE))->assertOk();
         $this->send($id,ResumableUploadService::CHUNK_SIZE,
@@ -182,7 +182,7 @@ final class ResumableQuickUploadTest extends TestCase
         Storage::fake('local');
         config()->set('gomovie.resumable_uploads_enabled', true);
         $owner=$this->admin();
-        $session=$this->startSession($owner,3);
+        $session=$this->openPrivateSession($owner,3);
         $id=$session['session_id'];
         $this->send($id,0,'abc')->assertOk();
         $this->deleteJson('/upload-studio/resumable/'.$id)->assertOk()
