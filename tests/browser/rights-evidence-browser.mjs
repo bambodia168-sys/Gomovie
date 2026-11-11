@@ -34,7 +34,9 @@ for(const setup of setups){
     ]);
     const response=await page.goto('/dashboard/rights-evidence');
     assert.equal(response.status(),200,'Protected rights administration route must render');
-    await page.locator('.gm-page-heading h2').getByText('Rights & Publication',{exact:true}).waitFor();
+    const heading=page.locator('.gm-page-heading h2');
+    await heading.waitFor();
+    assert.equal((await heading.innerText()).trim(),'Rights & Publication');
     assert.equal(await page.locator('table.gm-studio-table').count(),2);
     assert.equal(await page.locator('a[href*="/rights-evidence/"]').count(),0,
       'Empty fixture must not expose any private documents.');
