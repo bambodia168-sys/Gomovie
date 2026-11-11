@@ -20,7 +20,10 @@ final class AutomaticPublicationService
 {
     public function enabled(): bool
     {
-        return config('gomovie.automatic_publication_enabled') === true && $this->publicEnabled();
+        // Issue #10: the legacy unattended rights/scan/publication sequence is
+        // retired, regardless of stale hosting flags. Manual reviewed activation
+        // is a separate service operation requiring an independent publisher.
+        return false;
     }
 
     public function publicEnabled(): bool
@@ -115,7 +118,8 @@ final class AutomaticPublicationService
      */
     public function process(int $ingestId): void
     {
-        if (!$this->enabled() || config('gomovie.transcoding_enabled') !== true) return;
+        if (config('gomovie.automatic_publication_enabled') !== true
+            || config('gomovie.transcoding_enabled') !== true) return;
         DB::table('media_ingests')->where('id', $ingestId)
             ->where('status', 'quarantined')
             ->update([
@@ -130,7 +134,7 @@ final class AutomaticPublicationService
      */
     public function finalize(int $ingestId, ?User $publisher = null): ?int
     {
-        if (!$this->enabled()) return null;
+        if (!$this->publicEnabled()) return null;
         abort_unless($publisher && $publisher->is_active && $publisher->hasVerifiedEmail()
             && in_array($publisher->role, ['admin','super_admin'], true), 403,
             'An independent verified publication administrator is required.');
