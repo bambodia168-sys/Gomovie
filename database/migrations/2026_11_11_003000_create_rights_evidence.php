@@ -21,6 +21,7 @@ return new class extends Migration
             $table->char('document_sha256', 64);
             $table->unsignedBigInteger('document_bytes');
             $table->string('document_mime', 64);
+            $table->timestamp('document_scanned_at');
             $table->foreignId('submitted_by')->constrained('users')->restrictOnDelete();
             $table->string('status', 16)->default('pending');
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->restrictOnDelete();
