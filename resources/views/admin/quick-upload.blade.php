@@ -60,7 +60,18 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .error{color:#ffbbca;background:#3b1b28;border:1px solid #924158;border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5;margin-top:14px}
 .progress{height:8px;background:#293345;border-radius:100px;overflow:hidden;margin-top:15px}
 .progress span{display:block;background:linear-gradient(90deg,#fc8257,#f12757);height:100%;width:0;transition:width .18s}
-.progress-label{font-size:12px;color:#b7c4d6;margin-top:6px}
+.progress-label{font-size:12px;color:#b7c4d6;margin-top:6px;line-height:1.55}
+.transfer-details{margin:8px 0 0;color:#97a4b8;font-size:12px;line-height:1.5}
+.drop.invalid{border-color:#f56383;background:#381927}
+.upload-actions{margin-top:4px}
+.upload-actions .btn{min-height:40px}
+.upload-actions .btn:focus-visible,.drop:focus-within{outline:2px solid #ffafc4;outline-offset:2px}
+.upload-actions .btn-secondary{background:transparent;border-color:#495169}
+.upload-check{color:#ffbdcf;border-bottom:1px solid #ffbdcf55;font-size:12px;font-weight:750;text-underline-offset:3px}
+.upload-check:hover{color:#ffe7ee}
+.upload-privacy-note{margin:12px 0 0;padding:10px 12px;border:1px solid #ffffff1c;border-radius:11px;background:#ffffff05;color:#b7c3d4;font-size:12px;line-height:1.55}
+@media(max-width:540px){.upload-actions .btn{flex:1}.upload-check{padding:8px 3px}}
+
 .side{padding:23px}
 .side h3{margin:0 0 18px;font-size:15px}
 .side-item{border-bottom:1px solid #ffffff13;padding:14px 0}
@@ -89,7 +100,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <main class="main">
   <span class="eyebrow">Gomovie Studio</span>
   <h1>Upload a video</h1>
-  <p class="intro">Create a title, choose a video, and upload. No catalog setup or manual approval screens.</p>
+  <p class="intro">Give your video a title, select the file, then upload. Progress and cancellation are visible; media approval stays protected.</p>
   <div class="columns">
     <div>
       <section class="card content" aria-label="Quick upload">
@@ -111,6 +122,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
               <span class="upload-icon" aria-hidden="true">↑</span>
               <strong id="video-name">Choose or drop an MP4 video</strong>
               <small id="video-size">MP4, MOV, MKV, WebM · Maximum {{ number_format($maxUploadBytes / 1048576, 1) }} MB</small>
+              <small>Drag and drop one video, or select a file. Your original stays private.</small>
               <input id="video-file" type="file" name="video"
                      accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime,video/x-matroska,video/webm" required>
             </label>
@@ -125,7 +137,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
             <div class="accesses" role="group" aria-label="Video visibility">
               <label class="access">
                 <input type="radio" name="access" value="free" {{ $autoReady ? 'checked' : 'disabled' }}>
-                <span><b>Free · Public</b><small>Automatically scan, convert, and publish for everyone after your rights confirmation.</small></span>
+                <span><b>Free · Public</b><small>Available only on installations that explicitly enable reviewed media processing and public streaming. The video starts in private quarantine.</small></span>
               </label>
               <label class="access">
                 <input type="radio" name="access" value="private" {{ $autoReady ? '' : 'checked' }}>
@@ -144,13 +156,17 @@ button:disabled{opacity:.5;cursor:not-allowed}
             <input type="checkbox" name="rights_confirmed" value="1" required>
             <span id="permission-text">I created this video or have permission to publish it worldwide online.</span>
           </label>
-          <div class="actions">
+          <div class="actions upload-actions">
             <button type="submit" class="btn primary" id="video-submit">Upload video →</button>
-            <span class="help">Secure scanning and conversion run automatically in the background.</span>
+            <button type="button" class="btn btn-secondary" id="upload-cancel" hidden>Cancel transfer</button>
+            <button type="button" class="btn btn-secondary" id="upload-retry" hidden>Retry upload</button>
+            <a id="upload-review" class="upload-check" href="{{ route('admin.media.index') }}" hidden>Check Media Library first</a>
+            <span class="help">Uploaded files start in private quarantine. Public processing depends on your server's safety configuration.</span>
           </div>
           <div id="upload-progress" hidden>
             <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div>
-            <div class="progress-label" id="progress-text">Uploading 0%</div>
+            <div class="progress-label" id="progress-text" role="status" aria-live="polite">Uploading 0%</div>
+            <p class="transfer-details">A completed transfer is not a published video. Approval and secure processing remain separate.</p>
           </div>
           <p class="error" id="upload-error" role="alert" hidden></p>
           @if($errors->any())<p class="error" role="alert">{{ $errors->first() }}</p>@endif
@@ -173,8 +189,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <div class="side">
         <h3>That's all you need</h3>
         <div class="side-item"><b>1. Upload</b><p>Choose a title and original video file.</p></div>
-        <div class="side-item"><b>2. Automatic processing</b><p>Gomovie checks the file and prepares streaming. You don't manage the technical steps.</p></div>
-        <div class="side-item"><b>3. Watch or keep private</b><p>Free videos become public when ready; private and paid drafts stay private.</p></div>
+        <div class="side-item"><b>2. Private safety checks</b><p>Your original stays in quarantine while security, rights, and processing requirements are checked.</p></div>
+        <div class="side-item"><b>3. Publish only when eligible</b><p>Approved free titles can become playable when configured safety checks pass. Private and paid drafts remain private.</p></div>
       </div>
       <div class="notice">Only upload videos you own or are authorized to use. You can edit details later, and permissions can be revoked. Paid checkout is not active.
         <p style="margin:12px 0 0"><a href="{{ route('upload-studio.advanced') }}" style="text-decoration:underline">Advanced editor</a> for existing titles and optional artwork.</p>
