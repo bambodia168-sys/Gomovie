@@ -7,9 +7,7 @@ use App\Models\Movie;
 use App\Models\Series;
 use App\Services\Rights\GlobalRights;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -100,94 +98,22 @@ final class AutomaticPublicationService
         return $episode;
     }
 
+    /**
+     * Legacy automatic publication entry point is retained for queued jobs.
+     * Issue #10: a scanner result cannot grant rights, approve its uploader,
+     * or authorize a public asset. Worker requests now fail CLOSED.
+     * Independent scan, license, package review, and publish activation must
+     * occur through separate audited operator workflows.
+     */
     public function process(int $ingestId): void
     {
         if (!$this->enabled() || config('gomovie.transcoding_enabled') !== true) return;
-        $ingest = DB::table('media_ingests')->where('id', $ingestId)->first();
-        if (!$ingest || $ingest->status !== 'quarantined') return;
-
-        // ISSUE #10: automated malware scanning does not establish copyright,
-        // independent operator approval or an immutable package review.
-        // Never promote this ingest or run public encoding from this worker.
         DB::table('media_ingests')->where('id', $ingestId)
             ->where('status', 'quarantined')
             ->update([
                 'pipeline_error' => 'independent_rights_and_publication_review_required',
                 'updated_at' => now(),
             ]);
-        return;
-        $kind = (string) $ingest->ingestable_type;
-        $titleId = (int) $ingest->ingestable_id;
-        if (!$this->eligibleTitle($kind, $titleId, false)
-            || !app(GlobalRights::class)->allows($kind, $titleId)) {
-            DB::table('media_ingests')->where('id', $ingestId)->where('status', 'quarantined')
-                ->update(['pipeline_error' => 'active_free_distribution_rights_required', 'updated_at' => now()]);
-            return;
-        }
-        $rights = $this->hasDocumentedRights($kind, $titleId);
-        if (!$rights) {
-            DB::table('media_ingests')->where('id', $ingestId)->where('status', 'quarantined')
-                ->update(['pipeline_error' => 'documented_distribution_rights_required', 'updated_at' => now()]);
-            return;
-        }
-
-        $uploader = DB::table('users')->where('id', $ingest->uploaded_by)->first();
-        abort_unless($uploader && $uploader->is_active && $uploader->email_verified_at
-            && in_array($uploader->role, ['admin', 'super_admin'], true), 403);
-
-        $binary = (string) config('gomovie.malware_scanner_binary');
-        abort_unless(str_starts_with($binary, '/') && basename($binary) === 'clamscan'
-            && is_file($binary) && is_executable($binary), 503, 'Trusted malware scanner unavailable.');
-        $key = (string) $ingest->object_key;
-        abort_unless($ingest->disk === 'local' && preg_match(
-            '#\Aingests/[0-9]{4}/[0-9]{2}/[0-9a-f-]{36}\.(mp4|mov|mkv|webm)\z#iD', $key
-        ), 422, 'Invalid uploaded file path.');
-        $disk = Storage::disk('local');
-        $location = $disk->path($key);
-        $root = realpath($disk->path(''));
-        $real = realpath($location);
-        abort_unless($root && $real && !is_link($location)
-            && str_starts_with($real, $root.DIRECTORY_SEPARATOR)
-            && is_file($real) && filesize($real) === (int) $ingest->size_bytes
-            && hash_equals((string) $ingest->sha256, (string) hash_file('sha256', $real)),
-            422, 'Private video integrity failed.');
-
-        try {
-            $scan = new Process([$binary, '--no-summary', '--infected', $real]);
-            $scan->setTimeout(300);
-            $scan->run();
-        } catch (Throwable $error) {
-            report($error);
-            abort(503, 'Malware scanning unavailable.');
-        }
-        if ($scan->getExitCode() === 1) {
-            DB::table('media_ingests')->where('id', $ingestId)->where('status', 'quarantined')
-                ->update(['status' => 'rejected', 'security_scan_status' => 'infected',
-                    'pipeline_error' => 'malware_detected', 'updated_at' => now()]);
-            return;
-        }
-        abort_unless($scan->getExitCode() === 0
-            && hash_equals((string) $ingest->sha256, (string) hash_file('sha256', $real)),
-            503, 'Malware scanning failed or file changed.');
-
-        $claimed = DB::transaction(function () use ($ingestId, $ingest, $kind, $titleId): bool {
-            $locked = DB::table('media_ingests')->where('id', $ingestId)->lockForUpdate()->first();
-            if (!$locked || $locked->status !== 'quarantined'
-                || !hash_equals((string) $locked->sha256, (string) $ingest->sha256)
-                || !$this->eligibleTitle($kind, $titleId, false)
-                || !app(GlobalRights::class)->allows($kind, $titleId)) return false;
-            DB::table('media_ingests')->where('id', $ingestId)->update([
-                'status' => 'approved', 'security_scan_status' => 'clean',
-                'rights_review_status' => 'verified', 'approved_by' => $ingest->uploaded_by,
-                'approved_at' => now(), 'pipeline_error' => null, 'updated_at' => now(),
-            ]);
-            $this->audit((int) $ingest->uploaded_by, $ingestId, 'media.auto_scan_passed');
-            return true;
-        });
-        if (!$claimed) return;
-
-        app(TranscodingService::class)->encode($ingestId);
-        $this->finalize($ingestId);
     }
 
     /**
