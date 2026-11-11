@@ -330,6 +330,38 @@ final class AutomaticPublicPlaybackTest extends TestCase
         }
     }
 
+    public function test_expired_or_revoked_legal_evidence_blocks_existing_hls_immediately(): void
+    {
+        $this->enable();
+        [$id, $movie, , , $publisher] = $this->package();
+        $auto = app(AutomaticPublicationService::class);
+        $asset = $auto->finalize($id, $publisher);
+        self::assertIsInt($asset);
+        $manifest = route('public-hls.show', ['asset' => $asset, 'path' => 'master.m3u8']);
+        $this->actingAs(User::factory()->create())->get($manifest)->assertOk();
+
+        DB::table('rights_evidence')->where('licensable_type', 'movie')
+            ->where('licensable_id', $movie->id)
+            ->update(['ends_at' => now()->subSecond()]);
+        $this->get($manifest)->assertNotFound();
+
+        DB::table('rights_evidence')->where('licensable_type', 'movie')
+            ->where('licensable_id', $movie->id)
+            ->update(['ends_at' => now()->addDays(30)]);
+        $this->get($manifest)->assertOk();
+
+        DB::table('rights_evidence')->where('licensable_type', 'movie')
+            ->where('licensable_id', $movie->id)
+            ->update(['status' => 'revoked']);
+        // Even though the legacy global rights record remains active,
+        // the independently reviewed document controls public playback.
+        $this->assertDatabaseHas('content_rights', [
+            'licensable_type' => 'movie',
+            'licensable_id' => $movie->id, 'status' => 'active',
+        ]);
+        $this->get($manifest)->assertNotFound();
+    }
+
     public function test_reviewed_package_cannot_be_activated_by_uploader_approver_or_reviewer(): void
     {
         $this->enable();
