@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 const origin = process.env.GOMOVIE_QA_ORIGIN || 'http://127.0.0.1:8871';
 if (origin !== 'http://127.0.0.1:8871') throw new Error('Only the isolated loopback fixture is allowed.');
 const testFile=process.env.GOMOVIE_QA_VIDEO_FILE;
-assert.ok(testFile?.startsWith('/tmp/gomovie-browser-qa-'), 'Use synthetic test video only');
+const directFile=process.env.GOMOVIE_QA_DIRECT_VIDEO_FILE;
+assert.ok(testFile?.startsWith('/tmp/gomovie-browser-qa-'), 'Use synthetic resumable test video only');
+assert.ok(directFile?.startsWith('/tmp/gomovie-browser-qa-'), 'Use synthetic direct test video only');
 const artifactDir='artifacts/upload-studio-browser';
 await mkdir(artifactDir,{recursive:true});
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
@@ -90,9 +92,9 @@ async function traceUploadForm(page,label){
   });
   console.log('BROWSER_FORM_STATE='+label+':'+JSON.stringify(data));
 }
-async function setFile(page,label){
+async function setFile(page,label,path=directFile){
   await page.locator('#video-title').fill('Browser QA '+label);
-  await page.locator('#video-file').setInputFiles(testFile);
+  await page.locator('#video-file').setInputFiles(path);
   await page.locator('input[name="access"][value="private"]').check();
   await page.locator('input[name="rights_confirmed"]').check();
 }
@@ -176,7 +178,7 @@ for(const target of [
     const checkbox=page.locator('#upload-resumable');
     assert.equal(await checkbox.count(),1,'Resumable switch must be enabled only in isolated QA.');
     assert.equal(await checkbox.isChecked(),true);
-    await setFile(page,'resumable-'+target.label);
+    await setFile(page,'resumable-'+target.label,testFile);
     await traceUploadForm(page,target.label);
     let requests=0;
     await page.route('**/upload-studio/resumable/*/chunks',async route=>{
@@ -200,7 +202,7 @@ for(const target of [
       'Browser should resume from a real confirmed partial chunk offset.');
     await page.unrouteAll({behavior:'wait'});
     await page.reload({waitUntil:'domcontentloaded'});
-    await setFile(page,'resumable-'+target.label);
+    await setFile(page,'resumable-'+target.label,testFile);
     await page.locator('#video-submit').click();
     await page.locator('#upload-result').waitFor({state:'visible',timeout:90000});
     assert.equal(await page.locator('#result-watch').isVisible(),false);
