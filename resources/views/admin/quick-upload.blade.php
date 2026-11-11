@@ -109,7 +109,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
         <form id="quick-upload-form" method="post" enctype="multipart/form-data"
               action="{{ route('upload-studio.quick') }}" data-max="{{ $maxUploadBytes }}"
               data-status-template="{{ url('/upload-studio/__id__/status') }}"
-              data-resume="{{ $ingestId ?? '' }}" data-resume-access="{{ $resumeAccess ?? '' }}">
+              data-resume="{{ $ingestId ?? '' }}" data-resume-access="{{ $resumeAccess ?? '' }}"
+              @if($resumableEnabled) data-resumable-url="{{ route('upload-studio.resumable.start') }}"
+              data-resumable-prefix="{{ url('/upload-studio/resumable') }}"
+              data-resumable-max="{{ AppServicesMediaResumableUploadService::MAX_BYTES }}" @endif>
           @csrf
           <div class="field">
             <label class="label" for="video-title">Video title</label>
@@ -127,6 +130,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
                      accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime,video/x-matroska,video/webm" required>
             </label>
           </div>
+          @if($resumableEnabled)
+          <label class="permission" style="margin:5px 0 18px">
+            <input id="upload-resumable" type="checkbox" checked>
+            <span><b>Reliable upload (Private)</b><br>
+              Save each confirmed chunk and resume from the server's verified position after a disconnect.
+              Maximum 128 MB for this first stage; no public publication.</span>
+          </label>
+          @endif
           <div class="field">
             <label class="label" for="video-description">Description <span class="help" style="display:inline">— optional</span></label>
             <textarea class="control" name="description" id="video-description"
@@ -211,7 +222,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
   const cancel=get('upload-cancel');
   const retry=get('upload-retry');
   const review=get('upload-review');
-  const max=Number(form.dataset.max||0);
+  const directMax=Number(form.dataset.max||0);
+  const max=Number(form.dataset.resumableMax||directMax);
+  const resumableToggle=get('upload-resumable');
+  const resumableEndpoint=form.dataset.resumableUrl||'';
+  const resumablePrefix=form.dataset.resumablePrefix||'';
+  const resumableStoreKey='gomovie.resumable.v2';
+  let resumableBusy=false;
+  let resumableAbort=null;
   const statusTemplate=form.dataset.statusTemplate;
   const resume=Number(form.dataset.resume||0);
   let ingest=resume>0?resume:0;
@@ -254,12 +272,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
   file.addEventListener('change',setFile);
   for(const ev of ['dragenter','dragover']) drop.addEventListener(ev,e=>{
     e.preventDefault();
-    if(!xhr)drop.classList.add('drag');
+    if(!xhr&&!resumableBusy)drop.classList.add('drag');
   });
   drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
   drop.addEventListener('drop',e=>{
     e.preventDefault();drop.classList.remove('drag');
-    if(xhr || !e.dataTransfer?.files?.length) return;
+    if(xhr || resumableBusy || !e.dataTransfer?.files?.length) return;
     try{const dt=new DataTransfer();dt.items.add(e.dataTransfer.files[0]);file.files=dt.files;setFile();}
     catch{error('Use the file chooser to select a video.');}
   });
@@ -333,9 +351,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
   }
   cancel.addEventListener('click',()=>{
     if(xhr && xhr.readyState!==XMLHttpRequest.DONE)xhr.abort();
+    else if(resumableAbort)resumableAbort.abort();
   });
   retry.addEventListener('click',()=>{
-    if(xhr||ingest)return;
+    if(xhr||resumableBusy||ingest)return;
     retry.hidden=true;
     get('upload-error').hidden=true;
     form.requestSubmit();
@@ -343,10 +362,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
   form.addEventListener('submit',e=>{
     if(!window.XMLHttpRequest)return;
     e.preventDefault();
-    if(xhr||ingest)return;
+    if(xhr||resumableBusy||ingest)return;
     const selected=file.files?.[0];
     if(!form.reportValidity())return;
-    if(!selected||!selected.size||selected.size>max){
+    const canResume=!!(resumableToggle?.checked && resumableEndpoint &&
+        form.querySelector('input[name="access"]:checked')?.value==='private');
+    const effectiveLimit=canResume?max:directMax;
+    if(!selected||!selected.size||selected.size>effectiveLimit){
       drop.classList.add('invalid');
       error('Choose a non-empty video within the upload limit.');
       return;
@@ -358,6 +380,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
     }
     const access=form.querySelector('input[name="access"]:checked')?.value;
     requestedAccess=access||'private';
+    if(canResume){
+      void startResumable(selected);
+      return;
+    }
     // Snapshot the multipart data BEFORE disabling the controls.
     const payload=new FormData(form);
     const token=form.querySelector('[name="_token"]')?.value;
@@ -443,7 +469,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     }
   });
   window.addEventListener('beforeunload',event=>{
-    if(!xhr)return;
+    if(!xhr&&!resumableBusy)return;
     event.preventDefault();
     event.returnValue='';
   });
