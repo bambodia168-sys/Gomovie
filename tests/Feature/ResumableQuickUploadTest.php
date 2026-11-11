@@ -177,6 +177,59 @@ final class ResumableQuickUploadTest extends TestCase
         $this->assertDatabaseCount('media_ingests',1);
     }
 
+    public function test_bad_digest_conflicting_retry_and_changed_permissions_fail_closed(): void
+    {
+        Storage::fake('local');
+        config()->set('gomovie.resumable_uploads_enabled', true);
+        $owner = $this->admin();
+        $session = $this->openPrivateSession($owner, 3);
+        $id = $session['session_id'];
+
+        $this->post('/upload-studio/resumable/'.$id.'/chunks', [
+            'offset' => 0,
+            'sha256' => str_repeat('0', 64),
+            'chunk' => $this->part('abc'),
+        ], ['Accept' => 'application/json'])->assertUnprocessable();
+
+        $this->getJson('/upload-studio/resumable/'.$id)
+            ->assertJsonPath('received_bytes', 0);
+        $this->send($id, 0, 'abc')->assertOk();
+        $this->post('/upload-studio/resumable/'.$id.'/chunks', [
+            'offset' => 0,
+            'sha256' => hash('sha256', 'abd'),
+            'chunk' => $this->part('abd'),
+        ], ['Accept' => 'application/json'])->assertStatus(409);
+        $this->assertDatabaseCount('resumable_upload_chunks', 1);
+        $this->assertDatabaseCount('media_ingests', 0);
+
+        $owner->forceFill(['role' => 'viewer'])->save();
+        $this->actingAs($owner->fresh())
+            ->postJson('/upload-studio/resumable/'.$id.'/complete', [])
+            ->assertForbidden();
+        $this->deleteJson('/upload-studio/resumable/'.$id)->assertForbidden();
+    }
+
+    public function test_per_owner_session_quota_applies_to_uploading_and_stuck_sessions(): void
+    {
+        Storage::fake('local');
+        config()->set('gomovie.resumable_uploads_enabled', true);
+        $owner = $this->admin();
+        $one = $this->openPrivateSession($owner, 1);
+        $two = $this->openPrivateSession($owner, 1);
+        $three = $this->openPrivateSession($owner, 1);
+        DB::table('resumable_upload_sessions')
+            ->where('id', $three['session_id'])->update(['status' => 'finalizing']);
+        $this->postJson('/upload-studio/resumable', [
+            'title' => 'Fourth private original',
+            'filename' => 'fourth.mp4', 'access' => 'private',
+            'rights_confirmed' => true, 'size_bytes' => 1,
+        ])->assertStatus(429);
+        $this->deleteJson('/upload-studio/resumable/'.$one['session_id'])->assertOk();
+        $fourth = $this->openPrivateSession($owner, 1);
+        self::assertNotSame($two['session_id'], $fourth['session_id']);
+        $this->assertDatabaseCount('media_ingests', 0);
+    }
+
     public function test_cancel_discards_private_chunks_but_never_deletes_completed_media(): void
     {
         Storage::fake('local');
