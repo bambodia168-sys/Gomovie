@@ -359,6 +359,167 @@ button:disabled{opacity:.5;cursor:not-allowed}
     get('upload-error').hidden=true;
     form.requestSubmit();
   });
+  // Resumable uploads stay PRIVATE and use the same final intake as QuickUpload.
+  // The server records each complete 1 MiB chunk. On lost connections we
+  // query its confirmed offset rather than reuploading an uncertain chunk.
+  function storedResume(){
+    try{return JSON.parse(sessionStorage.getItem(resumableStoreKey)||'null');}
+    catch{return null;}
+  }
+  function rememberResume(entry){
+    try{sessionStorage.setItem(resumableStoreKey,JSON.stringify(entry));}catch{}
+  }
+  function forgetResume(){
+    try{sessionStorage.removeItem(resumableStoreKey);}catch{}
+  }
+  async function resumableJson(url,method,body,signal){
+    const headers={'Accept':'application/json'};
+    const token=form.querySelector('[name="_token"]')?.value;
+    if(token)headers['X-CSRF-TOKEN']=token;
+    if(body && !(body instanceof FormData))headers['Content-Type']='application/json';
+    const response=await fetch(url,{
+      method,headers,credentials:'same-origin',signal,
+      body:body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined
+    });
+    let data={};
+    try{data=await response.json();}catch{}
+    if(!response.ok || data.ok!==true){
+      const messages=data.errors?Object.values(data.errors).flat():[];
+      const error=new Error(messages[0]||data.message||'Unable to confirm upload with the server.');
+      error.status=response.status;
+      throw error;
+    }
+    return data;
+  }
+  function progressAt(received,total){
+    const pct=Math.min(100,Math.round(received/total*100));
+    get('progress-fill').style.width=pct+'%';
+    get('upload-progress').querySelector('[role="progressbar"]')
+      .setAttribute('aria-valuenow',String(pct));
+    get('progress-text').textContent=received>=total
+      ? 'File transferred. Waiting for confirmed private intake…'
+      : 'Secure upload '+pct+'% · '+(received/1048576).toFixed(1)+' of '+(total/1048576).toFixed(1)+' MB';
+  }
+  async function startResumable(selected){
+    if(resumableBusy||xhr||ingest||!resumableEndpoint)return;
+    if(!window.crypto?.subtle){
+      error('A secure browser connection is required to verify and resume video chunks.');
+      return;
+    }
+    resumableBusy=true;
+    const controller=new AbortController();
+    resumableAbort=controller;
+    const signal=controller.signal;
+    transferBusy(true);
+    cancel.textContent='Pause transfer';
+    get('upload-progress').hidden=false;
+    get('upload-error').hidden=true;
+    resetTransfer();
+    const signature={
+      name:selected.name,size:selected.size,
+      lastModified:selected.lastModified||0,title:get('video-title').value.trim()
+    };
+    let completing=false;
+    try{
+      let saved=storedResume();
+      let session=null;
+      if(saved && JSON.stringify(saved.signature)===JSON.stringify(signature)){
+        try{
+          session=await resumableJson(resumablePrefix+'/'+encodeURIComponent(saved.id),
+            'GET',null,signal);
+        }catch(e){
+          if(e.status!==404 && e.status!==410)throw e;
+          forgetResume();
+          saved=null;
+        }
+      }
+      if(!session){
+        session=await resumableJson(resumableEndpoint,'POST',{
+          title:signature.title,
+          description:get('video-description').value,
+          filename:selected.name,
+          size_bytes:selected.size,
+          access:'private',
+          rights_confirmed:true
+        },signal);
+        rememberResume({id:session.session_id,signature});
+      }
+      if(session.status==='completed'&&session.upload_id){
+        ingest=Number(session.upload_id);
+      }else{
+        if(session.status!=='uploading')
+          throw new Error('This upload is being finalized or has expired. Check Media Library first.');
+        const chunkSize=Number(session.chunk_size);
+        if(!Number.isSafeInteger(chunkSize)||chunkSize<1||chunkSize>1048576)
+          throw new Error('Invalid resumable upload configuration.');
+        let offset=Number(session.received_bytes);
+        if(offset<0||offset>selected.size||offset%chunkSize!==0&&offset!==selected.size)
+          throw new Error('The server reported an invalid chunk offset.');
+        progressAt(offset,selected.size);
+        while(offset<selected.size){
+          if(signal.aborted)throw new DOMException('Paused','AbortError');
+          const end=Math.min(selected.size,offset+chunkSize);
+          const blob=selected.slice(offset,end);
+          const hash=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
+          const hex=Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+          const part=new FormData();
+          part.append('offset',String(offset));
+          part.append('sha256',hex);
+          part.append('chunk',blob,'segment.bin');
+          try{
+            session=await resumableJson(resumablePrefix+'/'+encodeURIComponent(session.session_id)+'/chunks',
+              'POST',part,signal);
+          }catch(error){
+            // HTTP 409 may mean the previous attempt arrived before the response
+            // was lost; never advance until the server confirms its offset.
+            if(error.status!==409)throw error;
+            session=await resumableJson(resumablePrefix+'/'+encodeURIComponent(saved?.id||session.session_id),
+              'GET',null,signal);
+          }
+          const next=Number(session.received_bytes);
+          if(next<=offset||next>selected.size||next%chunkSize!==0&&next!==selected.size)
+            throw new Error('The server did not confirm the expected private chunk.');
+          offset=next;
+          progressAt(offset,selected.size);
+        }
+        completing=true;
+        get('progress-text').textContent='All chunks verified. Confirming private video intake…';
+        session=await resumableJson(resumablePrefix+'/'+encodeURIComponent(session.session_id)+'/complete',
+          'POST',null,signal);
+        if(session.status!=='completed'||!Number(session.upload_id))
+          throw new Error('Private upload receipt is not yet confirmed.');
+        ingest=Number(session.upload_id);
+      }
+      forgetResume();
+      requestedAccess='private';
+      get('progress-fill').style.width='100%';
+      get('progress-text').textContent='Upload saved in private storage';
+      get('result-status').textContent='Private quarantine';
+      setResult('Saved privately. Safety review and any future publication are separate steps.');
+      form.hidden=true;
+      window.history.replaceState({},'',window.location.pathname+'?ingest='+encodeURIComponent(String(ingest)));
+      notify('Video saved privately.');
+      startPoll();
+      get('upload-result').scrollIntoView({behavior:'smooth',block:'center'});
+    }catch(error){
+      if(completing){
+        uncertainFailure('Finalization was interrupted.');
+      }else{
+        error(signal.aborted
+          ? 'Upload paused. Select the same file and press Resume upload to continue from confirmed progress.'
+          : 'Upload interrupted: '+error.message+' Choose Resume upload to continue safely.');
+        retry.textContent='Resume upload';
+        retry.hidden=false;
+        review.hidden=true;
+        get('progress-text').textContent='Paused · your confirmed chunks remain private';
+      }
+    }finally{
+      resumableBusy=false;
+      resumableAbort=null;
+      cancel.textContent='Cancel transfer';
+      transferBusy(false);
+    }
+  }
   form.addEventListener('submit',e=>{
     if(!window.XMLHttpRequest)return;
     e.preventDefault();
