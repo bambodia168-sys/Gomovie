@@ -42,6 +42,25 @@ final class RightsEvidenceController extends Controller
         ]);
     }
 
+    public function inspect(Request $request, int $ingest): View
+    {
+        $this->admin($request);
+        $package = app(MediaPackageInspector::class)->inspect($ingest,true);
+        $row = $package['ingest'];
+        $licenses = DB::table('rights_evidence')
+            ->where('licensable_type',$row->ingestable_type)
+            ->where('licensable_id',$row->ingestable_id)
+            ->where('status','approved')
+            ->where('starts_at','<=',now())
+            ->where('ends_at','>',now())->orderByDesc('id')->get();
+        $review = DB::table('media_publication_reviews')
+            ->where('media_ingest_id',$ingest)->first();
+        return view('admin.rights-evidence-inspect', [
+            'package'=>$package,'ingest'=>$row,
+            'licenses'=>$licenses,'review'=>$review,
+        ]);
+    }
+
     public function submit(Request $request, RightsEvidenceService $service): RedirectResponse
     {
         $this->admin($request);
