@@ -33,6 +33,41 @@ async function login(page){
   }
   await page.locator('#quick-upload-form').waitFor({state:'visible',timeout:5000});
 }
+function traceBrowser(page,label){
+  page.on('pageerror',error=>console.error('BROWSER_SCRIPT_ERROR='+label+':'+error.message));
+  page.on('console',message=>{
+    if(message.type()==='error')
+      console.error('BROWSER_CONSOLE_ERROR='+label+':'+message.text().slice(0,260));
+  });
+  page.on('response',response=>{
+    if(response.url().includes('/upload-studio/'))
+      console.log('BROWSER_API_RESPONSE='+label+':'+response.status()+
+        ':'+new URL(response.url()).pathname);
+  });
+  page.on('requestfailed',request=>{
+    if(request.url().includes('/upload-studio/'))
+      console.error('BROWSER_API_FAILED='+label+':'+request.failure()?.errorText);
+  });
+}
+async function traceUploadForm(page,label){
+  const data=await page.evaluate(()=>{
+    const form=document.getElementById('quick-upload-form');
+    const controls=[...form.elements];
+    return {
+      valid:form.checkValidity(),
+      invalid:controls.filter(c=>c.willValidate&&!c.validity.valid).map(c=>c.name||c.id),
+      access:form.querySelector('input[name="access"]:checked')?.value||null,
+      file:fileInfo(),
+      reliable:document.getElementById('upload-resumable')?.checked||false,
+      csrf:!!form.querySelector('[name="_token"]')?.value
+    };
+    function fileInfo(){
+      const f=document.getElementById('video-file').files?.[0];
+      return f?{name:f.name,size:f.size}:null;
+    }
+  });
+  console.log('BROWSER_FORM_STATE='+label+':'+JSON.stringify(data));
+}
 async function setFile(page,label){
   await page.locator('#video-title').fill('Browser QA '+label);
   await page.locator('#video-file').setInputFiles(testFile);
@@ -56,10 +91,12 @@ for (const target of [
 ]){
   const context=await browser.newContext({...target.options,baseURL:origin});
   const page=await context.newPage();
+  traceBrowser(page,target.label);
   const ready=await check(target.label+'-login-responsive',async()=>{
     await login(page);
     await setFile(page,target.label);
     if(await page.locator('#upload-resumable').count()) await page.locator('#upload-resumable').uncheck();
+    await traceUploadForm(page,target.label);
     const bounds=await page.locator('.card.content').boundingBox();
     assert.ok(bounds?.width>250);
     const size=await page.evaluate(()=>({viewport:innerWidth,scroll:document.documentElement.scrollWidth}));
@@ -105,12 +142,14 @@ for(const target of [
 ]){
   const context=await browser.newContext({...target.options,baseURL:origin});
   const page=await context.newPage();
+  traceBrowser(page,target.label);
   await check(target.label+'-real-interruption-reload-and-resume',async()=>{
     await login(page);
     const checkbox=page.locator('#upload-resumable');
     assert.equal(await checkbox.count(),1,'Resumable switch must be enabled only in isolated QA.');
     assert.equal(await checkbox.isChecked(),true);
     await setFile(page,'resumable-'+target.label);
+    await traceUploadForm(page,target.label);
     let requests=0;
     await page.route('**/upload-studio/resumable/*/chunks',async route=>{
       requests++;
