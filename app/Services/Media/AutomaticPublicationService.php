@@ -76,7 +76,7 @@ final class AutomaticPublicationService
                 ->whereColumn('documented.rights_reference', 'reviews.rights_reference')
                 ->where('documented.status', 'active')
                 ->whereNotNull('documented.rights_reference')
-                ->where('documented.rights_reference', 'not like', 'OWNER-DECLARED-%')
+                ->whereRaw('LOWER(documented.rights_reference) NOT LIKE ?', ['owner-declared-%'])
                 ->whereNull('documented.territories')
                 ->where(fn ($q) => $q->whereNull('documented.starts_at')
                     ->orWhere('documented.starts_at', '<=', now()))
@@ -167,7 +167,7 @@ final class AutomaticPublicationService
             && DB::table('content_rights')->where('licensable_type', $kind)
                 ->where('licensable_id', $id)->where('status', 'active')
                 ->where('rights_reference', $review->rights_reference)
-                ->where('rights_reference', 'not like', 'OWNER-DECLARED-%')
+                ->whereRaw('LOWER(rights_reference) NOT LIKE ?', ['owner-declared-%'])
                 ->whereNull('territories')->exists(), 403,
             'Independent current media package and rights review is required.');
 
@@ -240,7 +240,7 @@ final class AutomaticPublicationService
             ->where('licensable_id', $id)->where('status', 'active')
             ->whereNull('territories')->whereNotNull('rights_reference')
             ->where('rights_reference', '!=', '')
-            ->where('rights_reference', 'not like', 'OWNER-DECLARED-%')
+            ->whereRaw('LOWER(rights_reference) NOT LIKE ?', ['owner-declared-%'])
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))
             ->exists();
