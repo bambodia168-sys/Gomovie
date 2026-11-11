@@ -1,0 +1,91 @@
+name: GoMovie Upload Studio 2 real browser acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'resources/views/admin/quick-upload.blade.php'
+      - 'tests/browser/upload-studio-real-browser.mjs'
+      - '.github/workflows/upload-studio-2-real-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APP_ENV: testing
+      APP_DEBUG: 'false'
+      APP_URL: http://127.0.0.1:8871
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /tmp/gomovie-browser-qa.sqlite
+      CACHE_STORE: array
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED: 'false'
+      GOMOVIE_PUBLIC_HLS_ENABLED: 'false'
+      GOMOVIE_TRANSCODING_ENABLED: 'false'
+      GOMOVIE_R2_ENABLED: 'false'
+      GOMOVIE_QA_ORIGIN: http://127.0.0.1:8871
+      GOMOVIE_QA_VIDEO_FILE: /tmp/gomovie-browser-qa-original.mp4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, sqlite3, pdo_sqlite, curl, fileinfo, openssl
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install PHP dependencies and isolated SQLite fixture
+        run: |
+          set -Eeuo pipefail
+          composer install --no-interaction --prefer-dist --no-progress
+          cp .env.example .env
+          php artisan key:generate --force
+          touch "$DB_DATABASE"
+          php artisan migrate --force --no-interaction
+          php artisan tinker --execute='$user = \App\Models\User::create(["name"=>"Synthetic Browser QA","email"=>"upload-browser-qa@example.test","password"=>"Synthetic-Upload-Test-Only-2026"]); $user->forceFill(["role"=>"super_admin","is_active"=>true,"email_verified_at"=>now()])->save();'
+      - name: Install actual Chromium browser runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Create original synthetic test video
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=blue:s=160x90:r=15 \
+            -t 1 -c:v mpeg4 -q:v 7 -y "$GOMOVIE_QA_VIDEO_FILE"
+          test -s "$GOMOVIE_QA_VIDEO_FILE"
+          file --mime-type "$GOMOVIE_QA_VIDEO_FILE"
+      - name: Start loopback-only Laravel fixture
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8871 >/tmp/gomovie-browser-qa-server.log 2>&1 &
+          echo "$!" >/tmp/gomovie-browser-qa-server.pid
+          for n in $(seq 1 40); do
+            if curl --noproxy '*' -fsS http://127.0.0.1:8871/login -o /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/gomovie-browser-qa-server.log
+          exit 1
+      - name: Run real Chromium desktop and mobile-emulation upload workflows
+        run: |
+          node tests/browser/upload-studio-real-browser.mjs
+      - name: Upload sanitized visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gomovie-upload-studio-m1-browser-acceptance
+          path: artifacts/upload-studio-browser/*.png
+          if-no-files-found: ignore
+          retention-days: 5
+      - name: Stop local test server
+        if: always()
+        run: |
+          if [ -f /tmp/gomovie-browser-qa-server.pid ]; then
+            kill "$(cat /tmp/gomovie-browser-qa-server.pid)" || true
+          fi
