@@ -46,6 +46,13 @@
          aria-label="Media Library" title="Media Library">
         @include('partials.studio-icon',['name'=>'media'])<span class="gm-workspace-link-label">Media Library</span>
       </a>
+      @if($workspaceIsAdmin)
+        <a href="{{ route('admin.rights-evidence.index') }}"
+           @class(['is-current'=>request()->routeIs('admin.rights-evidence.*')])
+           aria-label="Rights and Publication" title="Rights and Publication">
+          @include('partials.studio-icon',['name'=>'shield'])<span class="gm-workspace-link-label">Rights &amp; Publication</span>
+        </a>
+      @endif
 
       @if($workspaceIsAdmin)
         <p class="gm-studio-nav-heading">Appearance &amp; configuration</p>
