@@ -52,6 +52,7 @@ class EdgeAuthorizationTest extends TestCase
 
         DB::table('content_rights')->insert([
             'licensable_type'=>'movie','licensable_id'=>$movie->id,'status'=>'active',
+            'rights_reference'=>'QA-GLOBAL-EDGE-LICENSE-1',
             'territories'=>null,'created_at'=>now(),'updated_at'=>now(),
         ]);
         $this->withHeader('X-Gomovie-Edge-Key',$secret)
