@@ -163,6 +163,8 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
         ->middleware('throttle:10,1')->whereNumber('evidence')->name('rights-evidence.verify');
     Route::post('/rights-evidence/{evidence}/revoke', [RightsEvidenceController::class, 'revoke'])
         ->middleware('throttle:10,1')->whereNumber('evidence')->name('rights-evidence.revoke');
+    Route::get('/rights-evidence/ingests/{ingest}/inspect', [RightsEvidenceController::class, 'inspect'])
+        ->middleware('throttle:30,1')->whereNumber('ingest')->name('rights-evidence.inspect');
     Route::post('/rights-evidence/ingests/{ingest}/review', [RightsEvidenceController::class, 'reviewPackage'])
         ->middleware('throttle:8,1')->whereNumber('ingest')->name('rights-evidence.review-package');
     Route::post('/rights-evidence/ingests/{ingest}/publish', [RightsEvidenceController::class, 'publish'])
