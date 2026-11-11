@@ -17,10 +17,11 @@ Close the immediate *authorization bypass* that allows an uploader's own declara
 4. **Ingest approval does not mint a license.** IntakeReviewService forbids same-person uploading/approving and declaration references. Operators must already have a separate active rights record. Successful malware scanning remains necessary but does not establish rights.
 5. **Independent package review is enforced for public HLS.** Ready media_assets must link to a `media_publication_reviews` record with a matching ingest and an independently identified reviewer, and documented active rights. Legacy unlinked assets are not playable until reconciled. Publication finalization additionally checks current package fingerprints and rights reference. A changed manifest/segment invalidates a review; only a separately reviewed package can be activated.
 6. **Private media staging remains private.** The staging service accepts reviewed draft packages and requires staging staff to differ from uploader, ingest approver and independent package reviewer.
+7. **Separate publication administrator is required.** Activation takes a verified administrator distinct from uploader, approver and package reviewer; the media asset and audit event record this publisher. Public readiness also checks that a recorded publisher remains an active verified administrator. No new public activation route is exposed.
 
 ## What remains blocked
 
-The application cannot independently determine the legal validity of a license, and Phase 1 does **not** introduce an operator-facing rights-evidence registry or a fully independently signed canonical publish activation process. External contract verification, scanning-worker hardening, second-operator publishing approval and the actual public-release activation workflow remain separate milestones under Issue #10.
+The application cannot independently determine the legal validity of a license, and Phase 1 does **not** introduce an operator-facing rights-evidence registry or a fully independently signed canonical publish activation process. External contract verification, scanning-worker hardening, an operator-facing publisher approval workflow and independently verified rights-evidence storage remain separate milestones under Issue #10. The internal publisher-role check alone does not certify the legality of uploaded media.
 
 Turning on old GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED / GOMOVIE_PUBLIC_HLS_ENABLED flags **must not** bypass this containment, nor does turning them on make a Free submission public.
 
