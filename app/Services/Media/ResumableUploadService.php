@@ -29,9 +29,14 @@ final class ResumableUploadService
             'Video exceeds the current private-intake limit.');
 
         return DB::transaction(function () use ($user, $data): object {
+            // Serialize quota checks per uploader. PostgreSQL forbids FOR UPDATE
+            // on aggregate COUNT; locking the user row also prevents two
+            // concurrent new-session requests from passing the quota together.
+            abort_unless(DB::table('users')->where('id', $user->id)
+                ->lockForUpdate()->first(), 403);
             $active = DB::table('resumable_upload_sessions')
                 ->where('uploaded_by', $user->id)->where('status', 'uploading')
-                ->where('expires_at', '>', now())->lockForUpdate()->count();
+                ->where('expires_at', '>', now())->count();
             abort_if($active >= self::MAX_OPEN_SESSIONS, 429,
                 'Finish or cancel an active upload before starting another.');
             $id = (string) Str::uuid();
