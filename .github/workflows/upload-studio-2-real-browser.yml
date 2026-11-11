@@ -10,6 +10,8 @@ on:
       - 'resources/views/admin/rights-evidence-inspect.blade.php'
       - 'app/Http/Controllers/Admin/RightsEvidenceController.php'
       - 'app/Services/Rights/RightsEvidenceService.php'
+      - 'support/gomovie-rights-qa-preflight.sh'
+      - 'support/gomovie-rights-reconciliation-readonly.php'
       - '.github/workflows/upload-studio-2-real-browser.yml'
   workflow_dispatch:
 
@@ -48,6 +50,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Verify isolated rights acceptance script syntax
+        run: |
+          bash -n support/gomovie-rights-qa-preflight.sh
+          php -l support/gomovie-rights-reconciliation-readonly.php
+          python3 - <<'PY'
+          from pathlib import Path
+          script=Path('support/gomovie-rights-qa-preflight.sh').read_text()
+          assert 'READ_ONLY_PASS' in script
+          assert 'BLOCKED: This is the live GoMovie root' in script
+          assert '--scan-eicar' in script
+          assert 'APP_ENV' in script
+          assert 'PRODUCTION_MEDIA_AND_DATABASE_CHANGED=NO' in script
+          print('GOMOVIE_RIGHTS_HOST_PREFLIGHT_CONTRACTS=PASS')
+          PY
       - name: Install PHP dependencies and isolated SQLite fixture
         run: |
           set -Eeuo pipefail
