@@ -18,7 +18,7 @@ use Throwable;
  */
 final class PrivateVideoIntake
 {
-    public function store(string $kind, int $titleId, UploadedFile $video, int $uploaderId, ?string $ip, bool $autoPublish = true): int
+    public function store(string $kind, int $titleId, UploadedFile $video, int $uploaderId, ?string $ip, bool $autoPublish = true, ?string $resumableSessionId = null): int
     {
         abort_unless(in_array($kind, ['movie', 'episode'], true), 422);
         $extension = match ($video->getMimeType()) {
@@ -59,7 +59,7 @@ final class PrivateVideoIntake
             && filled(config('filesystems.disks.r2.secret'));
 
         try {
-            $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $actualSize, $r2Enabled): int {
+            $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $actualSize, $r2Enabled, $resumableSessionId): int {
                 $id = DB::table('media_ingests')->insertGetId([
                     'ingestable_type' => $kind,
                     'ingestable_id' => $titleId,
@@ -71,6 +71,7 @@ final class PrivateVideoIntake
                     'size_bytes' => $actualSize,
                     'sha256' => $hash,
                     'status' => 'quarantined',
+                    'resumable_upload_session_id' => $resumableSessionId,
                     'cloud_status' => $r2Enabled ? 'pending' : 'local_only',
                     'created_at' => now(),
                     'updated_at' => now(),

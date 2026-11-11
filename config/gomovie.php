@@ -2,6 +2,8 @@
 
 return [
     // Opt-in, off until FFmpeg, ClamAV and an isolated media worker are accepted.
+    // Separate opt-in for resumable private video intake; never enables publication.
+    'resumable_uploads_enabled' => filter_var(env('GOMOVIE_RESUMABLE_UPLOADS_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'automatic_publication_enabled' => filter_var(env('GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'public_hls_enabled' => filter_var(env('GOMOVIE_PUBLIC_HLS_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'r2_enabled' => filter_var(env('GOMOVIE_R2_ENABLED', false), FILTER_VALIDATE_BOOLEAN),

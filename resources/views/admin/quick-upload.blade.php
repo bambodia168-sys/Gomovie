@@ -109,7 +109,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
         <form id="quick-upload-form" method="post" enctype="multipart/form-data"
               action="{{ route('upload-studio.quick') }}" data-max="{{ $maxUploadBytes }}"
               data-status-template="{{ url('/upload-studio/__id__/status') }}"
-              data-resume="{{ $ingestId ?? '' }}" data-resume-access="{{ $resumeAccess ?? '' }}">
+              data-resume="{{ $ingestId ?? '' }}" data-resume-access="{{ $resumeAccess ?? '' }}"
+              @if($resumableEnabled) data-resumable-url="{{ route('upload-studio.resumable.start') }}"
+              data-resumable-prefix="{{ url('/upload-studio/resumable') }}"
+              data-resumable-max="{{ $resumableMaxBytes }}" @endif>
           @csrf
           <div class="field">
             <label class="label" for="video-title">Video title</label>
@@ -127,6 +130,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
                      accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime,video/x-matroska,video/webm" required>
             </label>
           </div>
+          @if($resumableEnabled)
+          <label class="permission" style="margin:5px 0 18px">
+            <input id="upload-resumable" type="checkbox" checked>
+            <span><b>Reliable upload (Private)</b><br>
+              Save each confirmed chunk and resume from the server's verified position after a disconnect.
+              Maximum 128 MB for this first stage; no public publication.</span>
+          </label>
+          @endif
           <div class="field">
             <label class="label" for="video-description">Description <span class="help" style="display:inline">— optional</span></label>
             <textarea class="control" name="description" id="video-description"
@@ -211,7 +222,14 @@ button:disabled{opacity:.5;cursor:not-allowed}
   const cancel=get('upload-cancel');
   const retry=get('upload-retry');
   const review=get('upload-review');
-  const max=Number(form.dataset.max||0);
+  const directMax=Number(form.dataset.max||0);
+  const max=Number(form.dataset.resumableMax||directMax);
+  const resumableToggle=get('upload-resumable');
+  const resumableEndpoint=form.dataset.resumableUrl||'';
+  const resumablePrefix=form.dataset.resumablePrefix||'';
+  const resumableStoreKey='gomovie.resumable.v2';
+  let resumableBusy=false;
+  let resumableAbort=null;
   const statusTemplate=form.dataset.statusTemplate;
   const resume=Number(form.dataset.resume||0);
   let ingest=resume>0?resume:0;
@@ -254,12 +272,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
   file.addEventListener('change',setFile);
   for(const ev of ['dragenter','dragover']) drop.addEventListener(ev,e=>{
     e.preventDefault();
-    if(!xhr)drop.classList.add('drag');
+    if(!xhr&&!resumableBusy)drop.classList.add('drag');
   });
   drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
   drop.addEventListener('drop',e=>{
     e.preventDefault();drop.classList.remove('drag');
-    if(xhr || !e.dataTransfer?.files?.length) return;
+    if(xhr || resumableBusy || !e.dataTransfer?.files?.length) return;
     try{const dt=new DataTransfer();dt.items.add(e.dataTransfer.files[0]);file.files=dt.files;setFile();}
     catch{error('Use the file chooser to select a video.');}
   });
@@ -333,20 +351,185 @@ button:disabled{opacity:.5;cursor:not-allowed}
   }
   cancel.addEventListener('click',()=>{
     if(xhr && xhr.readyState!==XMLHttpRequest.DONE)xhr.abort();
+    else if(resumableAbort)resumableAbort.abort();
   });
   retry.addEventListener('click',()=>{
-    if(xhr||ingest)return;
+    if(xhr||resumableBusy||ingest)return;
     retry.hidden=true;
     get('upload-error').hidden=true;
     form.requestSubmit();
   });
+  // Resumable uploads stay PRIVATE and use the same final intake as QuickUpload.
+  // The server records each complete 1 MiB chunk. On lost connections we
+  // query its confirmed offset rather than reuploading an uncertain chunk.
+  function storedResume(){
+    try{return JSON.parse(sessionStorage.getItem(resumableStoreKey)||'null');}
+    catch{return null;}
+  }
+  function rememberResume(entry){
+    try{sessionStorage.setItem(resumableStoreKey,JSON.stringify(entry));}catch{}
+  }
+  function forgetResume(){
+    try{sessionStorage.removeItem(resumableStoreKey);}catch{}
+  }
+  async function resumableJson(url,method,body,signal){
+    const headers={'Accept':'application/json'};
+    const token=form.querySelector('[name="_token"]')?.value;
+    if(token)headers['X-CSRF-TOKEN']=token;
+    if(body && !(body instanceof FormData))headers['Content-Type']='application/json';
+    const response=await fetch(url,{
+      method,headers,credentials:'same-origin',signal,
+      body:body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined
+    });
+    let data={};
+    try{data=await response.json();}catch{}
+    if(!response.ok || data.ok!==true){
+      const messages=data.errors?Object.values(data.errors).flat():[];
+      const error=new Error(messages[0]||data.message||'Unable to confirm upload with the server.');
+      error.status=response.status;
+      throw error;
+    }
+    return data;
+  }
+  function progressAt(received,total){
+    const pct=Math.min(100,Math.round(received/total*100));
+    get('progress-fill').style.width=pct+'%';
+    get('upload-progress').querySelector('[role="progressbar"]')
+      .setAttribute('aria-valuenow',String(pct));
+    get('progress-text').textContent=received>=total
+      ? 'File transferred. Waiting for confirmed private intake…'
+      : 'Secure upload '+pct+'% · '+(received/1048576).toFixed(1)+' of '+(total/1048576).toFixed(1)+' MB';
+  }
+  async function startResumable(selected){
+    if(resumableBusy||xhr||ingest||!resumableEndpoint)return;
+    if(!window.crypto?.subtle){
+      error('A secure browser connection is required to verify and resume video chunks.');
+      return;
+    }
+    resumableBusy=true;
+    const controller=new AbortController();
+    resumableAbort=controller;
+    const signal=controller.signal;
+    transferBusy(true);
+    cancel.textContent='Pause transfer';
+    get('upload-progress').hidden=false;
+    get('upload-error').hidden=true;
+    resetTransfer();
+    const signature={
+      name:selected.name,size:selected.size,
+      lastModified:selected.lastModified||0,title:get('video-title').value.trim()
+    };
+    let completing=false;
+    try{
+      let saved=storedResume();
+      let session=null;
+      if(saved && JSON.stringify(saved.signature)===JSON.stringify(signature)){
+        try{
+          session=await resumableJson(resumablePrefix+'/'+encodeURIComponent(saved.id),
+            'GET',null,signal);
+        }catch(e){
+          if(e.status!==404 && e.status!==410)throw e;
+          forgetResume();
+          saved=null;
+        }
+      }
+      if(!session){
+        session=await resumableJson(resumableEndpoint,'POST',{
+          title:signature.title,
+          description:get('video-description').value,
+          filename:selected.name,
+          size_bytes:selected.size,
+          access:'private',
+          rights_confirmed:true
+        },signal);
+        rememberResume({id:session.session_id,signature});
+      }
+      if(session.status==='completed'&&session.upload_id){
+        ingest=Number(session.upload_id);
+      }else{
+        if(session.status!=='uploading')
+          throw new Error('This upload is being finalized or has expired. Check Media Library first.');
+        const chunkSize=Number(session.chunk_size);
+        if(!Number.isSafeInteger(chunkSize)||chunkSize<1||chunkSize>1048576)
+          throw new Error('Invalid resumable upload configuration.');
+        let offset=Number(session.received_bytes);
+        if(offset<0||offset>selected.size||offset%chunkSize!==0&&offset!==selected.size)
+          throw new Error('The server reported an invalid chunk offset.');
+        progressAt(offset,selected.size);
+        while(offset<selected.size){
+          if(signal.aborted)throw new DOMException('Paused','AbortError');
+          const end=Math.min(selected.size,offset+chunkSize);
+          const blob=selected.slice(offset,end);
+          const hash=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
+          const hex=Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+          const part=new FormData();
+          part.append('offset',String(offset));
+          part.append('sha256',hex);
+          part.append('chunk',blob,'segment.bin');
+          try{
+            session=await resumableJson(resumablePrefix+'/'+encodeURIComponent(session.session_id)+'/chunks',
+              'POST',part,signal);
+          }catch(error){
+            // HTTP 409 may mean the previous attempt arrived before the response
+            // was lost; never advance until the server confirms its offset.
+            if(error.status!==409)throw error;
+            session=await resumableJson(resumablePrefix+'/'+encodeURIComponent(saved?.id||session.session_id),
+              'GET',null,signal);
+          }
+          const next=Number(session.received_bytes);
+          if(next<=offset||next>selected.size||next%chunkSize!==0&&next!==selected.size)
+            throw new Error('The server did not confirm the expected private chunk.');
+          offset=next;
+          progressAt(offset,selected.size);
+        }
+        completing=true;
+        get('progress-text').textContent='All chunks verified. Confirming private video intake…';
+        session=await resumableJson(resumablePrefix+'/'+encodeURIComponent(session.session_id)+'/complete',
+          'POST',null,signal);
+        if(session.status!=='completed'||!Number(session.upload_id))
+          throw new Error('Private upload receipt is not yet confirmed.');
+        ingest=Number(session.upload_id);
+      }
+      forgetResume();
+      requestedAccess='private';
+      get('progress-fill').style.width='100%';
+      get('progress-text').textContent='Upload saved in private storage';
+      get('result-status').textContent='Private quarantine';
+      setResult('Saved privately. Safety review and any future publication are separate steps.');
+      form.hidden=true;
+      window.history.replaceState({},'',window.location.pathname+'?ingest='+encodeURIComponent(String(ingest)));
+      notify('Video saved privately.');
+      startPoll();
+      get('upload-result').scrollIntoView({behavior:'smooth',block:'center'});
+    }catch(failure){
+      if(completing){
+        uncertainFailure('Finalization was interrupted.');
+      }else{
+        error(signal.aborted
+          ? 'Upload paused. Select the same file and press Resume upload to continue from confirmed progress.'
+          : 'Upload interrupted: '+failure.message+' Choose Resume upload to continue safely.');
+        retry.textContent='Resume upload';
+        retry.hidden=false;
+        review.hidden=true;
+        get('progress-text').textContent='Paused · your confirmed chunks remain private';
+      }
+    }finally{
+      resumableBusy=false;
+      resumableAbort=null;
+      cancel.textContent='Cancel transfer';
+      transferBusy(false);
+    }
+  }
   form.addEventListener('submit',e=>{
     if(!window.XMLHttpRequest)return;
     e.preventDefault();
-    if(xhr||ingest)return;
+    if(xhr||resumableBusy||ingest)return;
     const selected=file.files?.[0];
     if(!form.reportValidity())return;
-    if(!selected||!selected.size||selected.size>max){
+    const canResume=!!(resumableToggle?.checked && resumableEndpoint &&
+        form.querySelector('input[name="access"]:checked')?.value==='private');
+    const effectiveLimit=canResume?max:directMax;
+    if(!selected||!selected.size||selected.size>effectiveLimit){
       drop.classList.add('invalid');
       error('Choose a non-empty video within the upload limit.');
       return;
@@ -358,6 +541,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
     }
     const access=form.querySelector('input[name="access"]:checked')?.value;
     requestedAccess=access||'private';
+    if(canResume){
+      void startResumable(selected);
+      return;
+    }
     // Snapshot the multipart data BEFORE disabling the controls.
     const payload=new FormData(form);
     const token=form.querySelector('[name="_token"]')?.value;
@@ -443,7 +630,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
     }
   });
   window.addEventListener('beforeunload',event=>{
-    if(!xhr)return;
+    if(!xhr&&!resumableBusy)return;
     event.preventDefault();
     event.returnValue='';
   });

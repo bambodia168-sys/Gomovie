@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\PrivateIngestPreviewController;
 use App\Http\Controllers\Admin\UploadStudioController;
 use App\Http\Controllers\Admin\QuickUploadController;
+use App\Http\Controllers\Admin\ResumableQuickUploadController;
 use App\Http\Controllers\Admin\UploadStudioWorkflowController;
 use App\Http\Controllers\Admin\UploadCaptionController;
 use App\Http\Controllers\Admin\OperationsController;
@@ -84,6 +85,17 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->group(function (): v
     Route::get('/upload-studio', [QuickUploadController::class, 'index'])->name('upload-studio.index');
     Route::post('/upload-studio/quick', [QuickUploadController::class, 'store'])
         ->middleware('throttle:12,1')->name('upload-studio.quick');
+    // Optional, disabled-by-default resumable PRIVATE intake. No public reads or approval actions.
+    Route::post('/upload-studio/resumable', [ResumableQuickUploadController::class, 'start'])
+        ->middleware('throttle:12,1')->name('upload-studio.resumable.start');
+    Route::get('/upload-studio/resumable/{session}', [ResumableQuickUploadController::class, 'status'])
+        ->middleware('throttle:120,1')->whereUuid('session')->name('upload-studio.resumable.status');
+    Route::post('/upload-studio/resumable/{session}/chunks', [ResumableQuickUploadController::class, 'append'])
+        ->middleware('throttle:240,1')->whereUuid('session')->name('upload-studio.resumable.chunks');
+    Route::post('/upload-studio/resumable/{session}/complete', [ResumableQuickUploadController::class, 'complete'])
+        ->middleware('throttle:5,1')->whereUuid('session')->name('upload-studio.resumable.complete');
+    Route::delete('/upload-studio/resumable/{session}', [ResumableQuickUploadController::class, 'cancel'])
+        ->middleware('throttle:12,1')->whereUuid('session')->name('upload-studio.resumable.cancel');
     Route::get('/upload-studio/advanced', [UploadStudioController::class, 'index'])
         ->name('upload-studio.advanced');
     Route::post('/upload-studio', [UploadStudioController::class, 'upload'])

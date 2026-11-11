@@ -29,8 +29,10 @@ jobs:
       GOMOVIE_PUBLIC_HLS_ENABLED: 'false'
       GOMOVIE_TRANSCODING_ENABLED: 'false'
       GOMOVIE_R2_ENABLED: 'false'
+      GOMOVIE_RESUMABLE_UPLOADS_ENABLED: 'true'
       GOMOVIE_QA_ORIGIN: http://127.0.0.1:8871
       GOMOVIE_QA_VIDEO_FILE: /tmp/gomovie-browser-qa-original.mp4
+      GOMOVIE_QA_DIRECT_VIDEO_FILE: /tmp/gomovie-browser-qa-direct.mp4
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
@@ -62,6 +64,11 @@ jobs:
           ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=blue:s=160x90:r=15 \
             -t 1 -c:v mpeg4 -q:v 7 -y "$GOMOVIE_QA_VIDEO_FILE"
           test -s "$GOMOVIE_QA_VIDEO_FILE"
+          # Direct upload must fit the PHP runner's 2 MiB limit.
+          cp -- "$GOMOVIE_QA_VIDEO_FILE" "$GOMOVIE_QA_DIRECT_VIDEO_FILE"
+          test "$(stat -c %s "$GOMOVIE_QA_DIRECT_VIDEO_FILE")" -lt 1048576
+          # Resumable upload intentionally exceeds 2 MiB and spans three chunks.
+          truncate -s 2097199 "$GOMOVIE_QA_VIDEO_FILE"
           file --mime-type "$GOMOVIE_QA_VIDEO_FILE"
       - name: Start loopback-only Laravel fixture
         run: |
@@ -77,6 +84,17 @@ jobs:
       - name: Run real Chromium desktop and mobile-emulation upload workflows
         run: |
           node tests/browser/upload-studio-real-browser.mjs
+      - name: Capture isolated Laravel error when browser acceptance fails
+        if: failure()
+        run: |
+          if [ -f storage/logs/laravel.log ]; then
+            echo "========== ISOLATED LARAVEL ERROR =========="
+            tail -n 95 storage/logs/laravel.log
+          fi
+          echo "========== ISOLATED WEB SERVER =========="
+          if [ -f /tmp/gomovie-browser-qa-server.log ]; then
+            tail -n 45 /tmp/gomovie-browser-qa-server.log
+          fi
       - name: Upload sanitized visual evidence
         if: always()
         uses: actions/upload-artifact@v4
