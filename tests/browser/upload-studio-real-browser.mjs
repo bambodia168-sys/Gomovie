@@ -22,8 +22,16 @@ async function login(page){
     page.waitForURL(u=>u.pathname==='/dashboard',{timeout:20000}),
     page.getByRole('button',{name:/Sign in/i}).click()
   ]);
-  await page.goto(origin+'/upload-studio',{waitUntil:'domcontentloaded'});
-  await page.locator('#quick-upload-form').waitFor({state:'visible'});
+  const uploadResponse=await page.goto(origin+'/upload-studio',{waitUntil:'domcontentloaded'});
+  const httpStatus=uploadResponse?.status()||0;
+  const formCount=await page.locator('#quick-upload-form').count();
+  if(httpStatus!==200 || formCount!==1){
+    const heading=(await page.locator('h1').allTextContents()).slice(0,2).join(' | ');
+    throw new Error('Isolated upload page unavailable: status='+httpStatus+
+      ' url='+new URL(page.url()).pathname+' heading='+heading+
+      ' formCount='+formCount);
+  }
+  await page.locator('#quick-upload-form').waitFor({state:'visible',timeout:5000});
 }
 async function setFile(page,label){
   await page.locator('#video-title').fill('Browser QA '+label);
