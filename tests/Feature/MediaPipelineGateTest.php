@@ -92,7 +92,8 @@ class MediaPipelineGateTest extends TestCase
                 'status'=>'published','is_premium'=>false]);
             DB::table('content_rights')->insert([
                 'licensable_type'=>'movie','licensable_id'=>$movie->id,
-                'status'=>'active','territories'=>null,'created_at'=>now(),'updated_at'=>now(),
+                'status'=>'active','rights_reference'=>'QA-LICENSE-MEDIA-PIPELINE-1',
+                'territories'=>null,'created_at'=>now(),'updated_at'=>now(),
             ]);
             $id = DB::table('media_ingests')->insertGetId([
                 'ingestable_type'=>'movie','ingestable_id'=>$movie->id,
