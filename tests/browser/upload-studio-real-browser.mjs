@@ -44,6 +44,7 @@ for (const target of [
   await check(target.label+'-login-responsive',async()=>{
     await login(page);
     await setFile(page,target.label);
+    if(await page.locator('#upload-resumable').count()) await page.locator('#upload-resumable').uncheck();
     const bounds=await page.locator('.card.content').boundingBox();
     assert.ok(bounds?.width>250);
     const size=await page.evaluate(()=>({viewport:innerWidth,scroll:document.documentElement.scrollWidth}));
@@ -76,6 +77,53 @@ for (const target of [
     assert.match(await page.locator('#progress-text').innerText(),/Upload saved in private storage/);
     assert.match(await page.locator('#result-status').innerText(),/Private|quarantine/i);
     await page.screenshot({path:artifactDir+'/'+target.label+'-private-receipt.png',fullPage:true});
+  });
+  await context.close();
+}
+
+// In the milestone-2 isolated fixture, use actual HTTP chunk requests and
+// real Chromium page reloads, not just mocked DOM/XHR state transitions.
+for(const target of [
+  {label:'desktop-resume',options:{viewport:{width:1440,height:900}}},
+  {label:'mobile-resume',options:{...devices['iPhone 13']}}
+]){
+  const context=await browser.newContext({...target.options,baseURL:origin});
+  const page=await context.newPage();
+  await check(target.label+'-real-interruption-reload-and-resume',async()=>{
+    await login(page);
+    const checkbox=page.locator('#upload-resumable');
+    assert.equal(await checkbox.count(),1,'Resumable switch must be enabled only in isolated QA.');
+    assert.equal(await checkbox.isChecked(),true);
+    await setFile(page,'resumable-'+target.label);
+    let requests=0;
+    await page.route('**/upload-studio/resumable/*/chunks',async route=>{
+      requests++;
+      if(requests===2)await route.abort('failed');
+      else await route.continue();
+    });
+    await page.locator('#video-submit').click();
+    await page.locator('#upload-retry').waitFor({state:'visible',timeout:30000});
+    assert.ok(requests>=2,'Test video must cover multiple chunks.');
+    assert.match(await page.locator('#upload-retry').innerText(),/Resume upload/);
+    const pointer=await page.evaluate(()=>JSON.parse(sessionStorage.getItem('gomovie.resumable.v2')||'null'));
+    assert.ok(pointer?.id,'Interrupted upload must persist a resumable session pointer.');
+    const current=await page.evaluate(async id=>{
+      const resp=await fetch('/upload-studio/resumable/'+encodeURIComponent(id),{credentials:'same-origin'});
+      assert.ok(resp.ok);
+      return resp.json();
+    },pointer.id);
+    assert.equal(current.status,'uploading');
+    assert.ok(current.received_bytes>0 && current.received_bytes<current.size_bytes,
+      'Browser should resume from a real confirmed partial chunk offset.');
+    await page.unrouteAll({behavior:'wait'});
+    await page.reload({waitUntil:'domcontentloaded'});
+    await setFile(page,'resumable-'+target.label);
+    await page.locator('#video-submit').click();
+    await page.locator('#upload-result').waitFor({state:'visible',timeout:90000});
+    assert.equal(await page.locator('#result-watch').isVisible(),false);
+    assert.match(await page.locator('#progress-text').innerText(),/Upload saved in private storage/);
+    assert.equal(await page.evaluate(()=>sessionStorage.getItem('gomovie.resumable.v2')),null);
+    await page.screenshot({path:artifactDir+'/'+target.label+'-confirmed.png',fullPage:true});
   });
   await context.close();
 }
