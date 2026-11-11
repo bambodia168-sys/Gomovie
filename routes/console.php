@@ -16,3 +16,7 @@ if (config('gomovie.queue_probes_enabled') === true) {
 }
 \Illuminate\Support\Facades\Schedule::command('gomovie:prune-queue-probes')
     ->dailyAt('03:15')->withoutOverlapping();
+
+// Only expired private chunk fragments; never original approved media.
+\Illuminate\Support\Facades\Schedule::command('gomovie:prune-resumable-uploads')
+    ->dailyAt('03:35')->withoutOverlapping();
