@@ -501,13 +501,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
       notify('Video saved privately.');
       startPoll();
       get('upload-result').scrollIntoView({behavior:'smooth',block:'center'});
-    }catch(error){
+    }catch(failure){
       if(completing){
         uncertainFailure('Finalization was interrupted.');
       }else{
         error(signal.aborted
           ? 'Upload paused. Select the same file and press Resume upload to continue from confirmed progress.'
-          : 'Upload interrupted: '+error.message+' Choose Resume upload to continue safely.');
+          : 'Upload interrupted: '+failure.message+' Choose Resume upload to continue safely.');
         retry.textContent='Resume upload';
         retry.hidden=false;
         review.hidden=true;
