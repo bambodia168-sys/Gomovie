@@ -9,6 +9,8 @@ use App\Models\Season;
 use App\Models\Episode;
 use App\Models\User;
 use App\Services\Media\AutomaticPublicationService;
+use App\Services\Media\MediaPackageInspector;
+use App\Services\Media\MediaPublicationReviewer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +81,10 @@ final class AutomaticPublicPlaybackTest extends TestCase
             ]);
         }
         $this->rights($type, (int) $target->id);
+        $approver = User::factory()->create();
+        $approver->forceFill(['role' => 'admin', 'is_active' => true, 'email_verified_at' => now()])->save();
+        $reviewer = User::factory()->create();
+        $reviewer->forceFill(['role' => 'admin', 'is_active' => true, 'email_verified_at' => now()])->save();
         $disk = Storage::disk('local');
         $sourceKey = 'ingests/2026/11/'.Str::uuid().'.mp4';
         $source = 'SYNTHETIC ORIGINAL VIDEO TEST BYTES';
@@ -86,7 +92,7 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->temp[] = dirname($sourceKey);
         $id = DB::table('media_ingests')->insertGetId([
             'ingestable_type' => $type, 'ingestable_id' => $target->id,
-            'uploaded_by' => $admin->id, 'approved_by' => $admin->id,
+            'uploaded_by' => $admin->id, 'approved_by' => $approver->id,
             'approved_at' => now(), 'security_scan_status' => 'clean',
             'rights_review_status' => 'verified',
             'disk' => 'local', 'object_key' => $sourceKey,
@@ -105,6 +111,10 @@ final class AutomaticPublicPlaybackTest extends TestCase
         DB::table('media_ingests')->where('id', $id)->update([
             'encoded_manifest_key' => $prefix.'/master.m3u8',
         ]);
+        $package = app(MediaPackageInspector::class)->inspect((int) $id, true);
+        app(MediaPublicationReviewer::class)->review((int) $id, $reviewer,
+            'QA-ORIGINAL-WORLDWIDE-1', 'QA-SCAN-REPORT-2026', 'QA-QUALITY-REPORT-2026',
+            $package['manifest_sha256']);
         return [$id, $target, $parent, $prefix];
     }
 
@@ -148,7 +158,7 @@ final class AutomaticPublicPlaybackTest extends TestCase
         app(AutomaticPublicationService::class)->process($id);
         $this->assertDatabaseHas('media_ingests', [
             'id' => $id, 'status' => 'quarantined',
-            'pipeline_error' => 'active_free_distribution_rights_required',
+            'pipeline_error' => 'independent_rights_and_publication_review_required',
         ]);
         $this->assertDatabaseCount('content_rights', 0);
         $this->assertDatabaseCount('media_assets', 0);
@@ -222,7 +232,7 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->get($url)->assertOk()->assertDontSee('data-public-hls-url=');
     }
 
-    public function test_isolated_synthetic_video_completes_automatic_scan_encode_publish_pipeline(): void
+    public function test_synthetic_video_cannot_self_approve_even_when_automatic_flags_are_enabled(): void
     {
         $ffmpeg = '/usr/bin/ffmpeg';
         $ffprobe = '/usr/bin/ffprobe';
@@ -277,20 +287,19 @@ final class AutomaticPublicPlaybackTest extends TestCase
         config()->set('gomovie.malware_scanner_binary', $scanner);
 
         try {
+            // Even enabling all hosting flags and supplying a synthetic clean
+            // scanner cannot automatically grant legal rights or self-approval.
             app(AutomaticPublicationService::class)->process((int) $id);
             $asset = app(AutomaticPublicationService::class)->readyAsset('movie', (int) $movie->id);
-            self::assertNotNull($asset);
+            self::assertNull($asset);
             $this->assertDatabaseHas('media_ingests', [
-                'id' => $id, 'status' => 'encoded',
-                'security_scan_status' => 'clean', 'rights_review_status' => 'verified',
+                'id' => $id, 'status' => 'quarantined',
+                'pipeline_error' => 'independent_rights_and_publication_review_required',
             ]);
             $this->assertDatabaseHas('movies', [
-                'id' => $movie->id, 'status' => 'published',
+                'id' => $movie->id, 'status' => 'draft',
             ]);
-            $this->actingAs(User::factory()->create())
-                ->get(route('public-hls.show', [
-                    'asset' => $asset->id, 'path' => 'master.m3u8',
-                ]))->assertOk();
+            $this->assertDatabaseCount('media_assets', 0);
         } finally {
             @unlink($scanner);
             @rmdir($scannerDir);
