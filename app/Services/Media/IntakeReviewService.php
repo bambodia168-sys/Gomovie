@@ -21,9 +21,13 @@ final class IntakeReviewService
         abort_unless(preg_match('/\A[a-zA-Z0-9][a-zA-Z0-9:._\/-]{7,179}\z/D', $rightsReference),
             422, 'Provide a valid documented rights reference (8–180 characters).');
 
+        abort_if(str_starts_with(strtoupper($rightsReference), 'OWNER-DECLARED-'), 403,
+            'Uploader declarations are not independently verified rights.');
         $ingest = DB::table('media_ingests')->where('id', $id)->first();
         abort_unless($ingest && $ingest->status === 'quarantined', 409,
             'Only quarantined uploads can be approved.');
+        abort_if((int) $operator->id === (int) $ingest->uploaded_by, 403,
+            'Ingest approver must differ from the uploader.');
         abort_unless(in_array($ingest->ingestable_type, ['movie', 'episode'], true), 422);
         $target = DB::table($ingest->ingestable_type === 'movie' ? 'movies' : 'episodes')
             ->where('id', $ingest->ingestable_id)->first();
@@ -77,6 +81,7 @@ final class IntakeReviewService
         DB::transaction(function () use ($id, $operator, $rightsReference, $ingest, $ip): void {
             $locked = DB::table('media_ingests')->where('id', $id)->lockForUpdate()->first();
             abort_unless($locked && $locked->status === 'quarantined'
+                && (int) $locked->uploaded_by !== (int) $operator->id
                 && hash_equals((string) $ingest->sha256, (string) $locked->sha256), 409,
                 'Upload changed during review.');
 
@@ -89,17 +94,10 @@ final class IntakeReviewService
                 ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))
                 ->exists();
 
-            if (!$rights) {
-                DB::table('content_rights')->insert([
-                    'licensable_type' => $locked->ingestable_type,
-                    'licensable_id' => $locked->ingestable_id,
-                    'rights_reference' => $rightsReference,
-                    'territories' => null,
-                    'status' => 'active',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+            // A scan approval must never mint a license from a free-text claim.
+            // A separately reviewed, active rights record is a prerequisite.
+            abort_unless($rights, 403,
+                'An independent active rights record is required before ingest approval.');
 
             DB::table('media_ingests')->where('id', $id)->update([
                 'status' => 'approved', 'security_scan_status' => 'clean',
