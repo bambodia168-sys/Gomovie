@@ -48,6 +48,21 @@ final class MediaPublicationWorkflowTest extends TestCase
             'rights_reference'=>'TEST-GLOBAL-LICENSE-1', 'territories'=>null,
             'status'=>'active', 'created_at'=>now(), 'updated_at'=>now(),
         ]);
+        $legalSubmitter = $this->admin();
+        $legalVerifier = $this->admin();
+        DB::table('rights_evidence')->insert([
+            'licensable_type'=>'movie', 'licensable_id'=>$movie->id,
+            'rights_reference'=>'TEST-GLOBAL-LICENSE-1',
+            'rights_holder'=>'Synthetic rights fixture','license_scope'=>'global',
+            'starts_at'=>now()->subDay(),'ends_at'=>now()->addDays(30),
+            'document_key'=>'rights-evidence/'.Str::uuid().'.pdf',
+            'document_sha256'=>str_repeat('a',64),'document_bytes'=>33,
+            'document_mime'=>'application/pdf','document_scanned_at'=>now(),
+            'submitted_by'=>$legalSubmitter->id,'status'=>'approved',
+            'reviewed_by'=>$legalVerifier->id,'reviewed_at'=>now(),
+            'review_reference'=>'QA-LEGAL-CHECK-2026',
+            'created_at'=>now(),'updated_at'=>now(),
+        ]);
         $disk = Storage::disk('local');
         $sourceKey = 'ingests/2026/11/'.Str::uuid().'.mp4';
         $sourceData = 'SYNTHETIC SOURCE, NOT PRODUCTION MEDIA';
