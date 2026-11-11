@@ -41,7 +41,7 @@ final class PrivateMediaStagingPublisher
             ->where('licensable_id', $ingest->ingestable_id)
             ->where('rights_reference', $review->rights_reference)
             ->where('status', 'active')
-            ->where('rights_reference', 'not like', 'OWNER-DECLARED-%')
+            ->whereRaw('LOWER(rights_reference) NOT LIKE ?', ['owner-declared-%'])
             ->whereNull('territories')
             ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
             ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))->exists();
