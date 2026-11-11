@@ -131,7 +131,7 @@ final class QuickUploadTest extends TestCase
         $result->assertCreated()
             ->assertJsonPath('ok', true)
             ->assertJsonPath('access', 'free')
-            ->assertJsonPath('will_publish_automatically', true);
+            ->assertJsonPath('will_publish_automatically', false);
 
         $movie = DB::table('movies')->sole();
         self::assertSame('My Original Short Film', $movie->title);
@@ -141,7 +141,7 @@ final class QuickUploadTest extends TestCase
         $rights = DB::table('content_rights')->sole();
         self::assertSame('movie', $rights->licensable_type);
         self::assertSame((int) $movie->id, (int) $rights->licensable_id);
-        self::assertSame('active', $rights->status);
+        self::assertSame('pending', $rights->status);
         self::assertNull($rights->territories);
         self::assertStringStartsWith('OWNER-DECLARED-', $rights->rights_reference);
         $this->assertDatabaseHas('admin_audit_events', [
@@ -154,8 +154,16 @@ final class QuickUploadTest extends TestCase
             'ingestable_id' => $movie->id,
             'status' => 'quarantined',
         ]);
-        Queue::assertPushed(AutoPublishUploadedVideo::class, 1);
+        Queue::assertNotPushed(AutoPublishUploadedVideo::class);
         $this->assertDatabaseCount('media_assets', 0);
+        self::assertFalse(app(\App\Services\Rights\GlobalRights::class)
+            ->allows('movie', (int) $movie->id));
+
+        // Even a legacy active declaration must never establish distribution rights.
+        DB::table('content_rights')->where('licensable_id', $movie->id)
+            ->update(['status' => 'active']);
+        self::assertFalse(app(\App\Services\Rights\GlobalRights::class)
+            ->allows('movie', (int) $movie->id));
     }
 
     public function test_private_video_requires_no_rights_record_and_does_not_launch_public_worker(): void
