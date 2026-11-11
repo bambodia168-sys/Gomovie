@@ -40,8 +40,15 @@ async function setFile(page,label){
   await page.locator('input[name="rights_confirmed"]').check();
 }
 async function check(name,cb){
-  try {await cb(); console.log('BROWSER_ACCEPTANCE='+name+':PASS');}
-  catch(error){failures++; console.error('BROWSER_ACCEPTANCE='+name+':FAIL',error);}
+  try {
+    await cb();
+    console.log('BROWSER_ACCEPTANCE='+name+':PASS');
+    return true;
+  } catch(error) {
+    failures++;
+    console.error('BROWSER_ACCEPTANCE='+name+':FAIL',error);
+    return false;
+  }
 }
 for (const target of [
   {label:'desktop',options:{viewport:{width:1440,height:900}}},
@@ -49,7 +56,7 @@ for (const target of [
 ]){
   const context=await browser.newContext({...target.options,baseURL:origin});
   const page=await context.newPage();
-  await check(target.label+'-login-responsive',async()=>{
+  const ready=await check(target.label+'-login-responsive',async()=>{
     await login(page);
     await setFile(page,target.label);
     if(await page.locator('#upload-resumable').count()) await page.locator('#upload-resumable').uncheck();
@@ -59,6 +66,7 @@ for (const target of [
     assert.ok(size.scroll<=size.viewport+4,'Horizontal overflow: '+JSON.stringify(size));
     await page.screenshot({path:artifactDir+'/'+target.label+'-ready.png',fullPage:true});
   });
+  if(!ready){await context.close();continue;}
   await check(target.label+'-validation-retry',async()=>{
     await page.route('**/upload-studio/quick',async route=>{
       await route.fulfill({status:422,contentType:'application/json',
