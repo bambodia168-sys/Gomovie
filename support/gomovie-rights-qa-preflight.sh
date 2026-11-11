@@ -27,7 +27,7 @@ fi
 echo '========== GOMOVIE RIGHTS ISOLATED QA PREFLIGHT =========='
 echo "MODE=$MODE"
 echo 'QA_ISOLATION=PATH_AND_ENV_CHECKED'
-PHP="$(command -v php)"
+PHP="$(printenv GOMOVIE_QA_PHP 2>/dev/null || command -v php || true)"
 [[ -x "$PHP" ]] || { echo 'BLOCKED: PHP executable not found.' >&2; exit 2; }
 "$PHP" -v | head -n1
 "$PHP" -m | grep -E '^(fileinfo|mbstring|openssl|pdo_mysql|pdo_pgsql|pdo_sqlite)$' | sort || true
@@ -45,7 +45,7 @@ for file in \
   esac
   echo "QA_SOURCE_PRESENT=$file"
 done
-CLAM="$(command -v clamscan || true)"
+CLAM="$(printenv GOMOVIE_QA_CLAMSCAN 2>/dev/null || command -v clamscan || true)"
 [[ -n "$CLAM" && -x "$CLAM" && "$(basename "$CLAM")" == clamscan ]] ||
   { echo 'BLOCKED: Actual executable clamscan required.' >&2; exit 3; }
 "$CLAM" --version
