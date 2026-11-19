@@ -101,16 +101,17 @@ class EpisodeStudioController extends Controller
     {
         $this->assertEpisode($series,$season,$episode);
         $this->requireAdministrator($request);
-        abort_unless($episode->status==='draft',422,'Archive published episodes rather than delete them.');
-        abort_if($episode->mediaAssets()->exists(),422,'Cannot delete episodes with video assets.');
-        abort_if(DB::table('media_ingests')->where('ingestable_type','episode')->where('ingestable_id',$episode->id)->exists(),
-            422,'Cannot delete episodes with staged ingests.');
-        abort_if(DB::table('content_rights')->where('licensable_type','episode')->where('licensable_id',$episode->id)->exists(),
-            422,'Cannot delete episodes with rights records.');
-        DB::transaction(function () use ($request,$episode): void {
-            $id=$episode->id;
+        DB::transaction(function () use ($request, $episode): void {
+            $episode = Episode::query()->lockForUpdate()->findOrFail($episode->id);
+            $id = $episode->id;
+            abort_unless($episode->status === 'draft', 422, 'Archive published episodes rather than delete them.');
+            abort_if($episode->mediaAssets()->exists(), 422, 'Cannot delete episodes with video assets.');
+            abort_if(DB::table('media_ingests')->where('ingestable_type', 'episode')->where('ingestable_id', $id)->exists(),
+                422, 'Cannot delete episodes with staged ingests.');
+            abort_if(DB::table('content_rights')->where('licensable_type', 'episode')->where('licensable_id', $id)->exists(),
+                422, 'Cannot delete episodes with rights records.');
             $episode->delete();
-            $this->audit($request,'episode.deleted',$id);
+            $this->audit($request, 'episode.deleted', $id);
         });
         return back()->with('status','Draft episode deleted.');
     }

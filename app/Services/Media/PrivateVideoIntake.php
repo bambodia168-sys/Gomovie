@@ -2,6 +2,7 @@
 
 namespace App\Services\Media;
 
+use App\Support\SiteSettings;
 use App\Jobs\MirrorPrivateIngestToR2;
 use App\Jobs\AutoPublishUploadedVideo;
 use Illuminate\Http\UploadedFile;
@@ -51,12 +52,11 @@ final class PrivateVideoIntake
             abort(422, 'The private upload failed its integrity check.');
         }
 
-        $r2Enabled = config('gomovie.r2_enabled') === true
-            && is_string(config('gomovie.r2_bucket')) && config('gomovie.r2_bucket') !== ''
-            && preg_match('#\Ahttps://[a-f0-9]{32}\.r2\.cloudflarestorage\.com/?\z#D',
-                (string) config('gomovie.r2_endpoint'))
-            && filled(config('filesystems.disks.r2.key'))
-            && filled(config('filesystems.disks.r2.secret'));
+        $r2Enabled = SiteSettings::get('r2_enabled') === true
+            && is_string(SiteSettings::get('r2_bucket')) && SiteSettings::get('r2_bucket') !== ''
+            && preg_match(SiteSettings::R2_ENDPOINT, (string) SiteSettings::get('r2_endpoint'))
+            && filled(SiteSettings::get('r2_key'))
+            && filled(SiteSettings::get('r2_secret'));
 
         try {
             $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $actualSize, $r2Enabled): int {
@@ -104,8 +104,8 @@ final class PrivateVideoIntake
             }
         }
 
-        if ($autoPublish && config('gomovie.automatic_publication_enabled') === true
-            && config('gomovie.public_hls_enabled') === true) {
+        if ($autoPublish && SiteSettings::get('automatic_publication_enabled') === true
+            && SiteSettings::get('public_hls_enabled') === true) {
             try {
                 AutoPublishUploadedVideo::dispatch($id);
             } catch (Throwable $error) {

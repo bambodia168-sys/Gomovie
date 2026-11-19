@@ -82,3 +82,20 @@ Source-only operations described above have not modified any aaPanel or cPanel i
 Before installing onto a fresh **empty** database, run `php artisan gomovie:install-preflight --mode=install --json`. Before any upgrade, a consistent offline database/media/encrypted-config bundle and actual restoration test are mandatory. The verifier is `php artisan gomovie:recovery-check /secure/offline-bundle --json`; the upgrade check is `php artisan gomovie:install-preflight --mode=upgrade --recovery-bundle=/secure/offline-bundle --json`. See [installation and recovery](INSTALLATION_RECOVERY.md). The checker does not apply migrations, touch live data or assert a recovery drill passed.
 
 The media pipeline now supports independent recorded reviews and **private staging only**, gated behind `GOMOVIE_MEDIA_STAGING_ENABLED=false`. It never makes `media_assets` ready or exposes R2 objects via public URLs. The media dashboard shows review and staging state. See [media pipeline](MEDIA_PIPELINE.md).
+
+## Dashboard settings
+
+| Dashboard page | What it controls |
+| --- | --- |
+| Site Settings → Video processing | FFmpeg, optional high-resolution renditions, free HLS playback, automatic publication, and private package staging. **Test FFmpeg** runs FFmpeg and FFprobe from the dashboard's web process and shows their versions. |
+| Site Settings → Cloud storage | Private Cloudflare R2 backup, bucket, S3 endpoint, and credentials. |
+| Site Settings → TMDB | Metadata import and its read access token. |
+| Site Settings → Private playback | Playback edge URL, signing keys, and the private playback switch. Configure the matching keys on the edge as well. |
+| Site Settings → Queue alerts | Scheduled queue checks and alerts in System Health. The host's Laravel scheduler runs the checks. |
+| Player Settings | Default player, control appearance and behavior, and optional video advertising. |
+| Appearance | Site name, light and dark logos, site icon, frontend text, pages, and typography. |
+| Distribution Rights | Worldwide rights records by movie or episode. Super administrators can add, edit, and revoke records. An Active record needs a real agreement reference. |
+
+The application uses server values until an administrator first saves the corresponding setting. A saved dashboard value takes precedence over the server value. Existing service credentials are retained when their replacement fields are left blank. Dashboard credentials are encrypted with the application key, which must be available when restoring the database.
+
+Install FFmpeg, FFprobe, ClamAV, and the isolated media worker on the host. Paths to executables, the queue connection, S3 staging credentials, the server scheduler, and installation configuration are host settings. A successful FFmpeg test confirms the web process can launch the binaries. An end-to-end encoding test also verifies the media worker and its output.

@@ -2,6 +2,7 @@
 
 namespace App\Services\Operations;
 
+use App\Support\SiteSettings;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -70,7 +71,7 @@ final class OperationalSnapshot
                             'seconds_ago'=>max(0,(int) \Illuminate\Support\Carbon::parse($last->processed_at)->diffInSeconds(now())),
                         ] : null;
                     }
-                    if (config('gomovie.queue_probes_enabled') === true) {
+                    if (SiteSettings::get('queue_probes_enabled') === true) {
                         foreach ($probes as $queue => $probe) {
                             if (!$probe || $probe['seconds_ago'] > 900) {
                                 $alerts[] = 'Queue processing probe is stale: '.$queue.'.';
@@ -91,7 +92,7 @@ final class OperationalSnapshot
         $checks['private_storage'] = is_dir($private) && is_writable($private) ? 'healthy' : 'unavailable';
         if ($checks['private_storage'] !== 'healthy') $alerts[] = 'Private media storage is not writable.';
 
-        if (config('gomovie.edge_enabled') === true) {
+        if (SiteSettings::get('edge_enabled') === true) {
             try {
                 // Read-only probe. No Redis check when private streaming is disabled.
                 Cache::store('redis')->get('gomovie:ops:readiness');
@@ -121,11 +122,11 @@ final class OperationalSnapshot
             'metrics'=>$metrics,
             'queue_probes'=>$probes,
             'feature_flags'=>[
-                'private_edge_enabled'=>config('gomovie.edge_enabled') === true,
-                'private_media_staging_enabled'=>config('gomovie.media_staging_enabled') === true,
-                'transcoding_enabled'=>config('gomovie.transcoding_enabled') === true,
+                'private_edge_enabled'=>SiteSettings::get('edge_enabled') === true,
+                'private_media_staging_enabled'=>SiteSettings::get('media_staging_enabled') === true,
+                'transcoding_enabled'=>SiteSettings::get('transcoding_enabled') === true,
                 'billing_enabled'=>config('gomovie.billing_enabled') === true,
-                'queue_probes_enabled'=>config('gomovie.queue_probes_enabled') === true,
+                'queue_probes_enabled'=>SiteSettings::get('queue_probes_enabled') === true,
             ],
             'alerts'=>$alerts,
             'production_release_accepted'=>false,

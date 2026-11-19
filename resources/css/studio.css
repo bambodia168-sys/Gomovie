@@ -78,6 +78,17 @@
 .gm-pager-goto input{width:62px;min-height:34px;background:#0f1018;border:1px solid #4a4956;border-radius:8px;color:white;text-align:center}
 .gm-pager-goto button{min-height:34px;border-radius:8px;background:#2b2d38;border:1px solid #4a4956;padding:7px 12px;color:#fff;cursor:pointer}
 .gm-studio-modal{border:1px solid #5b5067;background:#191925;color:#f8f7fc;border-radius:18px;padding:0;width:min(570px,calc(100vw - 32px));max-height:90vh;box-shadow:0 32px 90px #000c}
+/* Keep workspace dialogs centered after the CSS reset and scroll their fields. */
+dialog.gm-studio-modal[open]{position:fixed;inset:0;margin:auto;height:fit-content;max-height:calc(100dvh - 24px);overflow:auto}
+.gm-studio-modal > form{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:calc(100dvh - 26px)}
+.gm-studio-modal > form > .gm-studio-modal-body{max-height:none;min-height:0;overscroll-behavior:contain}
+dialog.gm-player-settings-dialog[open]{width:min(680px,calc(100% - 24px))}
+.gm-player-settings-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+@media(max-width:540px){
+  .gm-player-settings-fields{grid-template-columns:1fr}
+  .gm-studio-modal-heading,.gm-studio-modal-body{padding:14px}
+  .gm-studio-modal-actions{padding:10px 14px;gap:6px}
+}
 .gm-studio-modal::backdrop{background:#02020bc9;backdrop-filter:blur(6px)}
 .gm-studio-modal-heading{display:flex;align-items:center;justify-content:space-between;padding:19px 22px;border-bottom:1px solid #ffffff1c}
 .gm-studio-modal-heading h3{font-size:18px;font-weight:850}
@@ -95,3 +106,55 @@
 @media(max-width:1150px){.gm-studio-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.gm-account-shell{grid-template-columns:210px minmax(0,1fr)}}
 @media(max-width:800px){.gm-account-shell{grid-template-columns:1fr;gap:15px;padding:17px 0}.gm-account-nav{position:static!important}.gm-account-nav>a{display:inline-flex;margin:3px 2px}.gm-account-shell .gm-account-identity{padding-bottom:12px}.gm-studio-shell .gm-studio-sidebar{display:none;position:fixed;z-index:120;left:0;top:0;box-shadow:0 0 0 100vmax #0009}.gm-studio-shell .gm-studio-sidebar.is-open{display:flex}.gm-studio-shell main{padding:18px}.gm-studio-shell .gm-studio-topbar{padding:16px}}
 @media(max-width:540px){.gm-studio-metrics{grid-template-columns:1fr 1fr;gap:9px}.gm-studio-metric{padding:14px}.gm-studio-metric strong{font-size:26px}.gm-studio-modal-actions{flex-wrap:wrap}.gm-studio-pager{align-items:flex-start}.gm-account-shell .gm-account-nav{padding:10px}}
+
+.gm-site-settings{max-width:1100px;margin-inline:auto}
+.gm-site-settings .gm-page-heading{margin-bottom:10px}
+.gm-site-settings-nav{margin-bottom:9px}
+.gm-site-settings [id]{scroll-margin-top:86px}
+.gm-site-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px;align-items:start}
+.gm-site-setting-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;padding:15px 20px}
+.gm-site-setting-row + .gm-site-setting-row{border-top:1px solid var(--studio-line)}
+.gm-site-setting-row label{font-size:14px;font-weight:700;cursor:pointer}
+.gm-site-setting-row p,.gm-site-setting-result small{margin-top:3px;font-size:12px;line-height:1.5;color:var(--studio-subtle)}
+.gm-site-setting-control{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--studio-subtle)}
+.gm-site-setting-control span{width:20px}
+.gm-site-setting-control span::before{content:"Off"}
+.gm-site-setting-switch{appearance:none;display:grid;align-items:center;width:42px;height:26px;border-radius:99px;padding:2px;border:1px solid #606375;background:#393b49;cursor:pointer}
+.gm-site-setting-switch::before{content:"";width:18px;height:18px;border-radius:50%;background:#fff}
+.gm-site-setting-switch:checked{background:#06694e;border-color:#269e7c}
+.gm-site-setting-switch:checked::before{justify-self:end}
+.gm-site-setting-switch:checked + span::before{content:"On"}
+.gm-site-setting-switch:focus-visible{outline:2px solid var(--studio-gold);outline-offset:3px}
+.gm-site-setting-fields{display:grid;gap:12px;padding-top:4px}
+.gm-site-setting-fields .gm-studio-field{margin-bottom:0}
+.gm-site-setting-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;border-top:1px solid var(--studio-line);padding:13px 19px}
+.gm-site-setting-result{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--studio-line);font-size:13px}
+@media(max-width:980px){.gm-site-settings-grid{grid-template-columns:1fr}}
+@media(max-width:540px){
+  .gm-site-settings .gm-page-actions{margin-left:0;justify-content:flex-start}
+  .gm-site-setting-row,.gm-site-setting-result,.gm-site-setting-actions{padding-inline:14px}
+}
+.gm-branding-preview{display:block;width:100%;height:58px;object-fit:contain;object-position:left center;padding:6px 10px;margin-bottom:8px;border-radius:8px;background:#0d0e16}
+.gm-branding-preview.is-light{background:#edf0f6}
+
+html.light .gm-workspace-shell .gm-page-heading :is(h1,h2){color:#202939}
+html.light .gm-workspace-shell .gm-page-heading p,
+html.light .gm-workspace-shell .gm-studio-panel-head small,
+html.light .gm-workspace-shell .gm-studio-field > span,
+html.light .gm-workspace-shell .gm-studio-field > label > span{color:#505c70}
+html.light .gm-workspace-shell .gm-studio-subnav a,
+html.light .gm-workspace-shell .gm-studio-button:not(.is-primary){color:#253146;background:#fff;border-color:#cbd3e1}
+html.light .gm-workspace-shell .gm-studio-subnav a:hover,
+html.light .gm-workspace-shell .gm-studio-button:not(.is-primary):hover{background:#edf1f8}
+html.light .gm-workspace-shell .gm-studio-subnav a.is-current{color:#9d1734;background:#fff0f4;border-color:#d65370}
+html.light .gm-workspace-shell .gm-studio-button.is-primary{background:#c61c42;border-color:#c61c42}
+html.light .gm-workspace-shell .gm-studio-button.is-primary:hover{background:#a91535}
+html.light .gm-workspace-shell .gm-studio-button.is-danger{color:#a91535;border-color:#d997a9}
+html.light .gm-workspace-shell .gm-studio-input,
+html.light .gm-workspace-shell .gm-studio-modal{color:#202939;background:#fff;border-color:#cbd3e1}
+html.light .gm-workspace-shell .gm-studio-input::placeholder{color:#606c81}
+html.light .gm-workspace-shell .gm-studio-modal-heading,
+html.light .gm-workspace-shell .gm-studio-modal-actions{border-color:#dce0ea}
+html.light .gm-workspace-shell .gm-studio-pill{color:#485670;background:#edf1f8;border-color:#d2dae8}
+html.light .gm-workspace-shell .gm-studio-pill.is-ok{color:#075a45;background:#e7f7f0;border-color:#9bd5c2}
+html.light .gm-workspace-shell .gm-studio-pill.is-warn{color:#774801;background:#fff2d7;border-color:#dfc185}

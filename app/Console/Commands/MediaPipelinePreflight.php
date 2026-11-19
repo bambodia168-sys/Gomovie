@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\SiteSettings;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
@@ -16,16 +17,16 @@ class MediaPipelinePreflight extends Command
         $ffmpeg = (string) config('gomovie.ffmpeg_binary', '/usr/bin/ffmpeg');
         $ffprobe = (string) config('gomovie.ffprobe_binary', '/usr/bin/ffprobe');
         $checks = [
-            'transcoding_enabled' => config('gomovie.transcoding_enabled') === true,
+            'transcoding_enabled' => SiteSettings::get('transcoding_enabled') === true,
             'private_storage_writable' => is_dir($localRoot) && is_writable($localRoot),
             'ffmpeg_available' => str_starts_with($ffmpeg, '/') && is_file($ffmpeg) && is_executable($ffmpeg),
             'ffprobe_available' => str_starts_with($ffprobe, '/') && is_file($ffprobe) && is_executable($ffprobe),
             'media_queue_isolated' => in_array(config('gomovie.media_queue_connection'),['database_media','redis_media'],true),
             'media_retry_after_safe' => (int) config('queue.connections.'.config('gomovie.media_queue_connection').'.retry_after',0) > 7500,
-            'edge_enabled' => config('gomovie.edge_enabled') === true,
-            'media_edge_https' => str_starts_with((string) config('gomovie.media_edge_url'), 'https://'),
-            'media_signing_key_configured' => strlen((string) config('gomovie.media_signing_key')) >= 32,
-            'edge_shared_key_configured' => strlen((string) config('gomovie.edge_shared_key')) >= 32,
+            'edge_enabled' => SiteSettings::get('edge_enabled') === true,
+            'media_edge_https' => str_starts_with((string) SiteSettings::get('media_edge_url'), 'https://'),
+            'media_signing_key_configured' => strlen((string) SiteSettings::get('media_signing_key')) >= 32,
+            'edge_shared_key_configured' => strlen((string) SiteSettings::get('edge_shared_key')) >= 32,
             'billing_disabled' => config('gomovie.billing_enabled') !== true,
         ];
         $ready = !in_array(false, $checks, true);

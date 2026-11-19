@@ -1,10 +1,12 @@
 import Hls from 'hls.js';
+import {createVideoAds} from './player-ads.js';
 
 // Playback is only granted by the authenticated API and approved private edge.
 const root = document.querySelector('[data-gomovie-player]');
 
 if (root) {
     const video = root.querySelector('video');
+    const ads = createVideoAds(root, video);
     const status = root.querySelector('[data-playback-status]');
     const stopButton = root.querySelector('[data-stop-playback]');
     const retryButton = root.querySelector('[data-retry-playback]');
@@ -28,6 +30,8 @@ if (root) {
     let requestGeneration = 0;
     let playing = null;
     let nextSeconds = 7;
+    let sourceReady = false;
+    let playWhenReady = false;
 
     let nextUrl = null;
     if (root.dataset.nextUrl) {
@@ -72,6 +76,8 @@ if (root) {
     }
 
     function clearPlayback() {
+        sourceReady = false;
+        playWhenReady = false;
         if (instance) {
             instance.destroy();
             instance = null;
@@ -122,6 +128,10 @@ if (root) {
     });
 
     function attemptPlay() {
+        if (!sourceReady) {
+            playWhenReady = true;
+            return;
+        }
         const result = video.play();
         result?.catch(() => setStatus('Playback is ready. Press play to continue.'));
     }
@@ -137,8 +147,13 @@ if (root) {
         else video.addEventListener('loadedmetadata', seek, {once: true});
     }
 
-    function attach(url, seekPosition = 0) {
+    function attach(url, seekPosition = 0, autoPlay = true, newPlayback = false) {
         clearPlayback();
+        const ready = () => {
+            sourceReady = true;
+            if (newPlayback && ads) ads.start(attemptPlay);
+            else if ((autoPlay || playWhenReady) && !ads?.blocksPlayback) attemptPlay();
+        };
         if (Hls.isSupported()) {
             const hls = new Hls({
                 enableWorker: true,
@@ -148,6 +163,7 @@ if (root) {
             instance = hls;
             hls.on(Hls.Events.ERROR, (_event, data) => {
                 if (instance !== hls || !data.fatal) return;
+                ads?.stop();
                 setStatus('Playback interrupted. Retry to request a fresh secure session.');
                 setRetry(true);
                 cancelNext();
@@ -158,7 +174,7 @@ if (root) {
                 reportSubtitles(hls);
                 applySeek(seekPosition);
                 if (speedSelect) video.playbackRate = Number(speedSelect.value) || 1;
-                attemptPlay();
+                ready();
             });
             hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
                 if (instance === hls) reportSubtitles(hls);
@@ -170,7 +186,7 @@ if (root) {
             video.addEventListener('loadedmetadata', () => {
                 applySeek(seekPosition);
                 if (speedSelect) video.playbackRate = Number(speedSelect.value) || 1;
-                attemptPlay();
+                ready();
             }, {once: true});
         } else {
             throw new Error('Adaptive playback is not supported by this browser.');
@@ -178,6 +194,7 @@ if (root) {
     }
 
     async function stopCurrent() {
+        ads?.stop();
         window.clearInterval(heartbeatTimer);
         heartbeatTimer = null;
         const oldSession = session;
@@ -204,13 +221,10 @@ if (root) {
             if (!Number.isFinite(newExpiry)) throw new Error('Playback renewal failed.');
 
             // Manifest and signed segment URLs must be refreshed before expiry.
-            if (Date.now() >= loadedExpiry - 45000) {
+            if (!video.ended && Date.now() >= loadedExpiry - 45000) {
                 const seek = Number.isFinite(video.currentTime) ? video.currentTime : 0;
-                const wasPaused = video.paused;
-                attach(grant.playback_url, seek);
-                if (wasPaused) {
-                    video.addEventListener('playing', () => video.pause(), {once: true});
-                }
+                // Refresh the authorized source quietly if content is paused for an ad.
+                attach(grant.playback_url, seek, !video.paused);
                 loadedExpiry = newExpiry;
             }
         } catch (error) {
@@ -232,13 +246,19 @@ if (root) {
         setRetry(false);
 
         try {
-            await stopCurrent();
+            const stopping = stopCurrent();
+            // IMA needs the original Play gesture before async HLS or token work.
+            ads?.waitForStart();
+            if (navigator.userActivation?.isActive) {
+                try { ads?.prime(); } catch { /* An unavailable ad SDK does not block the video. */ }
+            }
+            await stopping;
             if (generation !== requestGeneration) return;
             if (publicHlsUrl) {
                 if (!publicHlsUrl.startsWith('/hls/')) throw new Error('Invalid public playback source.');
                 setStatus('Loading free public playback…');
                 stopButton.hidden = false;
-                attach(publicHlsUrl);
+                attach(publicHlsUrl, 0, true, true);
                 setStatus('Free video ready to watch.');
                 return;
             }
@@ -250,7 +270,7 @@ if (root) {
             session = grant.session_id;
             loadedExpiry = Date.parse(grant.expires_at);
             stopButton.hidden = false;
-            attach(grant.playback_url);
+            attach(grant.playback_url, 0, true, true);
             setStatus('Secure streaming session active.');
             heartbeatTimer = window.setInterval(() => heartbeat(generation), 30000);
         } catch (error) {
@@ -323,9 +343,13 @@ if (root) {
         if (playing) void begin(playing.type, playing.titleId);
     });
 
-    video.addEventListener('ended', prepareNext);
+    video.addEventListener('ended', () => {
+        if (ads) ads.contentComplete(prepareNext);
+        else prepareNext();
+    });
     video.addEventListener('error', () => {
         if (!session && !publicHlsUrl) return;
+        ads?.stop();
         setStatus('The video could not be decoded. Retry or choose a different title.');
         setRetry(true);
         cancelNext();
@@ -576,6 +600,7 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
         feedbackTimer = window.setTimeout(() => { feedback.hidden = true; }, 3300);
     };
     const togglePlay = async () => {
+        if (root.classList.contains('is-ima-linear')) return;
         if (video.paused || video.ended) {
             if (secure && !video.currentSrc && !video.src) {
                 // Stream token issuance and expiry remain wholly inside
@@ -858,6 +883,7 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     if (stage) {
         stage.setAttribute('tabindex', '0');
         stage.addEventListener('keydown', event => {
+            if (root.classList.contains('is-ima-linear')) return;
             const target = event.target;
             if (target && /INPUT|BUTTON|SELECT|TEXTAREA/.test(target.tagName)) return;
             if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -963,4 +989,10 @@ document.querySelectorAll('[data-modern-player]').forEach((root) => {
     detectOrientation();
     syncFullscreen();
     if (volumePercent) volumePercent.textContent = Math.round(video.volume * 100) + '%';
+
+    if (root.dataset.gomovieEngine === 'plyr') {
+        import('./plyr-player.js')
+            .then(({mountPlyr}) => mountPlyr(root, video, ui, stage, togglePlay))
+            .catch(() => { /* The current GoMovie controls remain available. */ });
+    }
 });

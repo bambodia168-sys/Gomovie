@@ -17,7 +17,7 @@
     <div class="gm-watch-login-content">
       <button type="button" class="gm-watch-login-close" aria-label="Close sign in"
               @click="$refs.watchLogin.close()">×</button>
-      <img src="{{ asset('apple-touch-icon.png') }}" width="54" height="54" alt="" class="gm-watch-login-mark">
+      <img src="{{ \App\Support\SiteSettings::brandAsset('site_icon', 'apple-touch-icon.png') }}" width="54" height="54" alt="" class="gm-watch-login-mark">
       <h2 id="gm-watch-login-title">Sign in to continue watching</h2>
       <p class="gm-watch-login-description">{{ $title->title }} · Your viewing will resume on this page after sign-in.</p>
       @if($errors->any())

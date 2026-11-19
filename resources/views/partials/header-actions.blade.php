@@ -92,7 +92,7 @@
           <button type="submit" class="gm-menu-link gm-menu-signout">@include('partials.studio-icon',['name'=>'external']) {{ \App\Support\StudioNavigation::word('sign_out') }}</button>
         </form>
       @else
-        <div class="gm-menu-title">Welcome to Go Movie</div>
+        <div class="gm-menu-title">Welcome to {{ \App\Support\SiteSettings::get('site_name') }}</div>
         <a class="gm-menu-link" href="{{ route('login') }}">@include('partials.studio-icon',['name'=>'home']) {{ \App\Support\StudioNavigation::word('sign_in') }}</a>
         <a class="gm-menu-link gm-menu-primary" href="{{ route('register') }}">@include('partials.studio-icon',['name'=>'plus']) {{ \App\Support\StudioNavigation::word('sign_up') }}</a>
         <div class="gm-menu-divider"></div>

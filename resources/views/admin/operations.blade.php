@@ -2,9 +2,9 @@
 @section('title','System Health')
 @section('content')
 <div class="gm-page-heading">
-  <div><p class="text-xs font-bold uppercase tracking-widest text-[#F5C518]">Operations / Read-only</p>
+  <div>
     <h2>Application health</h2>
-    <p class="mt-3 text-sm text-zinc-400">Database, queues, storage and integration safety checks. This view does not approve production release.</p>
+    <p>Check database, queue, storage, and service status.</p>
   </div>
   <div class="gm-page-actions"><span class="gm-studio-pill">Checked {{ $snapshot['checked_at'] }}</span><a href="{{ route('admin.operations.index') }}" class="gm-studio-button">@include('partials.studio-icon',['name'=>'history']) Refresh checks</a></div>
 </div>
@@ -50,13 +50,15 @@
     </dl>
   </section>
   <section class="rounded-2xl border border-white/10 bg-zinc-900/65 p-6">
-    <h3 class="text-lg font-semibold">Integration safety switches</h3>
-    <p class="mt-2 text-xs text-zinc-400">Read-only status. Enable only after independent acceptance.</p>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-lg font-semibold">Feature status</h3>
+      <a class="gm-studio-button" href="{{ route('admin.site-settings.edit') }}">Edit site settings</a>
+    </div>
     <dl class="mt-6 space-y-4">
-    @foreach($snapshot['feature_flags'] as $name=>$enabled)
+    @foreach(collect($snapshot['feature_flags'])->except('billing_enabled') as $name=>$enabled)
       <div class="flex items-center justify-between gap-3 border-t border-white/10 pt-4">
         <dt class="text-sm capitalize">{{ str_replace('_',' ',$name) }}</dt>
-        <dd class="text-xs {{ $enabled ? 'text-[#F5C518]' : 'text-zinc-400' }}">{{ $enabled ? 'Enabled' : 'Disabled' }}</dd>
+        <dd class="text-xs {{ $enabled ? 'text-[#F5C518]' : 'text-zinc-400' }}">{{ $enabled ? 'On' : 'Off' }}</dd>
       </div>
     @endforeach
     </dl>

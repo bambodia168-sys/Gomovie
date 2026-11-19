@@ -2,6 +2,7 @@
 
 namespace App\Services\Media;
 
+use App\Support\SiteSettings;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -13,7 +14,7 @@ final class TranscodeGate
      */
     public function validate(int $ingestId): object
     {
-        abort_unless(config('gomovie.transcoding_enabled') === true, 503,
+        abort_unless(SiteSettings::get('transcoding_enabled') === true, 503,
             'Private transcoding is disabled until operational acceptance.');
 
         $ingest = DB::table('media_ingests')->where('id', $ingestId)->first();

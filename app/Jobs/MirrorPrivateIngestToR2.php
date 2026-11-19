@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Support\SiteSettings;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -25,9 +26,9 @@ final class MirrorPrivateIngestToR2 implements ShouldQueue
 
     public function handle(): void
     {
-        abort_unless(config('gomovie.r2_enabled') === true, 503, 'Cloud storage is disabled.');
-        abort_unless(preg_match('#\Ahttps://[a-f0-9]{32}\.r2\.cloudflarestorage\.com/?\z#D',
-            (string) config('gomovie.r2_endpoint')), 503, 'Invalid R2 endpoint.');
+        abort_unless(SiteSettings::get('r2_enabled') === true, 503, 'Cloud storage is disabled.');
+        abort_unless(preg_match(SiteSettings::R2_ENDPOINT,
+            (string) SiteSettings::get('r2_endpoint')), 503, 'Invalid R2 endpoint.');
 
         $ingest = DB::table('media_ingests')->where('id', $this->ingestId)->first();
         abort_unless($ingest, 404);
@@ -55,7 +56,7 @@ final class MirrorPrivateIngestToR2 implements ShouldQueue
         if (!is_resource($stream)) throw new RuntimeException('Cannot read source file.');
 
         try {
-            $cloud = Storage::disk('r2');
+            $cloud = SiteSettings::r2Disk();
             if (!$cloud->put($key, $stream, ['visibility' => 'private'])) {
                 throw new RuntimeException('Private R2 mirror failed.');
             }

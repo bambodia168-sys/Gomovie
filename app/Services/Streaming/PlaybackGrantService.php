@@ -2,6 +2,7 @@
 
 namespace App\Services\Streaming;
 
+use App\Support\SiteSettings;
 use App\Models\Episode;
 use App\Models\MediaAsset;
 use App\Models\Movie;
@@ -117,10 +118,10 @@ class PlaybackGrantService
 
     private function assertEdgeConfigured(): void
     {
-        $edge = (string) config('gomovie.media_edge_url');
-        $key = (string) config('gomovie.media_signing_key');
-        abort_unless(config('gomovie.edge_enabled') === true && str_starts_with($edge, 'https://') && strlen($key) >= 32
-            && strlen((string) config('gomovie.edge_shared_key')) >= 32,
+        $edge = (string) SiteSettings::get('media_edge_url');
+        $key = (string) SiteSettings::get('media_signing_key');
+        abort_unless(SiteSettings::get('edge_enabled') === true && str_starts_with($edge, 'https://') && strlen($key) >= 32
+            && strlen((string) SiteSettings::get('edge_shared_key')) >= 32,
             503, 'Private streaming edge is not configured.');
     }
 
@@ -132,7 +133,7 @@ class PlaybackGrantService
 
         $expires = now()->addSeconds(max(30, min(300, (int) config('gomovie.stream_token_ttl', 120))))->timestamp;
         $payload = implode("\n", ['gomovie-hls-v1', $key, $user->id, $profile->id, $sessionId, $expires]);
-        $signature = hash_hmac('sha256', $payload, (string) config('gomovie.media_signing_key'));
+        $signature = hash_hmac('sha256', $payload, (string) SiteSettings::get('media_signing_key'));
         $path = implode('/', array_map('rawurlencode', explode('/', $key)));
         $query = http_build_query([
             'v' => 1, 'uid' => $user->id, 'pid' => $profile->id,
@@ -141,7 +142,7 @@ class PlaybackGrantService
 
         return [
             'session_id' => $sessionId,
-            'playback_url' => rtrim((string) config('gomovie.media_edge_url'), '/').'/'.$path.'?'.$query,
+            'playback_url' => rtrim((string) SiteSettings::get('media_edge_url'), '/').'/'.$path.'?'.$query,
             'expires_at' => gmdate(DATE_ATOM, $expires),
             'heartbeat_after_seconds' => 30,
         ];

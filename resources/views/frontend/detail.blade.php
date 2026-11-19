@@ -9,6 +9,9 @@
   // The player chooses Auto from actual video metadata unless view was explicitly requested.
   $requestedMode=in_array(request()->query('view'), ['portrait','widescreen'], true)
       ? request()->query('view') : 'auto';
+  $usePlyr = $playerPreferences['engine'] === 'plyr';
+  $adTag = !$title->is_premium && (($publicAsset && $viewerAuthorized) || ($playerEnabled && $publicWatchId > 0))
+      ? $playerPreferences['ad_tag_url'] : null;
 @endphp
 <div class="gm-watch-layout">
   <div class="gm-watch-main">
@@ -21,13 +24,16 @@
         @if($publicAsset && $viewerAuthorized)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
                data-gomovie-player data-public-hls-url="{{ route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false) }}"
-               data-profile-id="0" data-modern-player
+               data-profile-id="0" data-modern-player data-gomovie-engine="{{ $playerPreferences['engine'] }}"
                data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
                data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"
                style="--gm-player-accent:{{ \App\Support\PlayerPreferences::accentColor($playerPreferences) }}">
             <video playsinline controls preload="none" aria-label="Gomovie public free video"
                    @if($still) poster="{{ $still }}" @endif></video>
             @include('frontend.partials.modern-player-controls', ['secure' => true])
+            @if($adTag)
+              <div class="gm-ima-ads" data-gm-ima-tag="{{ $adTag }}" role="group" aria-label="Video advertisement"></div>
+            @endif
             <div class="gm-player-controls">
               <button type="button" data-play-type="{{ $type === 'movie' ? 'movie' : 'episode' }}"
                       data-play-id="{{ $publicWatchId }}" class="gm-button gm-button-primary">▶ Watch now</button>
@@ -40,7 +46,7 @@
           @include('frontend.partials.guest-watch-signin')
         @elseif($privatePreviewIngest && !$playerEnabled)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
-               data-gomovie-private-preview data-modern-player
+               data-gomovie-private-preview data-modern-player data-gomovie-engine="{{ $playerPreferences['engine'] }}"
                data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
                data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"
                style="--gm-player-accent:{{ \App\Support\PlayerPreferences::accentColor($playerPreferences) }}">
@@ -65,13 +71,16 @@
              data-next-url="{{ $autoNext['url'] ?? '' }}"
              data-next-title="{{ $autoNext['title'] ?? '' }}"
              data-auto-start="{{ request('autoplay') === '1' ? '1' : '0' }}"
-             data-modern-player
+             data-modern-player data-gomovie-engine="{{ $playerPreferences['engine'] }}"
              data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
              data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"
              style="--gm-player-accent:{{ \App\Support\PlayerPreferences::accentColor($playerPreferences) }}"
              class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}">
           <video controls playsinline preload="none" aria-label="Gomovie secure player"></video>
           @include('frontend.partials.modern-player-controls', ['secure' => true])
+          @if($adTag)
+            <div class="gm-ima-ads" data-gm-ima-tag="{{ $adTag }}" role="group" aria-label="Video advertisement"></div>
+          @endif
           <div class="gm-player-controls">
             @if($type==='movie')
               <button type="button" data-play-type="movie" data-play-id="{{ $title->id }}" class="gm-button gm-button-primary">▶ Start playback</button>
@@ -109,6 +118,9 @@
         @endif
       </section>
     </div>
+    @if($usePlyr)
+      <div class="gm-plyr-options" data-gm-plyr-options hidden></div>
+    @endif
     @if($privatePreviewIngest && !$playerEnabled && !$publicAsset)
       <p class="gm-muted" style="font-size:12px;line-height:1.6;margin:12px 0 0">
         Private administrator preview · Not publicly available. Source video duration may differ from the catalog runtime.
@@ -232,6 +244,11 @@
     </section>
   </div>
   <aside class="gm-related-sidebar" aria-labelledby="gm-related-heading">
+    @if($adTag)
+      <div class="gm-ima-companion" data-gm-ima-companion hidden>
+        <small>Advertisement</small>
+      </div>
+    @endif
     <div class="gm-related-heading"><h2 id="gm-related-heading"><span aria-hidden="true">▣</span> Related Movies &amp; Series</h2><a href="{{ route('browse') }}">View all →</a></div>
     @forelse($related as $entry)
       @php

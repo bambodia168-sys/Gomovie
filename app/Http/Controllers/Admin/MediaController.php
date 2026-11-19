@@ -8,6 +8,7 @@ use App\Models\Movie;
 use App\Models\Series;
 use App\Services\Media\PrivateVideoIntake;
 use App\Services\Media\AutomaticPublicationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,33 +59,40 @@ class MediaController extends Controller
         ]);
     }
 
-    public function artwork(Request $request): RedirectResponse
+    public function artwork(Request $request): JsonResponse|RedirectResponse
     {
         $data = $request->validate([
             'type' => ['required',Rule::in(['movie','series'])],
-            'title_id' => ['required','integer','min:1'],
+            'upload_only' => ['sometimes', 'boolean'],
+            'title_id' => [Rule::requiredIf(!$request->boolean('upload_only')), 'integer', 'min:1'],
             'slot' => ['required',Rule::in(['poster','backdrop'])],
-            'image' => ['required','file','mimes:jpg,jpeg,png,webp','max:8192'],
+            'image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
         ]);
+        $uploadOnly = (bool) ($data['upload_only'] ?? false);
         $model = $data['type']==='movie' ? Movie::class : Series::class;
-        $title = $model::findOrFail($data['title_id']);
+        $title = $uploadOnly ? null : $model::findOrFail($data['title_id']);
         $field = $data['slot'].'_path';
         $path = $data['image']->store('artwork/'.$data['type'], 'public');
         abort_unless($path,503,'Artwork storage failed.');
 
         try {
-            DB::transaction(function () use ($title,$field,$path,$request): void {
-                $title->update([$field => $path]);
+            DB::transaction(function () use ($title,$data,$field,$path,$request): void {
+                $title?->update([$field => $path]);
                 DB::table('admin_audit_events')->insert([
-                    'actor_id'=>$request->user()->id,'action'=>'media.artwork_uploaded',
-                    'resource_type'=>$title instanceof Movie ? 'movie' : 'series',
-                    'resource_id'=>$title->id,'details'=>json_encode(['slot'=>$field,'file'=>$path]),
+                    'actor_id'=>$request->user()->id,
+                    'action'=>$title ? 'media.artwork_uploaded' : 'media.artwork_stored',
+                    'resource_type'=>$data['type'],
+                    'resource_id'=>$title?->id,'details'=>json_encode(['slot'=>$field,'file'=>$path]),
                     'ip_address'=>$request->ip(),'created_at'=>now(),'updated_at'=>now(),
                 ]);
             });
         } catch (\Throwable $e) {
             Storage::disk('public')->delete($path);
             throw $e;
+        }
+
+        if ($uploadOnly) {
+            return response()->json(['url' => Storage::disk('public')->url($path)], 201);
         }
 
         return back()->with('status','Artwork uploaded. Media usage rights remain the operator’s responsibility.');

@@ -6,6 +6,7 @@ use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Series;
 use App\Models\User;
+use App\Support\SiteSettings;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 
@@ -13,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->scoped(SiteSettings::class);
     }
 
     public function boot(): void

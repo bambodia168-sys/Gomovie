@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\SiteSettings;
 use App\Support\StudioAppearance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,11 +12,15 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 final class AppearanceController extends Controller
 {
+    private const BRAND_IMAGES = ['logo_light', 'logo_dark', 'site_icon'];
+
     private function guard(Request $request, bool $write = false): void
     {
         abort_unless($request->user() && in_array($request->user()->role, ['admin','super_admin'], true), 403);
@@ -48,7 +53,68 @@ final class AppearanceController extends Controller
             'customPages' => $query->orderByDesc('id')->paginate(10)->withQueryString(),
             'typography' => StudioAppearance::typography(),
             'canEdit' => $request->user()->role === 'super_admin',
+            'brandName' => SiteSettings::get('site_name'),
+            'footerUrl' => SiteSettings::get('footer_url'),
+            'brandImages' => [
+                'logo_light' => ['Light theme logo', 'brand/gomovie-logo-light.webp'],
+                'logo_dark' => ['Dark theme logo', 'brand/gomovie-logo-dark.webp'],
+                'site_icon' => ['Site icon', 'apple-touch-icon.png'],
+            ],
         ]);
+    }
+
+    public function branding(Request $request, SiteSettings $settings): RedirectResponse
+    {
+        $this->guard($request, true);
+        $rules = [
+            'site_name' => ['required', 'string', 'max:60'],
+            'footer_url' => ['sometimes', 'nullable', 'url:https', 'max:1024'],
+        ];
+        foreach (self::BRAND_IMAGES as $key) {
+            $rules[$key] = ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048', 'dimensions:max_width=2400,max_height=1200'];
+            $rules['reset_'.$key] = ['sometimes', 'boolean'];
+        }
+        $rules['site_icon'] = ['nullable', 'image', 'mimes:png', 'max:1024', 'dimensions:ratio=1,max_width=512,max_height=512'];
+        $data = $request->validate($rules);
+        $disk = Storage::disk('public');
+        $uploaded = [];
+        $changes = [];
+
+        try {
+            foreach (self::BRAND_IMAGES as $key) {
+                if ($request->hasFile($key)) {
+                    $path = $request->file($key)->store('branding', 'public');
+                    if (!$path) {
+                        throw ValidationException::withMessages([$key => 'The image could not be saved.']);
+                    }
+                    $changes[$key] = $uploaded[] = $path;
+                } elseif ($request->boolean('reset_'.$key)) {
+                    $changes[$key] = null;
+                }
+            }
+
+            $previous = DB::transaction(function () use ($data, $settings, $changes, $request): array {
+                $text = array_intersect_key($data, ['site_name' => true, 'footer_url' => true]);
+                $settings->save($text);
+                $previous = array_map(fn ($key) => SiteSettings::get($key), array_keys($changes));
+                $settings->save($changes);
+                $this->audit($request, 'appearance.branding.updated', 1,
+                    ['fields' => [...array_keys($text), ...array_keys($changes)]], 'site_settings');
+
+                return $previous;
+            });
+        } catch (Throwable $error) {
+            $disk->delete($uploaded);
+            throw $error;
+        }
+        foreach ($previous as $path) {
+            if (is_string($path) && str_starts_with($path, 'branding/')) {
+                $disk->delete($path);
+            }
+        }
+
+        return redirect()->route('admin.appearance.index')->withFragment('branding')
+            ->with('status', 'Branding saved.');
     }
 
     private function fields(Request $request, bool $custom): array
