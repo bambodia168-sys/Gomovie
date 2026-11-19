@@ -3,8 +3,10 @@
 namespace App\Services\Media;
 
 use App\Support\SiteSettings;
+use App\Support\VideoUploadLimit;
 use App\Jobs\MirrorPrivateIngestToR2;
 use App\Jobs\AutoPublishUploadedVideo;
+use App\Models\Movie;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -19,8 +21,15 @@ use Throwable;
  */
 final class PrivateVideoIntake
 {
-    public function store(string $kind, int $titleId, UploadedFile $video, int $uploaderId, ?string $ip, bool $autoPublish = true): int
-    {
+    public function store(
+        string $kind,
+        int $titleId,
+        UploadedFile $video,
+        int $uploaderId,
+        ?string $ip,
+        bool $autoPublish = true,
+        bool $publishWatchPage = false,
+    ): int {
         abort_unless(in_array($kind, ['movie', 'episode'], true), 422);
         $extension = match ($video->getMimeType()) {
             'video/mp4' => 'mp4',
@@ -33,6 +42,9 @@ final class PrivateVideoIntake
 
         $source = $video->getRealPath();
         abort_unless(is_string($source) && is_file($source), 422, 'Uploaded video is unavailable.');
+        $maxBytes = VideoUploadLimit::bytes();
+        $sourceSize = filesize($source);
+        abort_unless($sourceSize && $sourceSize <= $maxBytes, 422, 'The video exceeds the upload limit or is empty.');
         $hash = hash_file('sha256', $source);
         abort_unless(is_string($hash), 422, 'Unable to fingerprint the video.');
 
@@ -46,7 +58,7 @@ final class PrivateVideoIntake
         $storedPath = $disk->path($path);
         $actualSize = is_file($storedPath) ? filesize($storedPath) : false;
         $storedHash = is_file($storedPath) ? hash_file('sha256', $storedPath) : false;
-        if (!is_int($actualSize) || $actualSize < 1 || $actualSize > 134217728
+        if (!is_int($actualSize) || $actualSize < 1 || $actualSize > $maxBytes
             || !is_string($storedHash) || !hash_equals($hash, $storedHash)) {
             $disk->delete($path);
             abort(422, 'The private upload failed its integrity check.');
@@ -58,8 +70,10 @@ final class PrivateVideoIntake
             && filled(SiteSettings::get('r2_key'))
             && filled(SiteSettings::get('r2_secret'));
 
+        $autoPublish = $autoPublish && app(AutomaticPublicationService::class)->enabled();
+
         try {
-            $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $actualSize, $r2Enabled): int {
+            $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $actualSize, $r2Enabled, $publishWatchPage, $autoPublish): int {
                 $id = DB::table('media_ingests')->insertGetId([
                     'ingestable_type' => $kind,
                     'ingestable_id' => $titleId,
@@ -71,6 +85,7 @@ final class PrivateVideoIntake
                     'size_bytes' => $actualSize,
                     'sha256' => $hash,
                     'status' => 'quarantined',
+                    'auto_publication_requested' => $autoPublish,
                     'cloud_status' => $r2Enabled ? 'pending' : 'local_only',
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -85,6 +100,14 @@ final class PrivateVideoIntake
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+                if ($publishWatchPage) {
+                    $updated = Movie::query()->whereKey($titleId)->where('status', 'draft')
+                        ->where('is_premium', false)->where('is_standalone_video', true)
+                        ->update(['status' => 'published', 'published_at' => now()]);
+                    abort_unless($kind === 'movie' && $updated === 1, 409,
+                        'The public video title changed during upload.');
+                }
+
                 return (int) $id;
             });
         } catch (Throwable $error) {
@@ -104,8 +127,7 @@ final class PrivateVideoIntake
             }
         }
 
-        if ($autoPublish && SiteSettings::get('automatic_publication_enabled') === true
-            && SiteSettings::get('public_hls_enabled') === true) {
+        if ($autoPublish) {
             try {
                 AutoPublishUploadedVideo::dispatch($id);
             } catch (Throwable $error) {

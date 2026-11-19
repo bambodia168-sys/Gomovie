@@ -10,7 +10,8 @@
   $requestedMode=in_array(request()->query('view'), ['portrait','widescreen'], true)
       ? request()->query('view') : 'auto';
   $usePlyr = $playerPreferences['engine'] === 'plyr';
-  $adTag = !$title->is_premium && (($publicAsset && $viewerAuthorized) || ($playerEnabled && $publicWatchId > 0))
+  $canPlayPublic = $publicAsset && ($standaloneVideo || $viewerAuthorized);
+  $adTag = !$title->is_premium && ($canPlayPublic || ($playerEnabled && $publicWatchId > 0))
       ? $playerPreferences['ad_tag_url'] : null;
 @endphp
 <div class="gm-watch-layout">
@@ -21,9 +22,9 @@
       <section class="gm-player-stage" aria-label="{{ $portrait ? 'Portrait' : 'Widescreen' }} watch player">
         @if($still)<img class="gm-player-background" src="{{ $still }}" alt="" loading="eager" decoding="async">@endif
         <div class="gm-player-vignette" aria-hidden="true"></div>
-        @if($publicAsset && $viewerAuthorized)
+        @if($canPlayPublic)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
-               data-gomovie-player data-public-hls-url="{{ route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false) }}"
+               data-gomovie-player data-public-hls-url="{{ route($standaloneVideo ? 'public-hls.standalone' : 'public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false) }}"
                data-profile-id="0" data-modern-player data-gomovie-engine="{{ $playerPreferences['engine'] }}"
                data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
                data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"
@@ -41,6 +42,11 @@
               <button type="button" data-retry-playback class="gm-button gm-button-secondary" hidden>↻ Retry</button>
               <p data-playback-status role="status" aria-live="polite">Ready to watch for free.</p>
             </div>
+          </div>
+        @elseif($standaloneVideo)
+          <div class="gm-player-lock-panel">
+            <h2>{{ $standaloneFailed ? 'Playback is unavailable' : 'Video is processing' }}</h2>
+            <p>{{ $standaloneFailed ? 'This upload could not be prepared for playback.' : 'The watch page is public. Check back once the video is ready.' }}</p>
           </div>
         @elseif(!auth()->check())
           @include('frontend.partials.guest-watch-signin')
@@ -218,7 +224,7 @@
       <div class="gm-watch-info-actions">
         <div class="gm-watch-tags">
           <span class="{{ $title->is_premium ? 'gm-tag-premium' : 'gm-tag-free' }}">{{ $title->is_premium ? '♛ Premium' : 'Free title' }}</span>
-          <span>{{ $type==='movie' ? 'Film' : 'TV Series' }}</span>
+          <span>{{ $standaloneVideo ? 'Video' : ($type==='movie' ? 'Film' : 'TV Series') }}</span>
           @if($year)<span>{{ $year }}</span>@endif
           @if($type==='movie' && $title->runtime_minutes)<span>{{ $title->runtime_minutes }} minutes</span>@endif
         </div>

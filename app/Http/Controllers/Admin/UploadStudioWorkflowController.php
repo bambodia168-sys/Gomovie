@@ -68,8 +68,10 @@ final class UploadStudioWorkflowController extends Controller
         $target = $this->target($record);
         $auto = app(AutomaticPublicationService::class);
         $ready = $auto->readyAsset((string) $record->ingestable_type, (int) $record->ingestable_id);
+        $publishedVideo = $target instanceof Movie && $target->is_standalone_video
+            && $target->status === 'published' && !$target->published_at?->isFuture();
         $watchUrl = null;
-        if ($ready) {
+        if ($ready || $publishedVideo) {
             $watchUrl = $record->ingestable_type === 'movie'
                 ? route('watch.show', ['type' => 'movie', 'slug' => $target->slug])
                 : route('watch.show', ['type' => 'series',
@@ -78,6 +80,9 @@ final class UploadStudioWorkflowController extends Controller
         return response()->json([
             'ok' => true,
             'public' => (bool) $ready,
+            'watch_page_public' => $publishedVideo || (bool) $ready,
+            'catalog_edit_url' => $target instanceof Movie && $target->is_standalone_video
+                ? route('admin.catalog.edit', ['type' => 'movies', 'id' => $target->id]) : null,
             'watch_url' => $watchUrl,
             'publication_error' => $record->pipeline_error,
             'automatic_publication_enabled' => $auto->enabled(),
@@ -86,7 +91,7 @@ final class UploadStudioWorkflowController extends Controller
             'title_id' => $record->ingestable_id,
             'status' => $record->status,
             'can_edit' => $record->status === 'quarantined' && $target->status === 'draft',
-            'can_delete' => $record->status === 'quarantined'
+            'can_delete' => !$publishedVideo && $record->status === 'quarantined'
                 && $record->disk === 'local'
                 && $record->cloud_status === 'local_only'
                 && $record->approved_at === null
@@ -215,13 +220,16 @@ final class UploadStudioWorkflowController extends Controller
         $keys = DB::transaction(function () use ($request, $ingest): array {
             $row = DB::table('media_ingests')->where('id', $ingest)
                 ->where('uploaded_by', $request->user()->id)->lockForUpdate()->first();
-            abort_unless($row && $row->status === 'quarantined'
+            abort_unless($row && $row->status === 'quarantined' && !$row->publication_retry_token
                 && $row->disk === 'local' && $row->cloud_status === 'local_only'
                 && !$row->approved_at && !$row->encoded_manifest_key
                 && $row->security_scan_status === 'pending'
                 && $row->rights_review_status === 'pending'
                 && !$row->cloud_object_key, 409,
                 'This upload has started processing or cloud mirroring and cannot be deleted here.');
+            $target = $this->target($row);
+            abort_if($target instanceof Movie && $target->is_standalone_video && $target->status === 'published',
+                409, 'Archive the public video in the catalog before removing its source.');
             $key = (string) $row->object_key;
             abort_unless((bool) preg_match(
                 '#\Aingests/[0-9]{4}/[0-9]{2}/[0-9a-f-]{36}\.(mp4|mov|mkv|webm)\z#iD',

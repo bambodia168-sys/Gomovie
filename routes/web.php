@@ -39,6 +39,10 @@ Route::get('/hls/{asset}/{path}', PublicHlsController::class)
     ->whereNumber('asset')->where('path', '.*')
     ->middleware(['auth','active','verified','throttle:240,1'])->name('public-hls.show');
 
+Route::get('/hls/standalone/{asset}/{path}', PublicHlsController::class)
+    ->whereNumber('asset')->where('path', '.*')
+    ->middleware('throttle:240,1')->name('public-hls.standalone');
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [SessionController::class, 'loginForm'])->name('login');
     Route::post('/login', [SessionController::class, 'login'])->middleware('throttle:5,1');
@@ -156,6 +160,8 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
         ->middleware('throttle:120,1')->whereNumber('ingest')->name('media.ingest-preview');
     Route::post('/media/artwork', [MediaController::class, 'artwork'])->name('media.artwork');
     Route::post('/media/ingests', [MediaController::class, 'ingest'])->name('media.ingest');
+    Route::post('/media/ingests/{ingest}/retry', [MediaController::class, 'retry'])
+        ->whereNumber('ingest')->middleware('throttle:10,1')->name('media.ingest-retry');
     Route::post('/tmdb/preview', [TmdbController::class, 'preview'])->name('tmdb.preview');
     Route::post('/tmdb/import', [TmdbController::class, 'import'])->name('tmdb.import');
     Route::get('/operations', [OperationsController::class, 'index'])->name('operations.index');
@@ -185,7 +191,7 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
         ->middleware('throttle:20,1')->name('player-settings.update');
     Route::get('/site-settings', [SiteSettingsController::class, 'edit'])->name('site-settings.edit');
     Route::patch('/site-settings/{section}', [SiteSettingsController::class, 'update'])
-        ->whereIn('section', ['media', 'tmdb', 'storage', 'edge', 'monitoring'])
+        ->whereIn('section', ['uploads', 'media', 'tmdb', 'storage', 'edge', 'monitoring'])
         ->middleware('throttle:20,1')->name('site-settings.update');
     Route::post('/site-settings/test-ffmpeg', [SiteSettingsController::class, 'testFfmpeg'])
         ->middleware('throttle:6,1')->name('site-settings.test-ffmpeg');

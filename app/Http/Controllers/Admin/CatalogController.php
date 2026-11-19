@@ -255,7 +255,7 @@ class CatalogController extends Controller
             'backdrop_upload' => $uploadRules,
             'is_premium' => ['required','boolean'],
             'status' => ['required',Rule::in(['draft','published','archived'])],
-            'release_year' => [$type === 'movies' ? 'required' : 'nullable','integer','between:1888,2100'],
+            'release_year' => [$type === 'movies' && !$title->is_standalone_video ? 'required' : 'nullable','integer','between:1888,2100'],
             'runtime_minutes' => ['nullable','integer','min:1','max:1440'],
             'first_air_date' => ['nullable','date_format:Y-m-d'],
         ]);
@@ -283,6 +283,10 @@ class CatalogController extends Controller
         $data['country_code'] = isset($data['country_code']) ? strtoupper($data['country_code']) : null;
         if ($type === 'movies') unset($data['first_air_date']);
         else unset($data['release_year'],$data['runtime_minutes']);
+
+        if ($title instanceof Movie && $title->is_standalone_video) {
+            $data['is_premium'] = false;
+        }
 
         // Metadata publishing never confers streaming rights.
         $data['published_at'] = $data['status']==='published' ? now() : null;

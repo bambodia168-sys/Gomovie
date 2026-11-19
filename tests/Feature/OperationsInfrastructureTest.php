@@ -45,6 +45,36 @@ class OperationsInfrastructureTest extends TestCase
             ->assertOk()->assertSee('Application health')->assertSee('Queue worker execution');
     }
 
+    public function test_health_exposes_waiting_media_age_and_sanitized_issue_details(): void
+    {
+        config()->set('gomovie.queue_probes_enabled', false);
+        config()->set('gomovie.media_queue_connection', 'database_media');
+        DB::table('jobs')->insert([
+            'queue' => 'gomovie-media', 'payload' => '{}', 'attempts' => 0,
+            'available_at' => now()->subMinutes(20)->timestamp, 'created_at' => now()->subMinutes(20)->timestamp,
+        ]);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $id = DB::table('media_ingests')->insertGetId([
+            'ingestable_type' => 'movie', 'ingestable_id' => 1, 'uploaded_by' => $admin->id,
+            'disk' => 'local', 'object_key' => 'private-test-key', 'original_name' => 'private_filename.mp4',
+            'mime' => 'video/mp4', 'size_bytes' => 4, 'sha256' => str_repeat('0', 64),
+            'status' => 'processing', 'auto_publication_requested' => true,
+            'processing_started_at' => now()->subHours(3), 'created_at' => now()->subHours(4),
+            'updated_at' => now(),
+        ]);
+        $snapshot = app(OperationalSnapshot::class)->inspect();
+        self::assertGreaterThanOrEqual(1200, $snapshot['oldest_media_wait_seconds']);
+        self::assertSame(1, $snapshot['metrics']['media_needing_attention']);
+        self::assertSame('Processing stalled', $snapshot['media_issues'][0]['issue']);
+        self::assertGreaterThanOrEqual(10800, $snapshot['media_issues'][0]['seconds_in_stage']);
+        $this->actingAs($admin)->get('/dashboard/operations')->assertOk()
+            ->assertSee('Media jobs have been waiting more than 15 minutes')
+            ->assertSee('Private disk free space')
+            ->assertSee(route('admin.media.index', ['ingest' => $id]))
+            ->assertDontSee('private_filename.mp4')
+            ->assertDontSee('private-test-key');
+    }
+
     public function test_sync_driver_cannot_forge_worker_health(): void
     {
         config()->set('queue.default', 'sync');

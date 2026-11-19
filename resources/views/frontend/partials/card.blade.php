@@ -2,11 +2,12 @@
   $poster = \App\Support\CatalogArtwork::url($item->poster_path ?? null, 'w500');
   $cardMode = $cardMode ?? 'standard';
   $cardRank = $cardRank ?? null;
+  $kindLabel = $kind === 'movie' ? ($item->is_standalone_video ? 'Video' : 'Movie') : 'Series';
   $year = $kind==='movie' ? ($item->release_year ?? null) : $item->first_air_date?->format('Y');
 @endphp
 <a href="{{ route('watch.show',[$kind,$item->slug]) }}"
    class="gm-poster-card gm-poster-card-{{ $cardMode }} group"
-   aria-label="View {{ $item->title }} — {{ $kind === 'movie' ? 'movie' : 'series' }}">
+   aria-label="View {{ $item->title }} — {{ strtolower($kindLabel) }}">
   <span class="gm-poster-frame">
     @if($poster)
       <img src="{{ $poster }}" alt="" loading="lazy" decoding="async" class="gm-poster-image">
@@ -20,6 +21,6 @@
   </span>
   <span class="gm-poster-details">
     <strong class="gm-poster-title">{{ $item->title }}</strong>
-    <span class="gm-poster-meta">{{ $year ?: ($kind === 'movie' ? 'Movie' : 'Series') }} <span aria-hidden="true">·</span> {{ $kind === 'movie' ? 'Movie' : 'Series' }}</span>
+    <span class="gm-poster-meta">@if($year){{ $year }} <span aria-hidden="true">·</span> @endif{{ $kindLabel }}</span>
   </span>
 </a>

@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Support\SiteSettings;
 use App\Http\Controllers\Controller;
 use App\Models\Movie;
 use App\Services\Media\PrivateVideoIntake;
+use App\Support\SiteSettings;
+use App\Support\VideoUploadLimit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,16 +16,6 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Throwable;
 
-/**
- * One-screen upload for ORIGINAL videos. The legacy catalog editor still
- * handles existing movie/episode metadata; it is not a prerequisite here.
- *
- * "Free" creates an explicitly self-attested global online publication
- * claim (not an independently verified license) and uses the existing
- * fail-closed scanning/transcoding/publication service.
- *
- * "Private" and "paid" stay private. Paid does not imply a working paywall.
- */
 final class QuickUploadController extends Controller
 {
     public function index(Request $request): View|RedirectResponse
@@ -35,12 +26,6 @@ final class QuickUploadController extends Controller
             return redirect()->route('upload-studio.advanced', [
                 'upload' => $request->query('upload'),
             ]);
-        }
-
-        $max = 128 * 1048576;
-        foreach (['upload_max_filesize', 'post_max_size'] as $setting) {
-            $bytes = $this->iniBytes(ini_get($setting));
-            if ($bytes > 0) $max = min($max, $setting === 'post_max_size' ? max(1, $bytes - 65536) : $bytes);
         }
 
         $requested = $request->query('ingest');
@@ -65,10 +50,8 @@ final class QuickUploadController extends Controller
         }
 
         return view('admin.quick-upload', [
-            'maxUploadBytes' => $max,
-            'autoReady' => SiteSettings::get('automatic_publication_enabled') === true
-                && SiteSettings::get('public_hls_enabled') === true
-                && SiteSettings::get('transcoding_enabled') === true,
+            'maxUploadBytes' => VideoUploadLimit::effectiveBytes(),
+            'autoReady' => $this->publicProcessingEnabled(),
             'ingestId' => $ingestId,
             'resumeAccess' => $resumeAccess,
         ]);
@@ -79,52 +62,46 @@ final class QuickUploadController extends Controller
         $this->requireAdmin($request);
 
         $data = $request->validate([
-            'title' => ['required', 'string', 'min:2', 'max:255'],
+            'title' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:12000'],
-            'access' => ['required', Rule::in(['free', 'private', 'paid'])],
+            'access' => ['sometimes', 'required', Rule::in(['free'])],
             'rights_confirmed' => ['accepted'],
-            'video' => ['required', 'file', 'mimes:mp4,mov,mkv,webm', 'max:131072'],
+            'video' => VideoUploadLimit::fileRules(),
         ]);
 
-        $isFree = $data['access'] === 'free';
-        $autoReady = SiteSettings::get('automatic_publication_enabled') === true
-            && SiteSettings::get('public_hls_enabled') === true
-            && SiteSettings::get('transcoding_enabled') === true;
-        if ($isFree) {
-            abort_unless($autoReady, 409,
-                'Free publication is not configured on this installation. Choose Private instead.');
-        }
+        abort_unless($this->publicProcessingEnabled(), 409,
+            'Enable FFmpeg transcoding, HLS playback, and automatic publication in Site Settings to upload a normal video.');
 
         $uploader = (int) $request->user()->id;
-        $slug = Str::slug($data['title'], '-');
-        $slug = substr($slug !== '' ? $slug : 'original-video', 0, 175)
-            .'-'.strtolower(Str::random(16));
+        $filename = pathinfo($data['video']->getClientOriginalName(), PATHINFO_FILENAME);
+        $filename = preg_replace('/[\p{C}_-]+/u', ' ', $filename) ?? '';
+        $title = Str::limit(trim($data['title'] ?? $filename) ?: 'Untitled video', 255, '');
+        $slug = substr(Str::slug($title) ?: 'video', 0, 175).'-'.strtolower(Str::random(16));
         // A self-attestation is documented with the actual administrator
         // and a unique reference; it does not license any existing movie.
         $reference = 'OWNER-DECLARED-'.$uploader.'-'.strtoupper(Str::random(24));
 
-        $movie = DB::transaction(function () use ($data, $slug, $isFree, $uploader, $request, $reference): Movie {
+        $movie = DB::transaction(function () use ($data, $title, $slug, $uploader, $request, $reference): Movie {
             $movie = Movie::create([
-                'title' => trim($data['title']),
+                'title' => $title,
                 'slug' => $slug,
                 'overview' => trim($data['description'] ?? '') ?: null,
                 'status' => 'draft',
-                'is_premium' => $data['access'] === 'paid',
+                'is_premium' => false,
+                'is_standalone_video' => true,
             ]);
 
-            if ($isFree) {
-                DB::table('content_rights')->insert([
-                    'licensable_type' => 'movie',
-                    'licensable_id' => $movie->id,
-                    'rights_reference' => $reference,
-                    'status' => 'active',
-                    'territories' => null,
-                    'starts_at' => now(),
-                    'ends_at' => null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+            DB::table('content_rights')->insert([
+                'licensable_type' => 'movie',
+                'licensable_id' => $movie->id,
+                'rights_reference' => $reference,
+                'status' => 'active',
+                'territories' => null,
+                'starts_at' => now(),
+                'ends_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
             DB::table('admin_audit_events')->insert([
                 'actor_id' => $uploader,
@@ -132,12 +109,10 @@ final class QuickUploadController extends Controller
                 'resource_type' => 'movie',
                 'resource_id' => $movie->id,
                 'details' => json_encode([
-                    'access' => $data['access'],
+                    'access' => 'free',
                     'rights_basis' => 'uploader_declaration_only',
-                    'declaration' => $isFree
-                        ? 'I own or have worldwide online publishing permission for this video.'
-                        : 'I own or have permission to upload and store this video.',
-                    'rights_reference' => $isFree ? $reference : null,
+                    'declaration' => 'I own or have worldwide online publishing permission for this video.',
+                    'rights_reference' => $reference,
                     'sales_enabled' => false,
                 ], JSON_THROW_ON_ERROR),
                 'ip_address' => $request->ip(),
@@ -150,7 +125,7 @@ final class QuickUploadController extends Controller
 
         try {
             $ingestId = $intake->store('movie', (int) $movie->id,
-                $data['video'], $uploader, $request->ip(), $isFree);
+                $data['video'], $uploader, $request->ip(), publishWatchPage: true);
         } catch (Throwable $error) {
             // Do not delete a movie after a partially successful intake.
             // An existing ingest may already be queued or independently mirrored.
@@ -170,11 +145,7 @@ final class QuickUploadController extends Controller
             throw $error;
         }
 
-        $message = match ($data['access']) {
-            'free' => 'Upload received. Your video is processing for free public playback.',
-            'paid' => 'Paid video saved privately. Sales will remain disabled until checkout is configured.',
-            default => 'Video saved privately. It will not appear on the public website.',
-        };
+        $message = 'Your watch page is public. Playback starts after the video finishes processing.';
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -182,8 +153,8 @@ final class QuickUploadController extends Controller
                 'message' => $message,
                 'movie_id' => $movie->id,
                 'upload_id' => $ingestId,
-                'access' => $data['access'],
-                'will_publish_automatically' => $isFree,
+                'access' => 'free',
+                'will_publish_automatically' => true,
                 'status_url' => route('upload-studio.status', ['ingest' => $ingestId]),
                 'watch_url' => route('watch.show', ['type' => 'movie', 'slug' => $slug]),
                 'media_library_url' => route('admin.media.index'),
@@ -194,12 +165,11 @@ final class QuickUploadController extends Controller
             ->with('status', $message);
     }
 
-    private function iniBytes(string|false $value): int
+    private function publicProcessingEnabled(): bool
     {
-        if (!is_string($value) || !preg_match('/\A(\d+)([KMG]?)\z/iD', trim($value), $parts)) return 0;
-        return min(PHP_INT_MAX, (int) $parts[1] * match (strtoupper($parts[2])) {
-            'K' => 1024, 'M' => 1048576, 'G' => 1073741824, default => 1,
-        });
+        return SiteSettings::get('automatic_publication_enabled') === true
+            && SiteSettings::get('public_hls_enabled') === true
+            && SiteSettings::get('transcoding_enabled') === true;
     }
 
     private function requireAdmin(Request $request): void

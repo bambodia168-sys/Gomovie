@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\AutoPublishUploadedVideo;
+use App\Models\Movie;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -38,7 +39,7 @@ final class QuickUploadTest extends TestCase
         config()->set('gomovie.r2_enabled', false);
     }
 
-    public function test_quick_upload_is_default_and_advanced_editor_remains_optional(): void
+    public function test_upload_studio_shows_all_three_upload_paths(): void
     {
         $this->get('/upload-studio')->assertRedirect(route('login'));
         $viewer = User::factory()->create();
@@ -47,12 +48,14 @@ final class QuickUploadTest extends TestCase
 
         $this->actingAs($this->admin())->get('/upload-studio')
             ->assertOk()
-            ->assertSee('Upload a video')
+            ->assertSee('Upload Studio')
             ->assertSee('quick-upload-form')
             ->assertSee('name="title"', false)
             ->assertSee('name="rights_confirmed"', false)
-            ->assertSee('Paid video · Draft')
-            ->assertSee('Advanced editor')
+            ->assertSee('Normal Video')
+            ->assertSee('TV Show')
+            ->assertSee('Upload settings')
+            ->assertDontSee('name="access"', false)
             ->assertDontSee('Details &amp; Meta', false)
             ->assertDontSee('Catalog Access');
 
@@ -68,7 +71,6 @@ final class QuickUploadTest extends TestCase
         $this->actingAs($this->admin());
 
         $result = $this->postJson('/upload-studio/quick', [
-            'title' => 'My Original Short Film',
             'description' => 'A movie we made ourselves.',
             'access' => 'free',
             'rights_confirmed' => '1',
@@ -80,10 +82,21 @@ final class QuickUploadTest extends TestCase
             ->assertJsonPath('will_publish_automatically', true);
 
         $movie = DB::table('movies')->sole();
-        self::assertSame('My Original Short Film', $movie->title);
+        self::assertSame('my original', $movie->title);
         self::assertFalse((bool) $movie->is_premium);
-        self::assertSame('draft', $movie->status);
-        self::assertStringStartsWith('my-original-short-film-', $movie->slug);
+        self::assertSame('published', $movie->status);
+        self::assertTrue((bool) $movie->is_standalone_video);
+        $this->getJson(route('upload-studio.status', $result->json('upload_id')))
+            ->assertOk()->assertJsonPath('public', false)->assertJsonPath('watch_page_public', true)
+            ->assertJsonPath('watch_url', $result->json('watch_url'));
+        $this->get('/dashboard/media')->assertOk()->assertSee('Public page · Processing');
+        $this->deleteJson('/upload-studio/'.$result->json('upload_id'))->assertConflict();
+        $this->app['auth']->forgetGuards();
+        $this->get($result->json('watch_url'))->assertOk()
+            ->assertSee('Video is processing')->assertDontSee('data-public-hls-url=');
+        $this->get('/browse?type=video')->assertOk()->assertSee('my original');
+        $this->get('/browse?type=movie')->assertOk()->assertDontSee('my original');
+        self::assertStringStartsWith('my-original-', $movie->slug);
         $rights = DB::table('content_rights')->sole();
         self::assertSame('movie', $rights->licensable_type);
         self::assertSame((int) $movie->id, (int) $rights->licensable_id);
@@ -104,50 +117,23 @@ final class QuickUploadTest extends TestCase
         $this->assertDatabaseCount('media_assets', 0);
     }
 
-    public function test_private_video_requires_no_rights_record_and_does_not_launch_public_worker(): void
+    public function test_normal_upload_rejects_private_and_paid_access(): void
     {
         Storage::fake('local');
         Queue::fake();
         $this->enableFree();
         $this->actingAs($this->admin());
-        $this->postJson('/upload-studio/quick', [
-            'title' => 'My Personal Clip',
-            'access' => 'private',
-            'rights_confirmed' => true,
-            'video' => $this->video(),
-        ])->assertCreated()
-            ->assertJsonPath('will_publish_automatically', false)
-            ->assertJsonPath('access', 'private');
+        foreach (['private', 'paid'] as $access) {
+            $this->postJson('/upload-studio/quick', [
+                'access' => $access,
+                'rights_confirmed' => true,
+                'video' => $this->video(),
+            ])->assertUnprocessable()->assertJsonValidationErrors('access');
+        }
 
-        $this->assertDatabaseCount('movies', 1);
-        $this->assertDatabaseCount('media_ingests', 1);
+        $this->assertDatabaseCount('movies', 0);
+        $this->assertDatabaseCount('media_ingests', 0);
         $this->assertDatabaseCount('content_rights', 0);
-        Queue::assertNotPushed(AutoPublishUploadedVideo::class);
-        $this->assertDatabaseHas('movies', ['title' => 'My Personal Clip', 'status' => 'draft',
-            'is_premium' => false]);
-    }
-
-    public function test_paid_video_is_draft_only_and_never_claims_payment_is_enabled(): void
-    {
-        Storage::fake('local');
-        Queue::fake();
-        $this->enableFree();
-        $this->actingAs($this->admin());
-        $this->postJson('/upload-studio/quick', [
-            'title' => 'Paid Original Documentary',
-            'access' => 'paid',
-            'rights_confirmed' => 'on',
-            'video' => $this->video(),
-        ])->assertCreated()
-            ->assertJsonPath('access', 'paid')
-            ->assertJsonPath('will_publish_automatically', false);
-
-        $this->assertDatabaseHas('movies', [
-            'title' => 'Paid Original Documentary',
-            'is_premium' => true, 'status' => 'draft',
-        ]);
-        $this->assertDatabaseCount('content_rights', 0);
-        $this->assertDatabaseCount('media_assets', 0);
         Queue::assertNotPushed(AutoPublishUploadedVideo::class);
     }
 
@@ -189,16 +175,25 @@ final class QuickUploadTest extends TestCase
         Queue::fake();
         $this->enableFree();
         $this->actingAs($this->admin());
+        $movie = Movie::create(['title' => 'Existing Movie', 'slug' => 'existing-movie', 'status' => 'draft']);
         $this->postJson('/upload-studio/quick', [
-            'title' => 'Not Coco',
-            'title_id' => 1,
+            'title' => 'My Clip',
+            'title_id' => $movie->id,
             'type' => 'movie',
-            'access' => 'private',
             'rights_confirmed' => 1,
             'video' => $this->video(),
         ])->assertCreated();
-        $this->assertDatabaseHas('movies', ['title'=>'Not Coco', 'status'=>'draft']);
-        $this->assertDatabaseCount('content_rights', 0);
-        $this->assertDatabaseCount('movies', 1);
+        $this->assertDatabaseHas('movies', ['id' => $movie->id, 'title' => 'Existing Movie', 'status' => 'draft']);
+        $video = Movie::where('is_standalone_video', true)->sole();
+        $this->assertDatabaseHas('media_ingests', ['ingestable_id' => $video->id]);
+        $this->postJson('/upload-studio', [
+            'type' => 'movie', 'title_id' => $video->id, 'video' => $this->video(),
+        ])->assertNotFound();
+        $this->assertDatabaseCount('media_ingests', 1);
+
+        $this->put(route('admin.catalog.update', ['movies', $video->id]), [
+            'title' => 'Updated Clip', 'slug' => $video->slug, 'status' => 'published', 'is_premium' => '1',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('movies', ['id' => $video->id, 'title' => 'Updated Clip', 'is_premium' => false]);
     }
 }

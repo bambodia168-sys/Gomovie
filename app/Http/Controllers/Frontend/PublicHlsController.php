@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Frontend;
 
 use App\Http\Controllers\Controller;
 use App\Services\Media\AutomaticPublicationService;
-use App\Services\Rights\GlobalRights;
+use App\Models\Movie;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +26,11 @@ final class PublicHlsController extends Controller
             ->where('status', 'ready')->where('format', 'hls')
             ->where('storage_disk', 'local')->whereNull('drm_scheme')->first();
         abort_unless($record && in_array($record->streamable_type, ['movie', 'episode'], true), 404);
+        if ($request->routeIs('public-hls.standalone')) {
+            abort_unless($record->streamable_type === 'movie'
+                && Movie::query()->whereKey($record->streamable_id)->where('is_standalone_video', true)->exists(), 404);
+        }
+
         $ready = $auto->readyAsset($record->streamable_type, (int) $record->streamable_id);
         // Check this specific asset; an older unreleased version must not become
         // playable merely because a different version of the title is ready.

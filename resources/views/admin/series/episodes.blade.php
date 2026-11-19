@@ -50,6 +50,7 @@
 <template id="gm-episode-actions-{{ $episode->id }}">
 <button role="menuitem" type="button" data-studio-open="gm-edit-episode-{{ $episode->id }}">@include('partials.studio-icon',['name'=>'edit']) Edit episode</button>
 @if(\App\Support\StudioNavigation::administrator(auth()->user()))
+<a role="menuitem" href="{{ route('upload-studio.advanced', ['type' => 'episode', 'title_id' => $episode->id]) }}">@include('partials.studio-icon',['name'=>'upload']) Upload video</a>
 <a role="menuitem" href="{{ route('admin.distribution-rights.edit', ['episode', $episode]) }}">@include('partials.studio-icon',['name'=>'shield']) Distribution rights</a>
 @endif
 @if($episode->status==='draft' && in_array(auth()->user()->role,['admin','super_admin'],true))

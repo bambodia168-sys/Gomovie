@@ -9,7 +9,6 @@ use App\Models\Series;
 use App\Services\Rights\GlobalRights;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -101,9 +100,10 @@ final class AutomaticPublicationService
             return;
         }
 
-        $uploader = DB::table('users')->where('id', $ingest->uploaded_by)->first();
-        abort_unless($uploader && $uploader->is_active && $uploader->email_verified_at
-            && in_array($uploader->role, ['admin', 'super_admin'], true), 403);
+        $this->requireActiveUploader($ingest);
+
+        DB::table('media_ingests')->where('id', $ingestId)->where('status', 'quarantined')
+            ->update(['auto_publication_requested' => true]);
 
         $binary = (string) config('gomovie.malware_scanner_binary');
         abort_unless(str_starts_with($binary, '/') && basename($binary) === 'clamscan'
@@ -221,6 +221,24 @@ final class AutomaticPublicationService
                 ['media_asset_id' => $assetId, 'package_sha256' => $package['package_sha256']]);
             return $assetId;
         });
+    }
+
+    public function requireRetryEligibility(object $ingest): void
+    {
+        $kind = (string) $ingest->ingestable_type;
+        $id = (int) $ingest->ingestable_id;
+        abort_unless($this->eligibleTitle($kind, $id, false)
+            && app(GlobalRights::class)->allows($kind, $id)
+            && $this->hasDocumentedRights($kind, $id), 409,
+            'Retry requires a free title with active documented distribution rights.');
+        $this->requireActiveUploader($ingest);
+    }
+
+    private function requireActiveUploader(object $ingest): void
+    {
+        $uploader = DB::table('users')->where('id', $ingest->uploaded_by)->first();
+        abort_unless($uploader && $uploader->is_active && $uploader->email_verified_at
+            && in_array($uploader->role, ['admin', 'super_admin'], true), 403);
     }
 
     private function hasDocumentedRights(string $kind, int $id): bool

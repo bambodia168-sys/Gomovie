@@ -117,7 +117,8 @@ jobs:
           assert 'DATABASE_SCHEMA_CHANGED=NO' in source
           assert 'artisan migrate' not in source
           assert 'data-public-hls-url=' in blade
-          assert "route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false)" in blade
+          assert "$standaloneVideo ? 'public-hls.standalone' : 'public-hls.show'" in blade
+          assert "['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false)" in blade
           assert '|| !$this->hasDocumentedRights($kind, $titleId)' in service
           assert '$argv[1]!=="--disable"' in source
           assert source.count("' -- \"$MODE\"") == 2, "PHP CLI flag args must follow --"

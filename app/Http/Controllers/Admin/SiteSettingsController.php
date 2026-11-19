@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Support\SiteSettings;
 use App\Support\StudioNavigation;
+use App\Support\VideoUploadLimit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,8 @@ final class SiteSettingsController extends Controller
 
         return view('admin.site-settings', [
             'values' => $values,
+            'uploadLimit' => VideoUploadLimit::megabytes(),
+            'effectiveUploadMb' => VideoUploadLimit::effectiveBytes() / 1048576,
             'credentials' => array_map(fn ($key) => filled(SiteSettings::get($key)), array_combine(
                 SiteSettings::SECRETS, SiteSettings::SECRETS,
             )),
@@ -49,7 +52,13 @@ final class SiteSettingsController extends Controller
     public function update(Request $request, string $section, SiteSettings $settings): RedirectResponse
     {
         abort_unless(StudioNavigation::administrator($request->user()), 403);
-        $changes = $section === 'media' ? $this->mediaChanges($request) : $this->integrationChanges($request, $section);
+        $changes = match ($section) {
+            'media' => $this->mediaChanges($request),
+            'uploads' => ['video_upload_max_mb' => (int) $request->validate([
+                'video_upload_max_mb' => ['required', 'integer', 'min:1', 'max:'.VideoUploadLimit::MAX_MB],
+            ])['video_upload_max_mb']],
+            default => $this->integrationChanges($request, $section),
+        };
 
         DB::transaction(function () use ($request, $section, $settings, $changes): void {
             $settings->save($changes);

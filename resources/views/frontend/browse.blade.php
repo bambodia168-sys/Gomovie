@@ -9,10 +9,10 @@
 </section>
 <form method="GET" action="{{ route('browse') }}" class="gm-filter-bar" role="search">
   <div class="gm-search-field"><label for="browse-query">Search titles</label>
-    <input id="browse-query" type="search" name="q" maxlength="100" value="{{ $q }}" placeholder="Search movies and series...">
+    <input id="browse-query" type="search" name="q" maxlength="100" value="{{ $q }}" placeholder="Search movies, series, and videos...">
   </div>
   <div class="gm-select-field"><label for="browse-type">Content</label><select id="browse-type" name="type">
-    @foreach(['all'=>'All titles','movie'=>'Movies','series'=>'Series'] as $value=>$label)<option value="{{ $value }}" @selected($type===$value)>{{ $label }}</option>@endforeach
+    @foreach(['all'=>'All titles','movie'=>'Movies','series'=>'Series','video'=>'Videos'] as $value=>$label)<option value="{{ $value }}" @selected($type===$value)>{{ $label }}</option>@endforeach
   </select></div>
   <div class="gm-select-field"><label for="browse-access">Access</label><select id="browse-access" name="access">
     @foreach(['all'=>'All access','free'=>'Free','premium'=>'Premium'] as $value=>$label)<option value="{{ $value }}" @selected($access===$value)>{{ $label }}</option>@endforeach
@@ -21,16 +21,16 @@
 </form>
 @if($type !== 'series')
 <section class="gm-content-section">
-  <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>{{ \App\Support\StudioAppearance::slot('browse-movies-heading') }}</h2><span class="gm-section-caption">Published movies</span></div>
+  <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>{{ $type === 'video' ? 'Videos' : \App\Support\StudioAppearance::slot('browse-movies-heading') }}</h2></div>
   @if($movies->isEmpty())
-    <p class="gm-empty-state">No matching movies are available yet.</p>
+    <p class="gm-empty-state">No matching {{ $type === 'video' ? 'videos' : ($type === 'movie' ? 'movies' : 'titles') }} are available yet.</p>
   @else
     <div class="gm-poster-grid">@foreach($movies as $item)@include('frontend.partials.card',['kind'=>'movie'])@endforeach</div>
     <div class="mt-8">{{ $movies->links() }}</div>
   @endif
 </section>
 @endif
-@if($type !== 'movie')
+@if(in_array($type, ['all', 'series'], true))
 <section class="gm-content-section">
   <div class="gm-section-heading"><h2><span aria-hidden="true" class="gm-section-marker"></span>{{ \App\Support\StudioAppearance::slot('browse-series-heading') }}</h2><span class="gm-section-caption">Published series</span></div>
   @if($series->isEmpty())

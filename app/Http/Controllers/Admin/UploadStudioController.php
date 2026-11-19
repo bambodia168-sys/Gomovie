@@ -7,6 +7,7 @@ use App\Models\Episode;
 use App\Models\Movie;
 use App\Services\Media\PrivateVideoIntake;
 use App\Services\Media\AutomaticPublicationService;
+use App\Support\VideoUploadLimit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,17 +17,14 @@ use Illuminate\View\View;
 
 final class UploadStudioController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $this->requireAdmin($request);
 
-        // Advertise the effective PHP request limit to the browser. Keep the
-        // original private-intake ceiling at 128 MB until resumable uploads ship.
-        $max = 128 * 1048576;
-        $fileMax = $this->iniBytes(ini_get('upload_max_filesize'));
-        $postMax = $this->iniBytes(ini_get('post_max_size'));
-        if ($fileMax > 0) $max = min($max, $fileMax);
-        if ($postMax > 0) $max = min($max, max(1, $postMax - 65536));
+        $selection = $request->validate([
+            'type' => ['required_with:title_id', 'nullable', Rule::in(['movie', 'episode'])],
+            'title_id' => ['nullable', 'integer', 'min:1'],
+        ]);
 
         $resume = null;
         if ($request->query('upload') !== null) {
@@ -36,30 +34,34 @@ final class UploadStudioController extends Controller
                 ->where('uploaded_by', (int) $request->user()->id)->first();
             abort_unless($resume, 404);
             abort_unless(in_array($resume->ingestable_type, ['movie', 'episode'], true), 404);
+            if ($resume->ingestable_type === 'movie' && Movie::query()->whereKey($resume->ingestable_id)
+                ->where('is_standalone_video', true)->exists()) {
+                return redirect()->route('upload-studio.index', ['ingest' => $resume->id]);
+            }
         }
 
-        $movies = Movie::query()->orderBy('title')->limit(2000)->get([
+        $movies = Movie::query()->where('is_standalone_video', false)->orderBy('title')->limit(2000)->get([
             'id', 'title', 'overview', 'release_year', 'runtime_minutes', 'is_premium', 'status',
             'poster_path', 'backdrop_path',
         ]);
         $episodes = Episode::query()->with('season.series')
             ->orderByDesc('id')->limit(2000)->get();
 
-        // Always include the user's resumed upload, even in a large catalog.
-        if ($resume && $resume->ingestable_type === 'movie'
-            && !$movies->contains('id', (int) $resume->ingestable_id)) {
-            $movies->push(Movie::query()->findOrFail((int) $resume->ingestable_id));
+        $selectedType = $resume->ingestable_type ?? $selection['type'] ?? 'movie';
+        $selectedId = (int) ($resume->ingestable_id ?? $selection['title_id'] ?? 0);
+        if ($selectedId > 0 && $selectedType === 'movie' && !$movies->contains('id', $selectedId)) {
+            $movies->push(Movie::query()->where('is_standalone_video', false)->findOrFail($selectedId));
         }
-        if ($resume && $resume->ingestable_type === 'episode'
-            && !$episodes->contains('id', (int) $resume->ingestable_id)) {
-            $episodes->push(Episode::query()->with('season.series')
-                ->findOrFail((int) $resume->ingestable_id));
+        if ($selectedId > 0 && $selectedType === 'episode' && !$episodes->contains('id', $selectedId)) {
+            $episodes->push(Episode::query()->with('season.series')->findOrFail($selectedId));
         }
 
         return view('admin.upload-studio', [
             'movies' => $movies,
             'episodes' => $episodes,
-            'maxUploadBytes' => $max,
+            'maxUploadBytes' => VideoUploadLimit::effectiveBytes(),
+            'selectedType' => $selectedType,
+            'selectedId' => $selectedId,
             'resume' => $resume,
             'automaticPublicationEnabled' => app(AutomaticPublicationService::class)->enabled(),
         ]);
@@ -71,11 +73,13 @@ final class UploadStudioController extends Controller
         $data = $request->validate([
             'type' => ['required', Rule::in(['movie', 'episode'])],
             'title_id' => ['required', 'integer', 'min:1'],
-            'video' => ['required', 'file', 'mimes:mp4,mov,mkv,webm', 'max:131072'],
+            'video' => VideoUploadLimit::fileRules(),
         ]);
 
         $model = $data['type'] === 'movie' ? Movie::class : Episode::class;
-        $model::query()->findOrFail($data['title_id']);
+        $model::query()
+            ->when($data['type'] === 'movie', fn ($query) => $query->where('is_standalone_video', false))
+            ->findOrFail($data['title_id']);
 
         $id = $intake->store($data['type'], (int) $data['title_id'],
             $data['video'], (int) $request->user()->id, $request->ip());
@@ -90,22 +94,8 @@ final class UploadStudioController extends Controller
                 'editor_url' => route('upload-studio.index', ['upload' => $id]),
             ], 201)->header('Cache-Control', 'private, no-store');
         }
-        return redirect()->route('upload-studio.index')
+        return redirect()->route('upload-studio.advanced', ['upload' => $id])
             ->with('status', 'Video uploaded successfully. Saved to your private Media Library.');
-    }
-
-    private function iniBytes(string|false $value): int
-    {
-        if (!is_string($value) || !preg_match('/\A(\d+)([KMG]?)\z/iD', trim($value), $parts)) {
-            return 0;
-        }
-        $multiplier = match (strtoupper($parts[2])) {
-            'K' => 1024,
-            'M' => 1048576,
-            'G' => 1073741824,
-            default => 1,
-        };
-        return min(PHP_INT_MAX, (int) $parts[1] * $multiplier);
     }
 
     private function requireAdmin(Request $request): void

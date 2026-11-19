@@ -43,7 +43,7 @@
   <div class="gm-catalog-table-head">
     <div>
       <h3>Manage Table <span class="gm-catalog-count">{{ number_format($titles->total()) }}</span></h3>
-      <p>Compact view · {{ $type === 'movies' ? 'Movie' : 'TV series' }} records</p>
+      <p>Compact view · {{ $type === 'movies' ? 'Movie and video' : 'TV series' }} records</p>
     </div>
     <form method="GET" action="{{ route('admin.catalog.index', $type) }}" class="gm-catalog-page-size" aria-label="Items per page">
       <input type="hidden" name="q" value="{{ request('q') }}">
@@ -113,7 +113,7 @@
                     <span class="gm-catalog-thumb-fallback" aria-hidden="true">▶</span>
                   @endif
                 </span>
-                <span class="gm-catalog-title-text">{{ $title->title }}</span>
+                <span class="gm-catalog-title-text">{{ $title->title }}@if($title->is_standalone_video) <small class="gm-catalog-muted">· Normal video</small>@endif</span>
               </a>
             </td>
             <td class="gm-catalog-muted">{{ $displayYear ?? '—' }}</td>

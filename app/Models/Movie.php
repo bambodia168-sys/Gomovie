@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Movie extends Model
 {
-    protected $fillable = ['tmdb_id', 'title', 'slug', 'overview', 'release_year', 'runtime_minutes', 'country_code', 'poster_path', 'backdrop_path', 'is_premium', 'status', 'published_at'];
+    protected $fillable = ['tmdb_id', 'title', 'slug', 'overview', 'release_year', 'runtime_minutes', 'country_code', 'poster_path', 'backdrop_path', 'is_premium', 'is_standalone_video', 'status', 'published_at'];
     protected function casts(): array
     {
-        return ['is_premium' => 'boolean', 'published_at' => 'datetime'];
+        return ['is_premium' => 'boolean', 'is_standalone_video' => 'boolean', 'published_at' => 'datetime'];
     }
     public function genres(): MorphToMany
     {
