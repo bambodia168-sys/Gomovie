@@ -52,6 +52,8 @@ final class PlayerSettingsTest extends TestCase
         $this->assertDatabaseHas('admin_audit_events', [
             'actor_id' => $admin->id, 'action' => 'player.preferences.updated',
         ]);
+        self::assertSame('gomovie', PlayerPreferences::current()['engine']);
+        self::assertNull(PlayerPreferences::current()['ad_tag_url']);
         self::assertSame('#22d3ee', PlayerPreferences::accentColor(PlayerPreferences::current()));
         $this->assertDatabaseCount('content_rights', 0);
         $this->assertDatabaseCount('media_assets', 0);
@@ -73,6 +75,8 @@ final class PlayerSettingsTest extends TestCase
     {
         $this->actingAs($this->user());
         $this->patch('/dashboard/player-settings', [
+            'engine' => 'unknown',
+            'ad_tag_url' => 'http://example.test/vast',
             'accent' => 'url(javascript:alert(1))',
             'density' => 'wide',
             'seek_seconds' => 500,
@@ -83,7 +87,7 @@ final class PlayerSettingsTest extends TestCase
             'show_pip' => 1,
             'show_fullscreen' => 1,
         ])->assertSessionHasErrors([
-            'accent', 'density', 'seek_seconds', 'auto_hide_seconds', 'show_volume',
+            'engine', 'ad_tag_url', 'accent', 'density', 'seek_seconds', 'auto_hide_seconds', 'show_volume',
         ]);
         $this->assertDatabaseCount('player_preferences', 0);
     }
@@ -248,6 +252,47 @@ final class PlayerSettingsTest extends TestCase
         $this->assertDatabaseHas('media_ingests', ['ingestable_id'=>$movie->id,'status'=>'quarantined']);
         $this->assertDatabaseCount('media_assets', 0);
         $this->assertDatabaseCount('content_rights', 0);
+    }
+
+    public function test_admin_can_switch_players_without_resetting_the_ad_tag(): void
+    {
+        config()->set('gomovie.edge_enabled', true);
+        $admin = $this->user();
+        UserProfile::create([
+            'user_id' => $admin->id, 'name' => 'Main', 'slug' => 'main', 'is_kids' => false,
+        ]);
+        $free = Movie::create([
+            'title' => 'Free Player QA', 'slug' => 'free-player-qa', 'status' => 'published', 'is_premium' => false,
+        ]);
+        $premium = Movie::create([
+            'title' => 'Premium Player QA', 'slug' => 'premium-player-qa', 'status' => 'published', 'is_premium' => true,
+        ]);
+        $tag = 'https://example.test/vmap?slot=video&group=free';
+        $form = PlayerPreferences::DEFAULTS;
+        unset($form['engine'], $form['ad_tag_url']);
+
+        $this->actingAs($admin)->patch('/dashboard/player-settings', [
+            ...$form, 'engine' => 'plyr', 'ad_tag_url' => $tag,
+        ])->assertRedirect(route('admin.player-settings.edit'));
+        $this->assertDatabaseHas('player_preferences', ['id' => 1, 'engine' => 'plyr', 'ad_tag_url' => $tag]);
+        $this->get('/watch/movie/'.$free->slug)->assertOk()
+            ->assertSee('data-gomovie-engine="plyr"', false)
+            ->assertSee('data-gm-ima-tag="'.e($tag).'"', false);
+        $this->get('/watch/movie/'.$premium->slug)->assertOk()
+            ->assertSee('data-gomovie-engine="plyr"', false)
+            ->assertDontSee('data-gm-ima-tag');
+
+        // Older settings forms can still change existing controls.
+        $this->patch('/dashboard/player-settings', [...$form, 'density' => 'compact'])->assertRedirect();
+        $this->assertDatabaseHas('player_preferences', ['id' => 1, 'engine' => 'plyr', 'ad_tag_url' => $tag]);
+
+        $this->patch('/dashboard/player-settings', [...$form, 'engine' => 'gomovie'])->assertRedirect();
+        $this->get('/watch/movie/'.$free->slug)->assertOk()
+            ->assertSee('data-gomovie-engine="gomovie"', false)
+            ->assertSee('data-gm-ima-tag');
+
+        $this->patch('/dashboard/player-settings', [...$form, 'ad_tag_url' => ''])->assertRedirect();
+        $this->get('/watch/movie/'.$free->slug)->assertOk()->assertDontSee('data-gm-ima-tag');
     }
 
     public function test_secure_player_uses_same_controls_but_keeps_existing_grant_system(): void

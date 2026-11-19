@@ -27,6 +27,14 @@ Laravel 13, PHP 8.4+, Tailwind CSS 4, Alpine.js, hls.js 1.7, MySQL 8.0 / Postgre
 - A downloadable QA installation ZIP includes installed Composer dependencies, compiled Vite assets, lock manifests and non-Markdown hosting instructions; no buyer CLI required. The source repository does not yet retain committed dependency lockfiles.
 - CI: Laravel/PHPUnit feature tests, JS Worker tests, frontend Vite build, FFmpeg synthetic HLS encoding fixture, independent MySQL 8 and PostgreSQL 16 acceptance suites.
 
+## Watch player and video advertising
+
+Open **Dashboard → Player Settings → Configure player** to select **GoMovie (current player)** or **Plyr**. Both use the same HLS playback authorization and the same optional video ad tag. GoMovie is the default. Build the Vite assets and run the migrations before saving the new settings.
+
+Set **Video ad tag URL** to a browser-accessible HTTPS VAST or VMAP tag. VAST supports in-stream ads and overlays. VMAP schedules pre-rolls, mid-rolls, and post-rolls. Google IMA handles eligible skip controls and ad tracking. GoMovie provides a sidebar slot for 300×250 and 300×60 static companion creatives. Clear the URL to turn off video advertising. Ads apply to free watch playback. Premium titles and private administrator previews are ad-free.
+
+Check the [IMA sample tags](https://developers.google.com/interactive-media-ads/docs/sdks/html5/client-side/tags) and [browser compatibility](https://developers.google.com/interactive-media-ads/docs/sdks/html5/client-side/compatibility) for staging verification. The integration uses separate ad playback on iPhone for inline skippable ads, so IMA's iPhone VMAP restriction applies. VPAID is disabled.
+
 ## Runtime prerequisites
 
 PHP 8.4+ and Laravel 13 supported extensions, Composer, Node.js 24 for frontend assets, MySQL 8 or PostgreSQL 16, Redis for production playback coordination, and a verified SMTP provider for real email delivery. FFmpeg/FFprobe plus isolated queue workers are needed only when the separately gated media workflow is approved.

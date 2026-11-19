@@ -7,7 +7,14 @@ use Illuminate\Support\Facades\Schema;
 
 final class PlayerPreferences
 {
+    public const ENGINES = [
+        'gomovie' => 'GoMovie (current player)',
+        'plyr' => 'Plyr',
+    ];
+
     public const DEFAULTS = [
+        'engine' => 'gomovie',
+        'ad_tag_url' => null,
         'accent' => 'crimson',
         'density' => 'comfortable',
         'seek_seconds' => 10,
@@ -46,6 +53,8 @@ final class PlayerPreferences
                 $out[$key] = $data[$key];
             }
         }
+        $out['engine'] = array_key_exists($out['engine'], self::ENGINES)
+            ? $out['engine'] : self::DEFAULTS['engine'];
         // Defensive value normalization: never inject an arbitrary style.
         $out['accent'] = array_key_exists($out['accent'], self::ACCENTS)
             ? $out['accent'] : 'crimson';

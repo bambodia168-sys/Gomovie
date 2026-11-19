@@ -22,6 +22,7 @@ final class PlayerSettingsController extends Controller
         $this->authorizeAdmin($request);
         return view('admin.player-settings', [
             'preferences' => PlayerPreferences::current(),
+            'engines' => PlayerPreferences::ENGINES,
             'accents' => PlayerPreferences::ACCENTS,
         ]);
     }
@@ -30,6 +31,8 @@ final class PlayerSettingsController extends Controller
     {
         $this->authorizeAdmin($request);
         $data = $request->validate([
+            'engine' => ['sometimes', 'required', Rule::in(array_keys(PlayerPreferences::ENGINES))],
+            'ad_tag_url' => ['sometimes', 'nullable', 'string', 'max:2048', 'url:https'],
             'accent' => ['required', Rule::in(array_keys(PlayerPreferences::ACCENTS))],
             'density' => ['required', Rule::in(['comfortable', 'compact'])],
             'seek_seconds' => ['required', 'integer', Rule::in([5, 10, 15, 30])],
@@ -42,16 +45,24 @@ final class PlayerSettingsController extends Controller
         ]);
 
         DB::transaction(function () use ($data, $request): void {
-            DB::table('player_preferences')->updateOrInsert(
-                ['id' => 1],
-                [...$data, 'updated_at' => now(), 'created_at' => now()]
+            $timestamp = now();
+            $preferences = [...$data, 'updated_at' => $timestamp];
+            DB::table('player_preferences')->upsert(
+                [['id' => 1, ...$preferences, 'created_at' => $timestamp]],
+                ['id'],
+                array_keys($preferences)
             );
+            $audit = $data;
+            if (array_key_exists('ad_tag_url', $audit)) {
+                $audit['ad_tag_configured'] = $audit['ad_tag_url'] !== null;
+                unset($audit['ad_tag_url']);
+            }
             DB::table('admin_audit_events')->insert([
                 'actor_id' => $request->user()->id,
                 'action' => 'player.preferences.updated',
                 'resource_type' => 'player_preferences',
                 'resource_id' => 1,
-                'details' => json_encode($data, JSON_THROW_ON_ERROR),
+                'details' => json_encode($audit, JSON_THROW_ON_ERROR),
                 'ip_address' => $request->ip(),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -59,6 +70,6 @@ final class PlayerSettingsController extends Controller
         });
 
         return redirect()->route('admin.player-settings.edit')
-            ->with('status', 'Player appearance and controls saved.');
+            ->with('status', 'Player settings saved.');
     }
 }

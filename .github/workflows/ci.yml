@@ -587,8 +587,8 @@ jobs:
           if (!is_array($data)) exit(1);
           echo "FONTS_MANIFEST_PHP_JSON=VERIFIED\\n";
           '
-      - name: Test private edge grant logic
-        run: node --test workers/gomovie-media-edge/worker.test.mjs
+      - name: Test shared video ads and private edge grants
+        run: node --test tests/javascript/player-ads.test.mjs workers/gomovie-media-edge/worker.test.mjs
       - name: Prepare application environment
         run: |
           cp .env.example .env

@@ -190,7 +190,9 @@ final class WatchPageContinuationTest extends TestCase
     {
         $player = file_get_contents(base_path('resources/js/player.js'));
         self::assertIsString($player);
-        self::assertStringContainsString("video.addEventListener('ended', prepareNext)", $player);
+        self::assertStringContainsString("video.addEventListener('ended',", $player);
+        self::assertStringContainsString("ads.contentComplete(prepareNext)", $player);
+        self::assertStringContainsString("else prepareNext();", $player);
         self::assertStringContainsString("parsed.origin === window.location.origin", $player);
         self::assertStringContainsString("'/api/v1/stream/' + type + '/' + titleId + '/token'", $player);
         self::assertStringContainsString("'X-CSRF-TOKEN': csrf", $player);

@@ -1,10 +1,12 @@
 @extends('layouts.admin')
 @section('title','Player Settings')
 @section('content')
-<div class="gm-page-heading"><div><p class="text-xs uppercase tracking-widest text-amber-300">Player / configuration</p><h2>Player appearance</h2><p>Customize real player controls without changing private media access or streaming rights.</p></div>
+<div class="gm-page-heading"><div><p class="text-xs uppercase tracking-widest text-amber-300">Player / configuration</p><h2>Player appearance and ads</h2><p>Choose the player and manage controls and advertising for watch pages.</p></div>
 <div class="gm-page-actions"><a class="gm-studio-button" href="{{ route('browse') }}">@include('partials.studio-icon',['name'=>'external']) Browse titles</a>
 <button type="button" class="gm-studio-button is-primary" data-studio-open="gm-player-config-dialog">@include('partials.studio-icon',['name'=>'settings']) Configure player</button></div></div>
 <div class="gm-studio-metrics">
+  <div class="gm-studio-metric"><small>Active player</small><strong class="text-lg!">{{ $engines[$preferences['engine']] }}</strong></div>
+  <div class="gm-studio-metric"><small>Video ads</small><strong class="text-lg!">{{ $preferences['ad_tag_url'] ? 'Configured' : 'Off' }}</strong></div>
   <div class="gm-studio-metric"><small>Accent</small><strong class="text-lg!">{{ ucfirst($preferences['accent']) }}</strong></div>
   <div class="gm-studio-metric"><small>Control density</small><strong class="text-lg! capitalize">{{ $preferences['density'] }}</strong></div>
   <div class="gm-studio-metric"><small>Skip distance</small><strong class="text-lg!">{{ $preferences['seek_seconds'] }} seconds</strong></div>
@@ -20,6 +22,20 @@
 <form method="POST" action="{{ route('admin.player-settings.update') }}" id="gm-player-settings-form">@csrf @method('PATCH')
 <div class="gm-studio-modal-heading"><h3 id="gm-player-config-heading">Configure player</h3><button type="button" class="gm-studio-button" data-studio-close aria-label="Close">×</button></div>
 <div class="gm-studio-modal-body">
+<label class="gm-studio-field"><span>Default watch player</span>
+  <select class="gm-studio-input" name="engine">
+    @foreach($engines as $key => $name)
+      <option value="{{ $key }}" @selected(old('engine', $preferences['engine']) === $key)>{{ $name }}</option>
+    @endforeach
+  </select>
+  @error('engine') <span class="text-sm text-rose-300">{{ $message }}</span> @enderror
+</label>
+<label class="gm-studio-field"><span>Video ad tag URL</span>
+  <input class="gm-studio-input" type="url" name="ad_tag_url" value="{{ old('ad_tag_url', $preferences['ad_tag_url']) }}"
+         placeholder="https://" maxlength="2048" aria-describedby="gm-ad-tag-help">
+  <small class="gm-studio-muted" id="gm-ad-tag-help">Enter a browser-accessible HTTPS VAST or VMAP tag for both players on free titles. The URL is visible to viewers. Leave blank to disable ads. Use VMAP for scheduled mid-rolls and post-rolls.</small>
+  @error('ad_tag_url') <span class="text-sm text-rose-300">{{ $message }}</span> @enderror
+</label>
 <fieldset class="gm-studio-field"><legend class="mb-2 font-bold text-sm">Accent color</legend><div class="grid grid-cols-2 gap-2">
 @foreach($accents as $name=>$hex)
 <label class="flex items-center gap-2 rounded-lg border border-white/15 p-3 text-sm"><input type="radio" name="accent" value="{{ $name }}" @checked(old('accent',$preferences['accent'])===$name)><span class="inline-block h-4 w-4 rounded-full" style="background:{{ $hex }}"></span>{{ ucfirst($name) }}</label>
@@ -38,8 +54,11 @@
 <script>
 (() => {
  const form=document.getElementById('gm-player-settings-form');
+ @if($errors->hasAny(['engine', 'ad_tag_url']))
+ form.closest('dialog').showModal();
+ @endif
  document.getElementById('gm-player-reset')?.addEventListener('click',()=>{
-  for(const [name,value] of Object.entries({density:'comfortable',seek_seconds:'10',auto_hide_seconds:'1'})){
+  for(const [name,value] of Object.entries({engine:'gomovie',density:'comfortable',seek_seconds:'10',auto_hide_seconds:'1'})){
     const field=form.querySelector('[name="'+name+'"]');if(field)field.value=value;
   }
   const radio=form.querySelector('input[name="accent"][value="crimson"]');if(radio)radio.checked=true;
