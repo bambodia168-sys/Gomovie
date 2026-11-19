@@ -8,7 +8,9 @@ declare(strict_types=1);
  * It boots Laravel once, at the final confirmed migration step.
  */
 require_once dirname(__DIR__, 2).'/support/installer/InstallerEngine.php';
+require_once dirname(__DIR__, 2).'/support/installer/BambodiaLicense.php';
 
+use Gomovie\Installer\BambodiaLicense;
 use Gomovie\Installer\InstallerEngine;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\DB;
@@ -56,6 +58,14 @@ if (!$secure && !$isLocal) {
 }
 if ($detectedUrl === '') {
     setupAbort(400, 'The installation host is invalid.');
+}
+try {
+    $bambodiaProductId = BambodiaLicense::productId($root);
+} catch (RuntimeException $exception) {
+    setupAbort(503, $exception->getMessage());
+}
+if ($bambodiaProductId !== null && !$secure) {
+    setupAbort(403, 'The Bambodia installer requires an HTTPS domain.');
 }
 if (!is_dir($setupDir) && !@mkdir($setupDir, 0700, true) && !is_dir($setupDir)) {
     setupAbort(503, 'Private installer storage is unavailable.');
@@ -108,6 +118,9 @@ if (!is_file($installedFile) && !is_file($ownerKeyFile)) {
     }
 }
 $requirements = InstallerEngine::requirements($root);
+if ($bambodiaProductId !== null) {
+    $requirements['PHP cURL for Bambodia license activation'] = extension_loaded('curl');
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $postedToken = (string) ($_POST['csrf'] ?? '');
@@ -145,7 +158,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     throw new RuntimeException('Complete the access step first.');
                 }
                 $url = InstallerEngine::validateUrl((string) ($_POST['app_url'] ?? ''),$detectedUrl);
-                InstallerEngine::validatePurchaseCode(trim((string) ($_POST['purchase_code'] ?? '')));
+                if ($bambodiaProductId === null) {
+                    InstallerEngine::validatePurchaseCode(trim((string) ($_POST['purchase_code'] ?? '')));
+                }
                 $_SESSION['app_url'] = $url;
                 // Purchase Code is never stored or treated as a verified license.
                 $_SESSION['step'] = $step = 3;
@@ -178,7 +193,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     throw new RuntimeException('Confirm that this is a new isolated installation.');
                 }
                 $admin = InstallerEngine::validateAdministrator($_POST);
-                if (in_array(false, InstallerEngine::requirements($root), true)) {
+                if (in_array(false, $requirements, true)) {
                     throw new RuntimeException('Installation requirements changed. Recheck permissions.');
                 }
                 $op = @fopen($setupDir.'/operation.lock','c');
@@ -197,6 +212,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                         }
                     } catch (Throwable) {
                         throw new RuntimeException('Fresh database validation failed. No existing data may be overwritten.');
+                    }
+                    if ($bambodiaProductId !== null) {
+                        BambodiaLicense::activate($bambodiaProductId, (string) ($_POST['license_key'] ?? ''), $_SESSION['app_url']);
                     }
                     // Crossing this boundary is irreversible without a controlled
                     // recovery. Exclusive file mode prevents overwriting .env.
@@ -342,17 +360,18 @@ footer{margin-top:28px;text-align:center;font-size:12px;color:#777782}
       </form>
     <?php elseif ($step === 2): ?>
       <h1>Configure your application</h1>
-      <p>The domain is detected from this secure request. Confirm the destination before saving. Purchase Code is optional and is not considered verified by this installer.</p>
+      <p>Confirm the application domain before continuing.</p>
       <form method="post" action="/installer/">
         <input type="hidden" name="csrf" value="<?= esc($csrf) ?>">
         <input type="hidden" name="action" value="application">
         <label>Application URL
           <input type="url" name="app_url" value="<?= esc($appUrl) ?>" required autocomplete="url" maxlength="253">
         </label>
-        <label>Purchase Code (optional)
-          <input type="text" name="purchase_code" autocomplete="off" maxlength="120" placeholder="If supplied by your licensing provider">
-        </label>
-        <p>No licensing service is connected, so entering a Purchase Code does not validate a license. Do not enter passwords or private keys here.</p>
+        <?php if ($bambodiaProductId === null): ?>
+          <label>Purchase Code (optional)
+            <input type="text" name="purchase_code" autocomplete="off" maxlength="120" placeholder="If supplied by your licensing provider">
+          </label>
+        <?php endif; ?>
         <div class="actions"><button type="submit">Continue to database</button></div>
       </form>
     <?php elseif ($step === 3): ?>
@@ -378,6 +397,12 @@ footer{margin-top:28px;text-align:center;font-size:12px;color:#777782}
       <form method="post" action="/installer/">
         <input type="hidden" name="csrf" value="<?= esc($csrf) ?>">
         <input type="hidden" name="action" value="install">
+        <?php if ($bambodiaProductId !== null): ?>
+          <label>Bambodia license key
+            <input type="password" name="license_key" required minlength="52" maxlength="52" autocomplete="off" placeholder="BAM-…">
+          </label>
+          <p>Copy the key from My licenses on Bambodia. Setup sends the key to Bambodia over HTTPS to activate this domain.</p>
+        <?php endif; ?>
         <div class="grid">
           <label>Administrator name<input name="name" maxlength="100" required></label>
           <label>Administrator email<input name="email" type="email" maxlength="255" required></label>

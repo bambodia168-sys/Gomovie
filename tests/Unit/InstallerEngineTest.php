@@ -3,7 +3,9 @@
 namespace Tests\Unit;
 
 require_once __DIR__.'/../../support/installer/InstallerEngine.php';
+require_once __DIR__.'/../../support/installer/BambodiaLicense.php';
 
+use Gomovie\Installer\BambodiaLicense;
 use Gomovie\Installer\InstallerEngine;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
@@ -91,6 +93,41 @@ final class InstallerEngineTest extends TestCase
             }
         } finally {
             @unlink($path);
+        }
+    }
+
+    public function test_marketplace_activation_sends_the_key_only_to_bambodia_for_the_packaged_product(): void
+    {
+        $key = 'BAM-'.str_repeat('A', 48);
+        BambodiaLicense::activate('123456789', $key, 'https://GoMovie.example.test',
+            function (string $url, array $payload) use ($key): array {
+                self::assertSame('https://bambodia.com/api/v1/licenses/activate', $url);
+                self::assertSame(['license_key' => $key, 'product_id' => '123456789', 'domain' => 'gomovie.example.test'], $payload);
+
+                return [200, json_encode(['valid' => true, 'status' => 'activated', 'product_id' => 123456789,
+                    'domain' => 'gomovie.example.test'], JSON_THROW_ON_ERROR)];
+            });
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('could not confirm activation');
+        BambodiaLicense::activate('123456789', $key, 'https://gomovie.example.test',
+            fn () => [200, '{"valid":true,"status":"activated","product_id":999999999,"domain":"gomovie.example.test"}']);
+    }
+
+    public function test_marketplace_installer_rejects_missing_keys_and_unusable_installation_hosts_locally(): void
+    {
+        $noRequest = static fn () => self::fail('Invalid installer input should not be sent to Bambodia.');
+        foreach ([
+            ['', 'https://gomovie.example.test'],
+            ['BAM-'.str_repeat('A', 48), 'http://gomovie.example.test'],
+            ['BAM-'.str_repeat('A', 48), 'https://127.0.0.1'],
+        ] as [$key, $url]) {
+            try {
+                BambodiaLicense::activate('123456789', $key, $url, $noRequest);
+                self::fail('Invalid installation input was accepted.');
+            } catch (InvalidArgumentException) {
+                self::assertTrue(true);
+            }
         }
     }
 }
