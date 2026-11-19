@@ -136,3 +136,25 @@ dialog.gm-player-settings-dialog[open]{width:min(680px,calc(100% - 24px))}
 }
 .gm-branding-preview{display:block;width:100%;height:58px;object-fit:contain;object-position:left center;padding:6px 10px;margin-bottom:8px;border-radius:8px;background:#0d0e16}
 .gm-branding-preview.is-light{background:#edf0f6}
+
+html.light .gm-workspace-shell .gm-page-heading :is(h1,h2){color:#202939}
+html.light .gm-workspace-shell .gm-page-heading p,
+html.light .gm-workspace-shell .gm-studio-panel-head small,
+html.light .gm-workspace-shell .gm-studio-field > span,
+html.light .gm-workspace-shell .gm-studio-field > label > span{color:#505c70}
+html.light .gm-workspace-shell .gm-studio-subnav a,
+html.light .gm-workspace-shell .gm-studio-button:not(.is-primary){color:#253146;background:#fff;border-color:#cbd3e1}
+html.light .gm-workspace-shell .gm-studio-subnav a:hover,
+html.light .gm-workspace-shell .gm-studio-button:not(.is-primary):hover{background:#edf1f8}
+html.light .gm-workspace-shell .gm-studio-subnav a.is-current{color:#9d1734;background:#fff0f4;border-color:#d65370}
+html.light .gm-workspace-shell .gm-studio-button.is-primary{background:#c61c42;border-color:#c61c42}
+html.light .gm-workspace-shell .gm-studio-button.is-primary:hover{background:#a91535}
+html.light .gm-workspace-shell .gm-studio-button.is-danger{color:#a91535;border-color:#d997a9}
+html.light .gm-workspace-shell .gm-studio-input,
+html.light .gm-workspace-shell .gm-studio-modal{color:#202939;background:#fff;border-color:#cbd3e1}
+html.light .gm-workspace-shell .gm-studio-input::placeholder{color:#606c81}
+html.light .gm-workspace-shell .gm-studio-modal-heading,
+html.light .gm-workspace-shell .gm-studio-modal-actions{border-color:#dce0ea}
+html.light .gm-workspace-shell .gm-studio-pill{color:#485670;background:#edf1f8;border-color:#d2dae8}
+html.light .gm-workspace-shell .gm-studio-pill.is-ok{color:#075a45;background:#e7f7f0;border-color:#9bd5c2}
+html.light .gm-workspace-shell .gm-studio-pill.is-warn{color:#774801;background:#fff2d7;border-color:#dfc185}
