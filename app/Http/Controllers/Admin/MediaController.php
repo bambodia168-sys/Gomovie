@@ -7,6 +7,7 @@ use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Series;
 use App\Services\Media\PrivateVideoIntake;
+use App\Support\VideoUploadLimit;
 use App\Services\Media\AutomaticPublicationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -23,24 +24,31 @@ class MediaController extends Controller
     {
         $assets = DB::table('media_ingests')
             ->join('users', 'users.id', '=', 'media_ingests.uploaded_by')
+            ->leftJoin('movies', function ($join): void {
+                $join->on('movies.id', '=', 'media_ingests.ingestable_id')
+                    ->where('media_ingests.ingestable_type', 'movie');
+            })
             ->select('media_ingests.id', 'media_ingests.original_name', 'media_ingests.mime',
                 'media_ingests.size_bytes', 'media_ingests.status', 'media_ingests.created_at',
                 'media_ingests.uploaded_by', 'media_ingests.ingestable_type',
                 'media_ingests.ingestable_id', 'media_ingests.encoded_manifest_key',
-                'users.name as uploader')
+                'media_ingests.pipeline_error', 'users.name as uploader',
+                'movies.is_standalone_video', 'movies.slug as movie_slug',
+                'movies.status as movie_status', 'movies.published_at as movie_published_at')
             ->orderByDesc('media_ingests.id')->paginate(10)->withQueryString();
 
         $auto = app(AutomaticPublicationService::class);
         foreach ($assets as $asset) {
             $asset->public = false;
+            $asset->watch_url = $asset->is_standalone_video && $asset->movie_status === 'published'
+                && (!$asset->movie_published_at || $asset->movie_published_at <= now()->toDateTimeString())
+                ? route('watch.show', ['type' => 'movie', 'slug' => $asset->movie_slug]) : null;
             if ($asset->status !== 'encoded' || !$asset->encoded_manifest_key) continue;
             $ready = $auto->readyAsset((string) $asset->ingestable_type, (int) $asset->ingestable_id);
             $asset->public = $ready && hash_equals(
                 (string) $ready->manifest_key, (string) $asset->encoded_manifest_key);
-            $asset->watch_url = null;
-            if ($asset->public && $asset->ingestable_type === 'movie') {
-                $slug = Movie::query()->whereKey($asset->ingestable_id)->value('slug');
-                if ($slug) $asset->watch_url = route('watch.show', ['type' => 'movie', 'slug' => $slug]);
+            if ($asset->public && $asset->ingestable_type === 'movie' && $asset->movie_slug) {
+                $asset->watch_url = route('watch.show', ['type' => 'movie', 'slug' => $asset->movie_slug]);
             } elseif ($asset->public && $asset->ingestable_type === 'episode') {
                 $episode = Episode::query()->with('season.series')->find($asset->ingestable_id);
                 if ($episode?->season?->series?->slug) {
@@ -104,10 +112,12 @@ class MediaController extends Controller
         $data = $request->validate([
             'type' => ['required', Rule::in(['movie', 'episode'])],
             'title_id' => ['required', 'integer', 'min:1'],
-            'video' => ['required', 'file', 'mimes:mp4,mov,mkv,webm', 'max:131072'],
+            'video' => VideoUploadLimit::fileRules(),
         ]);
         $model = $data['type'] === 'movie' ? Movie::class : Episode::class;
-        $model::findOrFail($data['title_id']);
+        $model::query()
+            ->when($data['type'] === 'movie', fn ($query) => $query->where('is_standalone_video', false))
+            ->findOrFail($data['title_id']);
         $intake->store($data['type'], (int) $data['title_id'],
             $data['video'], (int) $request->user()->id, $request->ip());
 

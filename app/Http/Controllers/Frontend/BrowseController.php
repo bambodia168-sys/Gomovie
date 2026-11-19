@@ -59,7 +59,7 @@ class BrowseController extends Controller
     {
         $data = $request->validate([
             'q'=>['nullable','string','max:100'],
-            'type'=>['nullable','in:all,movie,series'],
+            'type'=>['nullable','in:all,movie,series,video'],
             'access'=>['nullable','in:all,free,premium'],
         ]);
         $type = $data['type'] ?? 'all';
@@ -68,11 +68,12 @@ class BrowseController extends Controller
 
         $movies = $type !== 'series'
             ? $this->visible(Movie::query())
+                ->when($type !== 'all', fn ($query) => $query->where('is_standalone_video', $type === 'video'))
                 ->when($q !== '', fn ($query) => $query->where('title','like','%'.$q.'%'))
                 ->when($access !== 'all', fn ($query) => $query->where('is_premium',$access === 'premium'))
                 ->latest('published_at')->paginate(18)->withQueryString()
             : collect();
-        $series = $type !== 'movie'
+        $series = in_array($type, ['all', 'series'], true)
             ? $this->visible(Series::query())
                 ->when($q !== '', fn ($query) => $query->where('title','like','%'.$q.'%'))
                 ->when($access !== 'all', fn ($query) => $query->where('is_premium',$access === 'premium'))
@@ -135,6 +136,12 @@ class BrowseController extends Controller
             ? app(\App\Services\Media\AutomaticPublicationService::class)
                 ->readyAsset($type === 'movie' ? 'movie' : 'episode', $publicWatchId)
             : null;
+
+        $standaloneVideo = $title instanceof Movie && $title->is_standalone_video;
+        $standaloneFailed = $standaloneVideo && !$publicAsset && DB::table('media_ingests')
+            ->where('ingestable_type', 'movie')->where('ingestable_id', $title->id)
+            ->where(fn ($query) => $query->where('status', 'rejected')->orWhereNotNull('pipeline_error'))
+            ->exists();
 
         // A verified administrator can preview their own private source on
         // the existing watch page. No public viewer sees the preview URL.
@@ -250,7 +257,7 @@ class BrowseController extends Controller
         return view('frontend.detail', compact(
             'title','type','displayMode','seasons','selectedEpisode','previousEpisode',
             'nextEpisode','related','autoNext','playerEnabled','profileId',
-            'isWatchlisted','viewerAuthorized','privatePreviewIngest','privatePreviewCaptions','playerPreferences','publicAsset','publicWatchId'
+            'isWatchlisted','viewerAuthorized','privatePreviewIngest','privatePreviewCaptions','playerPreferences','publicAsset', 'standaloneVideo', 'standaloneFailed','publicWatchId'
         ));
     }
 

@@ -32,7 +32,7 @@ jobs:
           php -l routes/web.php
           php -l tests/Feature/QuickUploadTest.php
           bash -n support/quick-upload-upgrade.sh
-      - name: One-screen product and security acceptance
+      - name: Upload Studio entry points and publication checks
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -49,15 +49,15 @@ jobs:
           assert 'rights_confirmed' in ctl and 'rights_basis' in ctl
           assert 'uploader_declaration_only' in ctl
           assert "'status' => 'active'" in ctl and "'territories' => null" in ctl
-          assert "Rule::in(['free', 'private', 'paid'])" in ctl
-          assert "No manual approval" not in view
+          assert "Rule::in(['free'])" in ctl
+          assert "'title' => ['nullable'" in ctl
+          assert 'publishWatchPage: true' in ctl
           assert 'quick-upload-form' in view
-          assert 'Paid video · Draft' in view
-          assert 'Checkout' not in view or 'checkout' in view
-          assert 'Advanced editor' in view
+          assert all(label in view for label in ('Movie', 'TV Show', 'Normal Video'))
+          assert 'name="access"' not in view
           assert 'data-status-template=' in view
           assert 'bool $autoPublish = true' in ingest
-          assert 'if ($autoPublish && config(' in ingest
+          assert 'if ($autoPublish && SiteSettings::get(' in ingest
           assert 'readyAsset(' in media
           for name in ('QuickUploadController.php','quick-upload.blade.php',
                        'PrivateVideoIntake.php','web.php','MediaController.php','media.blade.php'):
@@ -93,7 +93,7 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-      - name: Validate real Quick Upload and backward-compatible advanced workflows
+      - name: Validate all Upload Studio paths and their shared upload limit
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
@@ -103,4 +103,5 @@ jobs:
           vendor/bin/phpunit --colors=never \
             tests/Feature/QuickUploadTest.php \
             tests/Feature/UploadStudioTest.php \
-            tests/Feature/UploadCaptionTest.php
+            tests/Feature/UploadCaptionTest.php \
+            tests/Feature/SiteSettingsTest.php

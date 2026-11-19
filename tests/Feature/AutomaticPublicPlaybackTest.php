@@ -154,6 +154,30 @@ final class AutomaticPublicPlaybackTest extends TestCase
         $this->assertDatabaseCount('media_assets', 0);
     }
 
+    public function test_only_standalone_video_assets_use_the_guest_hls_route(): void
+    {
+        $this->enable();
+        [$id, $video] = $this->package();
+        $video->update(['is_standalone_video' => true, 'status' => 'published', 'published_at' => now()]);
+        [$movieId] = $this->package();
+        $auto = app(AutomaticPublicationService::class);
+        $asset = $auto->finalize($id);
+        $movieAsset = $auto->finalize($movieId);
+        $manifest = route('public-hls.standalone', ['asset' => $asset, 'path' => 'master.m3u8']);
+
+        $this->get('/watch/movie/'.$video->slug)->assertOk()
+            ->assertSee('data-public-hls-url="/hls/standalone/'.$asset.'/master.m3u8"', false)
+            ->assertDontSee('Sign In to Watch');
+        $this->get($manifest)->assertOk()->assertHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        $this->get(route('public-hls.standalone', ['asset' => $asset, 'path' => '480p/segment_00000.ts']))
+            ->assertOk()->assertHeader('Content-Type', 'video/mp2t');
+        $this->get(route('public-hls.standalone', ['asset' => $movieAsset, 'path' => 'master.m3u8']))
+            ->assertNotFound();
+
+        DB::table('content_rights')->where('licensable_id', $video->id)->update(['status' => 'revoked']);
+        $this->get($manifest)->assertNotFound();
+    }
+
     public function test_public_free_movie_delivers_only_fingerprinted_hls_and_is_revocable(): void
     {
         $this->enable();

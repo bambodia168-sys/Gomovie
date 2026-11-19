@@ -14,6 +14,7 @@
   </header>
 
   <nav class="gm-studio-subnav gm-site-settings-nav" aria-label="Settings sections">
+    <a href="#uploads">Upload settings</a>
     <a href="#media">Video processing</a>
     <a href="#storage">Cloud storage</a>
     <a href="#tmdb">TMDB</a>
@@ -28,6 +29,25 @@
       @endforeach
     </ul>
   @endif
+
+  <section class="gm-studio-panel gm-site-settings-media" id="uploads" aria-labelledby="gm-site-uploads">
+    <div class="gm-studio-panel-head"><h3 id="gm-site-uploads">Upload settings</h3></div>
+    <form method="post" action="{{ route('admin.site-settings.update', 'uploads') }}">
+      @csrf @method('PATCH')
+      <div class="gm-studio-panel-body gm-site-setting-fields">
+        <label class="gm-studio-field">
+          <span>Maximum video size (MB)</span>
+          <input class="gm-studio-input" type="number" name="video_upload_max_mb" required min="1"
+                 max="{{ \App\Support\VideoUploadLimit::MAX_MB }}" step="1"
+                 value="{{ old('video_upload_max_mb', $uploadLimit) }}">
+        </label>
+        <p class="gm-studio-muted text-sm">This limit applies to each movie, TV episode, and normal video. Upload Studio can currently accept up to {{ number_format($effectiveUploadMb, 2) }} MB under the PHP limits. Your web server may also limit the request size.</p>
+      </div>
+      <div class="gm-site-setting-actions">
+        <button class="gm-studio-button is-primary" type="submit">Save upload settings</button>
+      </div>
+    </form>
+  </section>
 
   <section class="gm-studio-panel gm-site-settings-media" id="media" aria-labelledby="gm-site-media">
     <div class="gm-studio-panel-head">

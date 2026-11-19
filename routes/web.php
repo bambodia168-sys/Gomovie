@@ -39,6 +39,10 @@ Route::get('/hls/{asset}/{path}', PublicHlsController::class)
     ->whereNumber('asset')->where('path', '.*')
     ->middleware(['auth','active','verified','throttle:240,1'])->name('public-hls.show');
 
+Route::get('/hls/standalone/{asset}/{path}', PublicHlsController::class)
+    ->whereNumber('asset')->where('path', '.*')
+    ->middleware('throttle:240,1')->name('public-hls.standalone');
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [SessionController::class, 'loginForm'])->name('login');
     Route::post('/login', [SessionController::class, 'login'])->middleware('throttle:5,1');
@@ -185,7 +189,7 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
         ->middleware('throttle:20,1')->name('player-settings.update');
     Route::get('/site-settings', [SiteSettingsController::class, 'edit'])->name('site-settings.edit');
     Route::patch('/site-settings/{section}', [SiteSettingsController::class, 'update'])
-        ->whereIn('section', ['media', 'tmdb', 'storage', 'edge', 'monitoring'])
+        ->whereIn('section', ['uploads', 'media', 'tmdb', 'storage', 'edge', 'monitoring'])
         ->middleware('throttle:20,1')->name('site-settings.update');
     Route::post('/site-settings/test-ffmpeg', [SiteSettingsController::class, 'testFfmpeg'])
         ->middleware('throttle:6,1')->name('site-settings.test-ffmpeg');

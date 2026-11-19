@@ -135,15 +135,16 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
   </nav>
   <div class="columns">
     <div class="card">
-      <form id="gm-upload-studio-form" action="{{ route('upload-studio.upload') }}" method="POST" enctype="multipart/form-data" data-max-bytes="{{ $maxUploadBytes }}" data-resume-id="{{ $resume->id ?? '' }}" data-resume-type="{{ $resume->ingestable_type ?? '' }}" data-resume-target="{{ $resume->ingestable_id ?? '' }}" data-upload-base="{{ route('upload-studio.index') }}" data-auto-publication="{{ $automaticPublicationEnabled ? '1' : '0' }}" novalidate>
+      <form id="gm-upload-studio-form" action="{{ route('upload-studio.upload') }}" method="POST" enctype="multipart/form-data" data-max-bytes="{{ $maxUploadBytes }}" data-resume-id="{{ $resume->id ?? '' }}" data-resume-type="{{ $resume->ingestable_type ?? '' }}" data-resume-target="{{ $selectedId ?: '' }}" data-upload-base="{{ route('upload-studio.index') }}" data-auto-publication="{{ $automaticPublicationEnabled ? '1' : '0' }}" novalidate>
         @csrf
         <section class="card-inner" data-panel="1">
           <div class="panel-title"><span class="count">1</span><h2>File &amp; Ingest</h2></div>
           <p class="section-help">Choose an existing movie or TV episode and upload the original video.</p>
           <div class="type-select" role="group" aria-label="Content type">
-            <label><input name="type" type="radio" value="movie" checked><span>Movie</span></label>
-            <label><input name="type" type="radio" value="episode"><span>TV episode</span></label>
+            <label><input name="type" type="radio" value="movie" @checked($selectedType === 'movie')><span>Movie</span></label>
+            <label><input name="type" type="radio" value="episode" @checked($selectedType === 'episode')><span>TV Show episode</span></label>
           </div>
+          <p class="field-note">Need a title first? <a class="underline" href="{{ route('admin.catalog.create', ['type' => 'movies']) }}">Create a movie</a> or <a class="underline" href="{{ route('admin.catalog.index', ['type' => 'series']) }}">manage a TV show and its episodes</a>.</p>
           <div class="field">
             <label for="gm-upload-search" class="label">Find a title</label>
             <input class="control" type="search" id="gm-upload-search" placeholder="Search movies and episodes" autocomplete="off">
@@ -167,6 +168,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
             <span class="filemeta" id="gm-upload-file-meta">MP4, MOV, MKV, WebM · Max {{ number_format($maxUploadBytes / 1048576, 1) }} MB</span>
             <input id="gm-upload-file" name="video" type="file" accept=".mp4,.mov,.mkv,.webm,video/mp4,video/quicktime,video/x-matroska,video/webm" aria-label="Select video file" required>
           </label>
+          <p class="field-note"><a class="underline" href="{{ route('admin.site-settings.edit') }}#uploads">Upload settings</a></p>
           <div id="gm-upload-progress-wrap" class="progress-wrap" hidden>
             <div class="progress-head"><span id="gm-upload-progress-text">Uploading…</span><strong id="gm-upload-percent">0%</strong></div>
             <div class="progress-track" id="gm-upload-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill" id="gm-upload-progress-fill"></div></div>
@@ -817,6 +819,10 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     }
   });
   el('gm-refresh-status').addEventListener('click',refreshStatus);
+  if (!ingestId && resumeTarget && [...target.options].some(o => o.value === resumeTarget)) {
+    target.value = resumeTarget;
+    syncForms();
+  }
   if (ingestId && (resumeType === 'movie' || resumeType === 'episode')) {
     const radio=types.find(t => t.value===resumeType);if(radio)radio.checked=true;
     filterTitles();

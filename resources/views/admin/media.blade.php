@@ -24,14 +24,25 @@
 @forelse($assets as $asset)
 <tr><td>{{ ($assets->firstItem()??1)+$loop->index }}</td><td class="break-words">{{ $asset->original_name }}</td>
 <td class="gm-studio-muted">{{ $asset->uploader }}</td><td class="gm-studio-muted">{{ number_format($asset->size_bytes / 1048576, 1) }} MB</td>
-<td><span class="gm-studio-pill {{ $asset->status==='quarantined'?'is-warn':'is-ok' }}">{{ $asset->public?'Public and playable':($asset->status==='quarantined'?'Saved privately':ucfirst($asset->status)) }}</span></td>
+@php
+  $assetStatus = match (true) {
+    $asset->public => 'Public and playable',
+    (bool) $asset->watch_url => $asset->pipeline_error || $asset->status === 'rejected' ? 'Playback unavailable' : 'Public page · Processing',
+    $asset->status === 'quarantined' => 'Saved privately',
+    default => ucfirst($asset->status),
+  };
+@endphp
+<td><span class="gm-studio-pill {{ $asset->public ? 'is-ok' : 'is-warn' }}">{{ $assetStatus }}</span></td>
 <td class="gm-studio-muted">{{ $asset->created_at }}</td>
 <td class="text-right"><button class="gm-studio-dots" type="button" aria-label="Actions for {{ $asset->original_name }}" data-studio-menu="asset-actions-{{ $asset->id }}" aria-expanded="false">@include('partials.studio-icon',['name'=>'dots'])</button>
 <template id="asset-actions-{{ $asset->id }}">
 @if(in_array(auth()->user()->role,['admin','super_admin'],true))
 <a role="menuitem" href="{{ route('admin.media.ingest-preview',$asset->id) }}" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) Private preview</a>
-@if($asset->public && ($asset->watch_url ?? null))
-<a role="menuitem" href="{{ $asset->watch_url }}" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) Watch public video</a>
+@if($asset->watch_url)
+<a role="menuitem" href="{{ $asset->watch_url }}" target="_blank" rel="noopener noreferrer">@include('partials.studio-icon',['name'=>'eye']) Open public watch page</a>
+@endif
+@if($asset->is_standalone_video)
+<a role="menuitem" href="{{ route('admin.catalog.edit', ['movies', $asset->ingestable_id]) }}">@include('partials.studio-icon',['name'=>'edit']) Edit video details</a>
 @endif
 @endif
 @if((int)$asset->uploaded_by===(int)auth()->id() && $asset->status==='quarantined')
