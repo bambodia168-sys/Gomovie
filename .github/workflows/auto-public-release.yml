@@ -63,7 +63,8 @@ jobs:
           assert 'artisan migrate' not in shell
           assert '->insert(' not in shell and '->update(' not in shell and '->delete(' not in shell
           assert 'data-public-hls-url=' in blade
-          assert "route('public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false)" in blade
+          assert "$standaloneVideo ? 'public-hls.standalone' : 'public-hls.show'" in blade
+          assert "['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false)" in blade
           assert "publicHlsUrl.startsWith('/hls/')" in player
           assert '|| !$this->hasDocumentedRights($kind, $titleId)' in service
           assert "GOMOVIE-ORIGINAL-FFMPEG-QA-c510082cf911cce9" in fixture
