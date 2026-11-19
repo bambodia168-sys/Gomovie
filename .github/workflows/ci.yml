@@ -378,7 +378,7 @@ jobs:
           assert "->where('uploaded_by', (int) $user->id)" in vtt
           assert "'text/vtt; charset=utf-8'" in vtt
           transcoder=Path("app/Services/Media/TranscodingService.php").read_text()
-          assert "config('gomovie.high_res_transcoding_enabled') === true" in transcoder
+          assert "SiteSettings::get('high_res_transcoding_enabled') === true" in transcoder
           assert "2160 =>" in transcoder and "1440 =>" in transcoder
           print("GOMOVIE_PLAYER_UPLOAD_V13=VERIFIED")
           PY
