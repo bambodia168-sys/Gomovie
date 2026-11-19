@@ -960,3 +960,34 @@ button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 @media(prefers-reduced-motion:reduce){
   .gm-modern-player .gm-modern-bottom{transition:none!important}
 }
+
+/* IMA owns ad controls, clickthroughs and playback for both watch players. */
+.gm-ima-ads {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    visibility: hidden;
+    pointer-events: none;
+}
+.gm-ima-ads.is-active {
+    visibility: visible;
+    pointer-events: auto;
+}
+.is-ima-linear .gm-ima-ads {
+    z-index: 20;
+    background: #000;
+}
+.is-ima-linear > :is(.gm-modern-ui, .gm-player-controls, .plyr) {
+    visibility: hidden;
+}
+.gm-ima-companion:not([hidden]) {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    margin-bottom: 14px;
+    color: #a69cad;
+}
+.gm-ima-companion iframe {
+    max-width: 100%;
+    border: 0;
+}

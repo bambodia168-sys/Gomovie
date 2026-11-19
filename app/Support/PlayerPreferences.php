@@ -7,7 +7,14 @@ use Illuminate\Support\Facades\Schema;
 
 final class PlayerPreferences
 {
+    public const ENGINES = [
+        'gomovie' => 'Bambodia Player',
+        'plyr' => 'Plyr Player',
+    ];
+
     public const DEFAULTS = [
+        'engine' => 'gomovie',
+        'ad_tag_url' => null,
         'accent' => 'crimson',
         'density' => 'comfortable',
         'seek_seconds' => 10,
@@ -17,6 +24,18 @@ final class PlayerPreferences
         'show_captions' => true,
         'show_pip' => true,
         'show_fullscreen' => true,
+    ];
+
+    public const SEEK_INTERVALS = [5, 10, 15, 30];
+
+    public const AUTO_HIDE_DELAYS = [0, 1, 2];
+
+    public const CONTROLS = [
+        'show_volume' => 'Volume / mute',
+        'show_speed' => 'Playback speed',
+        'show_captions' => 'Captions',
+        'show_pip' => 'Picture-in-picture',
+        'show_fullscreen' => 'Fullscreen',
     ];
 
     public const ACCENTS = [
@@ -46,16 +65,18 @@ final class PlayerPreferences
                 $out[$key] = $data[$key];
             }
         }
+        $out['engine'] = array_key_exists($out['engine'], self::ENGINES)
+            ? $out['engine'] : self::DEFAULTS['engine'];
         // Defensive value normalization: never inject an arbitrary style.
         $out['accent'] = array_key_exists($out['accent'], self::ACCENTS)
             ? $out['accent'] : 'crimson';
         $out['density'] = in_array($out['density'], ['comfortable', 'compact'], true)
             ? $out['density'] : 'comfortable';
-        $out['seek_seconds'] = in_array((int) $out['seek_seconds'], [5, 10, 15, 30], true)
+        $out['seek_seconds'] = in_array((int) $out['seek_seconds'], self::SEEK_INTERVALS, true)
             ? (int) $out['seek_seconds'] : 10;
-        $out['auto_hide_seconds'] = in_array((int) $out['auto_hide_seconds'], [0, 1, 2], true)
+        $out['auto_hide_seconds'] = in_array((int) $out['auto_hide_seconds'], self::AUTO_HIDE_DELAYS, true)
             ? (int) $out['auto_hide_seconds'] : 1;
-        foreach (['show_volume', 'show_speed', 'show_captions', 'show_pip', 'show_fullscreen'] as $key) {
+        foreach (array_keys(self::CONTROLS) as $key) {
             $out[$key] = (bool) $out[$key];
         }
         return $out;

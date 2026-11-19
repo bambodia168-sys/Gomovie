@@ -587,8 +587,8 @@ jobs:
           if (!is_array($data)) exit(1);
           echo "FONTS_MANIFEST_PHP_JSON=VERIFIED\\n";
           '
-      - name: Test private edge grant logic
-        run: node --test workers/gomovie-media-edge/worker.test.mjs
+      - name: Test shared video ads and private edge grants
+        run: node --test tests/javascript/player-ads.test.mjs workers/gomovie-media-edge/worker.test.mjs
       - name: Prepare application environment
         run: |
           cp .env.example .env
@@ -621,3 +621,16 @@ jobs:
         env:
           GOMOVIE_REQUIRE_FFMPEG_SMOKE: '1'
         run: vendor/bin/phpunit --colors=never
+      - name: Package the verified frontend build
+        run: |
+          tar -C public/build -czf frontend.tar.gz manifest.json fonts-manifest.json assets
+          sha256sum frontend.tar.gz > frontend.tar.gz.sha256
+      - name: Publish the frontend deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gomovie-frontend-build
+          path: |
+            frontend.tar.gz
+            frontend.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14
