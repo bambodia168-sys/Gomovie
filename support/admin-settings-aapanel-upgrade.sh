@@ -67,6 +67,7 @@ files=(
     routes/web.php
 )
 manifests=(public/build/fonts-manifest.json public/build/manifest.json)
+view_directories=(resources/views/admin/distribution-rights resources/views/admin/site-settings)
 
 fail() {
     printf 'GOMOVIE_ADMIN_SETTINGS_ERROR=%s\n' "$*" >&2
@@ -92,18 +93,44 @@ echo "BACKUP_DIRECTORY=$work"
 phase=prepare-sources
 conflicts=()
 applied=()
+created_view_directories=()
 complete=0
 worker_restarted=0
 
 put_file() {
     local source="$1" target="$2" staged
-    mkdir -p -- "$(dirname "$target")" || return 1
     staged="$(mktemp "$(dirname "$target")/.gm-admin-settings.XXXXXXXX")" || return 1
     if cp -p -- "$source" "$staged" && mv -fT -- "$staged" "$target"; then
         return 0
     fi
     rm -f -- "$staged"
     return 1
+}
+
+prepare_view_directories() {
+    local relative directory mode
+    for relative in "${view_directories[@]}"; do
+        directory="$site/$relative"
+        [[ -d "$(dirname "$directory")" && ! -L "$directory" ]] \
+            || fail "Unexpected view directory path: $relative"
+        if [[ -e "$directory" ]]; then
+            [[ -d "$directory" ]] || fail "Expected a view directory: $relative"
+            if runuser -u www -- test -r "$directory" && runuser -u www -- test -x "$directory"; then
+                continue
+            fi
+            # Older installers created empty root-only directories under umask 077.
+            mode="$(stat -c '%u:%a' -- "$directory")"
+            [[ "$mode" = '0:700' || "$mode" = '0:2700' ]] \
+                || fail "Unexpected permissions for view directory: $relative ($mode)"
+            rmdir -- "$directory" || fail "Inaccessible view directory contains files: $relative"
+            echo "STALE_VIEW_DIRECTORY_REMOVED=$relative"
+        fi
+        created_view_directories+=("$directory")
+        install -d -o root -g www -m 0750 -- "$directory"
+        runuser -u www -- test -r "$directory" && runuser -u www -- test -x "$directory" \
+            || fail "The PHP user cannot read and traverse view directory: $relative"
+        echo "VIEW_DIRECTORY_READY=$relative"
+    done
 }
 
 merge_custom_branding() {
@@ -213,12 +240,12 @@ PY_CUSTOM_BRANDING
 }
 
 on_exit() {
-    local result=$? restored=1 file
+    local result=$? restored=1 file directory
     trap - EXIT HUP INT TERM
     if (( complete )); then return; fi
     set +e
     printf 'GOMOVIE_ADMIN_SETTINGS_DEPLOYMENT=FAILED phase=%s exit=%s\n' "$phase" "$result" >&2
-    if (( ${#applied[@]} > 0 )); then
+    if (( ${#applied[@]} > 0 || ${#created_view_directories[@]} > 0 )); then
         for file in "${applied[@]}"; do
             if [[ -f "$work/original/$file" ]]; then
                 put_file "$work/original/$file" "$site/$file" || restored=0
@@ -226,8 +253,18 @@ on_exit() {
                 rm -f -- "$site/$file" || restored=0
             fi
         done
-        (cd "$site" && runuser -u www -- "$php" artisan route:clear --no-interaction \
-            && runuser -u www -- "$php" artisan view:cache --no-interaction) >/dev/null 2>&1 || restored=0
+        for directory in "${created_view_directories[@]}"; do
+            if [[ -e "$directory" || -L "$directory" ]]; then
+                rmdir -- "$directory" || restored=0
+            fi
+        done
+        if (( ${#applied[@]} > 0 )); then
+            if ! (cd "$site" && runuser -u www -- "$php" artisan route:clear --no-interaction \
+                && runuser -u www -- "$php" artisan view:cache --no-interaction) >"$work/rollback-cache.log" 2>&1; then
+                echo "ROLLBACK_CACHE_LOG=$work/rollback-cache.log" >&2
+                restored=0
+            fi
+        fi
         if (( worker_restarted )); then
             systemctl restart gomovie-media-worker.service || restored=0
         fi
@@ -338,6 +375,9 @@ for file in "${manifests[@]}"; do
     chown root:www "$work/ready/$file"
     chmod 0644 "$work/ready/$file"
 done
+
+phase=prepare-view-directories
+prepare_view_directories
 
 phase=install-assets
 for asset in "$work/ready/public/build/assets/"*; do
