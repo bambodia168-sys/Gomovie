@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Movie;
 use App\Models\Series;
+use App\Support\CatalogArtwork;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +17,11 @@ use Illuminate\View\View;
 
 class CatalogController extends Controller
 {
+    private const ARTWORK_FIELDS = [
+        'poster_path' => 'poster_upload',
+        'backdrop_path' => 'backdrop_upload',
+    ];
+
     private function model(string $type): string
     {
         abort_unless(in_array($type, ['movies', 'series'], true), 404);
@@ -150,14 +157,10 @@ class CatalogController extends Controller
     public function store(Request $request, string $type): RedirectResponse
     {
         $model = $this->model($type);
-        $data = $this->validateTitle($request, $type);
-        $created = DB::transaction(function () use ($request,$model,$data,$type) {
-            $title = $model::query()->create($data);
-            $this->audit($request,'catalog.created',$type,$title->id);
-            return $title;
-        });
+        $title = new $model();
+        $this->saveTitle($request, $type, $title);
 
-        return redirect()->route('admin.catalog.edit',[$type,$created->id])
+        return redirect()->route('admin.catalog.edit',[$type,$title->id])
             ->with('status','Title created. Confirm distribution rights before making media available.');
     }
 
@@ -174,11 +177,7 @@ class CatalogController extends Controller
     {
         $model = $this->model($type);
         $title = $model::query()->findOrFail($id);
-        $data = $this->validateTitle($request,$type,$id);
-        DB::transaction(function () use ($title,$data,$request,$type): void {
-            $title->update($data);
-            $this->audit($request,'catalog.updated',$type,$title->id);
-        });
+        $this->saveTitle($request, $type, $title);
 
         return back()->with('status','Title updated.');
     }
@@ -205,10 +204,47 @@ class CatalogController extends Controller
         return redirect()->route('admin.catalog.index',$type)->with('status','Draft deleted.');
     }
 
-    private function validateTitle(Request $request,string $type,?int $id=null): array
+    private function saveTitle(Request $request, string $type, Movie|Series $title): void
     {
-        $model = $this->model($type);
+        $data = $this->validateTitle($request, $type, $title);
+        $action = $title->exists ? 'catalog.updated' : 'catalog.created';
+        $kind = $type === 'movies' ? 'movie' : 'series';
+        $stored = [];
+
+        try {
+            foreach (self::ARTWORK_FIELDS as $pathField => $uploadField) {
+                $image = $data[$uploadField] ?? null;
+                unset($data[$uploadField]);
+                if (!$image) {
+                    continue;
+                }
+
+                $path = $image->store('artwork/'.$kind, 'public');
+                if (!$path) {
+                    throw ValidationException::withMessages([$uploadField => 'Artwork could not be saved. Please try again.']);
+                }
+                $stored[] = $path;
+                $data[$pathField] = $path;
+            }
+
+            DB::transaction(function () use ($title, $data, $request, $type, $action): void {
+                $title->fill($data)->save();
+                $this->audit($request, $action, $type, $title->id);
+            });
+        } catch (\Throwable $error) {
+            if ($stored !== []) {
+                Storage::disk('public')->delete($stored);
+            }
+            throw $error;
+        }
+    }
+
+    private function validateTitle(Request $request, string $type, Movie|Series $title): array
+    {
+        $model = $title::class;
+        $id = $title->id;
         $table = $type === 'movies' ? 'movies' : 'series';
+        $uploadRules = ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'];
         $data = $request->validate([
             'title' => ['required','string','max:255'],
             'slug' => ['nullable','string','max:255','regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',Rule::unique($table,'slug')->ignore($id)],
@@ -217,12 +253,24 @@ class CatalogController extends Controller
             'country_code' => ['nullable','string','size:2','alpha'],
             'poster_path' => ['nullable','string','max:1024'],
             'backdrop_path' => ['nullable','string','max:1024'],
+            'poster_upload' => $uploadRules,
+            'backdrop_upload' => $uploadRules,
             'is_premium' => ['required','boolean'],
             'status' => ['required',Rule::in(['draft','published','archived'])],
             'release_year' => [$type === 'movies' ? 'required' : 'nullable','integer','between:1888,2100'],
             'runtime_minutes' => ['nullable','integer','min:1','max:1440'],
             'first_air_date' => ['nullable','date_format:Y-m-d'],
         ]);
+
+        foreach (self::ARTWORK_FIELDS as $pathField => $uploadField) {
+            $path = $data[$pathField] ?? null;
+            if ($path !== null && !isset($data[$uploadField]) && $path !== $title->{$pathField}
+                && CatalogArtwork::url($path) === null) {
+                throw ValidationException::withMessages([
+                    $pathField => 'Enter a public HTTPS image URL, a TMDB artwork path, or an uploaded artwork path.',
+                ]);
+            }
+        }
 
         $data['slug'] = ($data['slug'] ?? null) ?: Str::slug($data['title']);
         if ($data['slug'] === '') {

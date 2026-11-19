@@ -18,7 +18,7 @@
 @endif
 </div></div>
 <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
-<form id="title-form" action="{{ $title ? route('admin.catalog.update',[$type,$title->id]) : route('admin.catalog.store',$type) }}" method="POST" class="min-w-0 space-y-6">
+<form id="title-form" action="{{ $title ? route('admin.catalog.update',[$type,$title->id]) : route('admin.catalog.store',$type) }}" method="POST" enctype="multipart/form-data" class="min-w-0 space-y-6">
 @csrf @if($title) @method('PUT') @endif
 <section class="space-y-5 rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
   <h3 class="text-lg font-semibold">Main content</h3>
@@ -38,7 +38,7 @@
 </section>
 <section class="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
   <h3 class="text-lg font-semibold">Artwork references</h3>
-  <p class="text-xs text-zinc-500">Upload artwork from Media Library or use approved TMDB relative paths. Artwork must be licensed for use.</p>
+  <p class="text-xs text-zinc-500">Paste a public HTTPS image URL or upload a JPG, PNG, or WebP up to 8 MB per image. TMDB and Media Library paths are also supported.</p>
   @if($title)
     @php
       $posterPreview = \App\Support\CatalogArtwork::url($title->poster_path, 'w342');
@@ -55,15 +55,37 @@
       </div>
       <div class="min-w-0 flex-1">
         <p class="text-sm font-semibold text-white">Current poster reference</p>
-        <p class="mt-1 text-xs leading-5 text-zinc-400">TMDB poster paths display a remote image only if it is accessible and permitted under your TMDB agreement. This does not upload or license artwork.</p>
+        <p class="mt-1 text-xs leading-5 text-zinc-400">Use artwork you have permission to display.</p>
         @if($backdropPreview)
           <img src="{{ $backdropPreview }}" alt="{{ $title->title }} backdrop reference" loading="lazy" class="mt-3 max-h-32 w-full rounded-lg object-cover" onerror="this.hidden=true">
         @endif
       </div>
     </div>
   @endif
-  @foreach(['poster_path'=>'Poster artwork','backdrop_path'=>'Backdrop artwork'] as $key=>$label)
-  <div><label for="{{ $key }}" class="mb-2 block text-sm text-zinc-300">{{ $label }} path</label><input id="{{ $key }}" name="{{ $key }}" maxlength="1024" value="{{ old($key,$title?->{$key} ?? '') }}" placeholder="artwork/movie/..." class="w-full rounded-xl border border-white/15 bg-zinc-950 px-4 py-3 text-sm"></div>
+  @foreach(['poster'=>'Poster', 'backdrop'=>'Backdrop'] as $slot => $label)
+    @php($pathField = $slot.'_path')
+    @php($uploadField = $slot.'_upload')
+    <div data-catalog-artwork-field>
+      <label for="{{ $pathField }}" class="mb-2 block text-sm text-zinc-300">{{ $label }} artwork path</label>
+      <div class="flex items-stretch gap-2">
+        <input id="{{ $pathField }}" name="{{ $pathField }}" maxlength="1024"
+               value="{{ old($pathField, $title?->{$pathField} ?? '') }}"
+               placeholder="https://… or artwork/…"
+               class="min-w-0 w-full rounded-xl border border-white/15 bg-zinc-950 px-4 py-3 text-sm">
+        <button type="button" class="gm-studio-button shrink-0" aria-label="Upload {{ strtolower($label) }} artwork"
+                data-catalog-artwork-open>
+          @include('partials.studio-icon', ['name'=>'upload']) Upload
+        </button>
+        <input type="file" id="{{ $uploadField }}" name="{{ $uploadField }}" hidden
+               aria-label="{{ $label }} artwork file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
+      </div>
+      <div class="mt-2 text-xs text-zinc-400" data-catalog-artwork-selection hidden>
+        <span role="status" data-catalog-artwork-name></span>
+        <button type="button" class="underline" data-catalog-artwork-clear>Clear selection</button>
+      </div>
+      @error($pathField)<p class="mt-2 text-sm text-rose-300" role="alert">{{ $message }}</p>@enderror
+      @error($uploadField)<p class="mt-2 text-sm text-rose-300" role="alert">{{ $message }}</p>@enderror
+    </div>
   @endforeach
 </section>
 </form>
@@ -80,4 +102,25 @@
 
 </aside>
 </div>
+<script>
+for (const field of document.querySelectorAll('[data-catalog-artwork-field]')) {
+  const input = field.querySelector('input[type="file"]');
+  const open = field.querySelector('[data-catalog-artwork-open]');
+  const selection = field.querySelector('[data-catalog-artwork-selection]');
+  const name = field.querySelector('[data-catalog-artwork-name]');
+
+  open.addEventListener('click', () => input.click());
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    selection.hidden = !file;
+    name.textContent = file ? file.name + ' will be saved as artwork. ' : '';
+  });
+  field.querySelector('[data-catalog-artwork-clear]').addEventListener('click', () => {
+    input.value = '';
+    selection.hidden = true;
+    name.textContent = '';
+    open.focus();
+  });
+}
+</script>
 @endsection

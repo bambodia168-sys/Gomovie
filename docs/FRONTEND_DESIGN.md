@@ -12,7 +12,7 @@ The Gomovie UI follows the owner-approved visual mockups as **visual design dire
 - resources/views/frontend/browse.blade.php: working title text and access filters backed by public published metadata.
 - resources/views/frontend/partials/card.blade.php: reused poster thumbnail and safe text-only fallback, with real premium/free labels and no invented ratings.
 - resources/views/frontend/detail.blade.php: two accessible display modes via query string \`?view=widescreen\` (16:9) and \`?view=portrait\` (9:16), validated published-series episode selection via \`?episode=<id>\`, authorized player shell, Save to My List and functional Share actions, and published-only related titles in the right sidebar.
-- app/Support/CatalogArtwork.php: only approved TMDB file paths and existing local artwork keys are rendered; arbitrary remote URLs are rejected.
+- app/Support/CatalogArtwork.php: renders TMDB paths, uploaded artwork keys, and public HTTPS image URLs entered by catalog staff. Images are fetched by the browser.
 
 ## Nonnegotiable functional limits
 
