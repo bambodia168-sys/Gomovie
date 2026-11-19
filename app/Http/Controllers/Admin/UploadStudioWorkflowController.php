@@ -220,7 +220,7 @@ final class UploadStudioWorkflowController extends Controller
         $keys = DB::transaction(function () use ($request, $ingest): array {
             $row = DB::table('media_ingests')->where('id', $ingest)
                 ->where('uploaded_by', $request->user()->id)->lockForUpdate()->first();
-            abort_unless($row && $row->status === 'quarantined'
+            abort_unless($row && $row->status === 'quarantined' && !$row->publication_retry_token
                 && $row->disk === 'local' && $row->cloud_status === 'local_only'
                 && !$row->approved_at && !$row->encoded_manifest_key
                 && $row->security_scan_status === 'pending'

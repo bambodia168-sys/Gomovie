@@ -71,6 +71,12 @@ The two probes verify individual execution, not uninterrupted worker uptime. To 
 
 Queue history older than 30 days is automatically pruned by the scheduler, while failed_jobs and admin_audit_events are never pruned by this feature.
 
+## Recover automatic media processing
+
+Open **System Health → Media processing** to find failed or stalled uploads, their current stage, the age of the oldest waiting database media job, and free space on the private volume. The existing `gomovie:ops-check --json` command exposes the same diagnostics for host monitoring. Binary checks report whether FFmpeg, FFprobe and ClamAV are executable. Verify ClamAV signatures and scanning on the target host.
+
+Follow an upload link to **Media Library → Retry processing** after fixing the reported issue. A failed or abandoned scan or encode starts again from the existing private source. If encoding completed and publication failed, the worker verifies and publishes the existing HLS package. A retry requires eligible automatic-publication media and active documented rights. Restart the supervised media workers after updating the application, and keep them on the same private media volume.
+
 ## Safe release gates
 
 Keep GOMOVIE_BILLING_ENABLED=false, GOMOVIE_EDGE_ENABLED=false and GOMOVIE_TRANSCODING_ENABLED=false during development. Streaming keys must be rotated in a secure secret manager. The FFmpeg pipeline does not publish ready media assets or license content. Obtain independent approval of distribution contracts, malware scans, media output, edge authorization, rollback, off-site backups, verified SMTP and physical-device tests.

@@ -57,7 +57,8 @@ jobs:
           assert 'name="access"' not in view
           assert 'data-status-template=' in view
           assert 'bool $autoPublish = true' in ingest
-          assert 'if ($autoPublish && SiteSettings::get(' in ingest
+          assert '$autoPublish = $autoPublish && app(AutomaticPublicationService::class)->enabled();' in ingest
+          assert "'auto_publication_requested' => $autoPublish" in ingest
           assert 'readyAsset(' in media
           for name in ('QuickUploadController.php','quick-upload.blade.php',
                        'PrivateVideoIntake.php','web.php','MediaController.php','media.blade.php'):

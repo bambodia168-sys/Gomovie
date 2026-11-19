@@ -36,6 +36,33 @@
     </div>
   @endforeach
 </div></section>
+<section class="gm-studio-panel mt-9">
+  <div class="gm-studio-panel-head">
+    <h3>Media processing</h3>
+    <a class="gm-studio-button" href="{{ route('admin.media.index') }}">Media Library</a>
+  </div>
+  <div class="gm-studio-panel-body flex flex-wrap gap-x-8 gap-y-3 text-sm">
+    <p>Private disk free space · {{ $snapshot['private_disk_free_bytes'] === null ? 'Unavailable' : number_format($snapshot['private_disk_free_bytes'] / 1073741824, 1).' GiB' }}</p>
+    <p>Oldest waiting media job · {{ $snapshot['oldest_media_wait_seconds'] === null ? '—' : round($snapshot['oldest_media_wait_seconds'] / 60).' min' }}</p>
+  </div>
+  @if($snapshot['media_issues'])
+    <div class="gm-studio-table-scroll"><table class="gm-studio-table">
+      <thead><tr><th>Upload</th><th>Stage</th><th>Time in stage</th><th>Action required</th></tr></thead>
+      <tbody>
+        @foreach($snapshot['media_issues'] as $issue)
+          <tr>
+            <td><a class="underline" href="{{ route('admin.media.index', ['ingest' => $issue['id']]) }}">Upload #{{ $issue['id'] }}</a></td>
+            <td>{{ $issue['stage'] }}</td>
+            <td>{{ $issue['seconds_in_stage'] === null ? '—' : round($issue['seconds_in_stage'] / 60).' min' }}</td>
+            <td>{{ $issue['issue'] }}</td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table></div>
+  @else
+    <p class="gm-studio-panel-body text-sm text-zinc-400">No media processing issues detected.</p>
+  @endif
+</section>
 <div class="mt-9 grid gap-6 xl:grid-cols-2">
   <section class="rounded-2xl border border-white/10 bg-zinc-900/65 p-6">
     <h3 class="text-lg font-semibold">Queue worker execution</h3>

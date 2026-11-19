@@ -70,8 +70,10 @@ final class PrivateVideoIntake
             && filled(SiteSettings::get('r2_key'))
             && filled(SiteSettings::get('r2_secret'));
 
+        $autoPublish = $autoPublish && app(AutomaticPublicationService::class)->enabled();
+
         try {
-            $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $actualSize, $r2Enabled, $publishWatchPage): int {
+            $id = DB::transaction(function () use ($kind, $titleId, $uploaderId, $video, $ip, $path, $hash, $actualSize, $r2Enabled, $publishWatchPage, $autoPublish): int {
                 $id = DB::table('media_ingests')->insertGetId([
                     'ingestable_type' => $kind,
                     'ingestable_id' => $titleId,
@@ -83,6 +85,7 @@ final class PrivateVideoIntake
                     'size_bytes' => $actualSize,
                     'sha256' => $hash,
                     'status' => 'quarantined',
+                    'auto_publication_requested' => $autoPublish,
                     'cloud_status' => $r2Enabled ? 'pending' : 'local_only',
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -124,8 +127,7 @@ final class PrivateVideoIntake
             }
         }
 
-        if ($autoPublish && SiteSettings::get('automatic_publication_enabled') === true
-            && SiteSettings::get('public_hls_enabled') === true) {
+        if ($autoPublish) {
             try {
                 AutoPublishUploadedVideo::dispatch($id);
             } catch (Throwable $error) {

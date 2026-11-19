@@ -7,6 +7,9 @@ use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Series;
 use App\Services\Media\PrivateVideoIntake;
+use App\Services\Media\PublicationRecovery;
+use App\Support\SiteSettings;
+use App\Support\StudioNavigation;
 use App\Support\VideoUploadLimit;
 use App\Services\Media\AutomaticPublicationService;
 use Illuminate\Http\JsonResponse;
@@ -17,11 +20,15 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class MediaController extends Controller
 {
-    public function index(): View
+    public function index(Request $request, PublicationRecovery $recovery): View
     {
+        $data = $request->validate(['ingest' => ['nullable', 'integer', 'min:1']]);
+        $ingestId = $data['ingest'] ?? null;
+
         $assets = DB::table('media_ingests')
             ->join('users', 'users.id', '=', 'media_ingests.uploaded_by')
             ->leftJoin('movies', function ($join): void {
@@ -32,14 +39,22 @@ class MediaController extends Controller
                 'media_ingests.size_bytes', 'media_ingests.status', 'media_ingests.created_at',
                 'media_ingests.uploaded_by', 'media_ingests.ingestable_type',
                 'media_ingests.ingestable_id', 'media_ingests.encoded_manifest_key',
-                'media_ingests.pipeline_error', 'users.name as uploader',
+                'media_ingests.pipeline_error', 'media_ingests.updated_at', 'media_ingests.disk',
+                'media_ingests.encoded_at', 'media_ingests.approved_at', 'media_ingests.processing_started_at',
+                'media_ingests.auto_publication_requested', 'media_ingests.security_scan_status',
+                'media_ingests.rights_review_status', 'media_ingests.publication_retry_token',
+                'media_ingests.publication_retry_queued_at', 'users.name as uploader',
                 'movies.is_standalone_video', 'movies.slug as movie_slug',
                 'movies.status as movie_status', 'movies.published_at as movie_published_at')
+            ->when($ingestId, fn ($query) => $query->where('media_ingests.id', $ingestId))
             ->orderByDesc('media_ingests.id')->paginate(10)->withQueryString();
 
         $auto = app(AutomaticPublicationService::class);
+        $retriesEnabled = $auto->enabled() && SiteSettings::get('transcoding_enabled') === true;
         foreach ($assets as $asset) {
             $asset->public = false;
+            $asset->retry_pending = $recovery->retryPending($asset);
+            $asset->can_retry = $retriesEnabled && $recovery->canRetry($asset);
             $asset->watch_url = $asset->is_standalone_video && $asset->movie_status === 'published'
                 && (!$asset->movie_published_at || $asset->movie_published_at <= now()->toDateTimeString())
                 ? route('watch.show', ['type' => 'movie', 'slug' => $asset->movie_slug]) : null;
@@ -64,7 +79,25 @@ class MediaController extends Controller
             'movies' => Movie::orderBy('title')->limit(500)->get(['id','title']),
             'episodes' => Episode::orderByDesc('id')->limit(500)->get(['id','title']),
             'assets' => $assets,
+            'ingestId' => $ingestId,
         ]);
+    }
+
+    public function retry(Request $request, int $ingest, PublicationRecovery $recovery): RedirectResponse
+    {
+        abort_unless(StudioNavigation::administrator($request->user()), 403);
+        $redirect = redirect()->route('admin.media.index', ['ingest' => $ingest]);
+        try {
+            $scheduled = $recovery->queue($ingest, (int) $request->user()->id);
+        } catch (HttpExceptionInterface $error) {
+            if ($request->expectsJson() || !in_array($error->getStatusCode(), [409, 503], true)) {
+                throw $error;
+            }
+
+            return $redirect->withErrors(['retry' => $error->getMessage()]);
+        }
+
+        return $redirect->with('status', $scheduled ? 'Processing retry queued.' : 'A processing retry is already queued or running.');
     }
 
     public function artwork(Request $request): JsonResponse|RedirectResponse

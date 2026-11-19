@@ -76,7 +76,8 @@ final class TranscodingService
 
         $claimed = DB::table('media_ingests')->where('id',$ingestId)
             ->where('status','approved')->update([
-                'status'=>'processing', 'pipeline_error'=>null, 'updated_at'=>now(),
+                'status'=>'processing', 'pipeline_error'=>null,
+                'processing_started_at'=>now(), 'updated_at'=>now(),
             ]);
         abort_unless($claimed === 1, 409, 'Media is no longer approved for encoding.');
 

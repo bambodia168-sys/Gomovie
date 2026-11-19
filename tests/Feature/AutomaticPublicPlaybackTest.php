@@ -315,12 +315,109 @@ final class AutomaticPublicPlaybackTest extends TestCase
                 ->get(route('public-hls.show', [
                     'asset' => $asset->id, 'path' => 'master.m3u8',
                 ]))->assertOk();
+
+            $retryMovie = $this->freeFilm();
+            $this->rights('movie', (int) $retryMovie->id);
+            $retryKey = dirname($key).'/'.Str::uuid().'.mp4';
+            Storage::disk('local')->copy($key, $retryKey);
+            $retryId = DB::table('media_ingests')->insertGetId([
+                'ingestable_type' => 'movie', 'ingestable_id' => $retryMovie->id,
+                'uploaded_by' => $admin->id, 'disk' => 'local', 'object_key' => $retryKey,
+                'original_name' => 'interrupted-original.mp4', 'mime' => 'video/mp4',
+                'size_bytes' => filesize($path), 'sha256' => hash_file('sha256', $path),
+                'status' => 'processing', 'auto_publication_requested' => true,
+                'security_scan_status' => 'clean', 'rights_review_status' => 'verified',
+                'approved_by' => $admin->id, 'approved_at' => now()->subHours(3),
+                'processing_started_at' => now()->subHours(3),
+                'created_at' => now()->subHours(3), 'updated_at' => now(),
+            ]);
+            Queue::fake();
+            $this->actingAs($admin)->post(route('admin.media.ingest-retry', $retryId))
+                ->assertSessionHas('status', 'Processing retry queued.');
+            $job = Queue::pushed(AutoPublishUploadedVideo::class)->first();
+            $job->handle(app(AutomaticPublicationService::class));
+            $retryAsset = app(AutomaticPublicationService::class)->readyAsset('movie', $retryMovie->id);
+            self::assertNotNull($retryAsset);
+            $this->temp[] = dirname($retryAsset->manifest_key);
+            $this->assertDatabaseHas('media_ingests', ['id' => $retryId, 'publication_retry_token' => null]);
+            $this->assertDatabaseHas('admin_audit_events', ['resource_id' => $retryId, 'action' => 'media.auto_scan_passed']);
         } finally {
             @unlink($scanner);
             @rmdir($scannerDir);
             $manifest = DB::table('media_ingests')->where('id', $id)->value('encoded_manifest_key');
             if ($manifest) $this->temp[] = dirname($manifest);
         }
+    }
+
+    public function test_retry_is_idempotent_and_can_finalize_an_existing_encoded_package(): void
+    {
+        $this->enable();
+        config()->set('gomovie.transcoding_enabled', true);
+        Queue::fake();
+        [$id, $video] = $this->package();
+        $video->update(['is_standalone_video' => true, 'status' => 'published', 'published_at' => now()]);
+        DB::table('media_ingests')->where('id', $id)->update([
+            'auto_publication_requested' => true, 'pipeline_error' => 'automatic_publication_failed',
+        ]);
+
+        $route = route('admin.media.ingest-retry', $id);
+        $this->actingAs(User::factory()->create(['role' => 'editor']))->postJson($route)->assertForbidden();
+        $admin = User::where('role', 'admin')->sole();
+        $this->actingAs($admin)->get(route('admin.operations.index'))->assertOk()
+            ->assertSee('Automatic processing failed')->assertSee(route('admin.media.index', ['ingest' => $id]));
+        $this->get(route('admin.media.index', ['ingest' => $id]))->assertOk()->assertSee('Retry processing');
+
+        $this->post($route)->assertRedirect(route('admin.media.index', ['ingest' => $id]));
+        $this->post($route)->assertSessionHas('status', 'A processing retry is already queued or running.');
+        Queue::assertPushed(AutoPublishUploadedVideo::class, 1);
+        $this->assertDatabaseCount('admin_audit_events', 1);
+
+        $job = Queue::pushed(AutoPublishUploadedVideo::class)->first();
+        $service = app(AutomaticPublicationService::class);
+        $job->handle($service);
+        $job->handle($service);
+        $this->assertDatabaseCount('media_assets', 1);
+        $this->assertDatabaseHas('media_ingests', ['id' => $id, 'pipeline_error' => null, 'publication_retry_token' => null]);
+        $asset = $service->readyAsset('movie', $video->id);
+        self::assertNotNull($asset);
+        $this->postJson($route)->assertConflict();
+        $this->assertGuestHls($asset->id);
+    }
+
+    public function test_retry_preserves_rights_and_rejects_private_or_security_rejected_uploads(): void
+    {
+        $this->enable();
+        config()->set('gomovie.transcoding_enabled', true);
+        Queue::fake();
+        [$id, $movie] = $this->package();
+        $this->actingAs(User::where('role', 'admin')->sole());
+        $route = route('admin.media.ingest-retry', $id);
+
+        $query = DB::table('media_ingests')->where('id', $id);
+        $query->update(['pipeline_error' => 'encoding_failed']);
+        $this->postJson($route)->assertConflict();
+        $query->update(['auto_publication_requested' => true, 'status' => 'rejected', 'security_scan_status' => 'infected']);
+        $this->postJson($route)->assertConflict();
+        $query->update(['status' => 'encoded', 'security_scan_status' => 'clean']);
+        Queue::assertNothingPushed();
+
+        $this->post($route)->assertRedirect(route('admin.media.index', ['ingest' => $id]));
+        DB::table('content_rights')->where('licensable_id', $movie->id)->update(['status' => 'revoked']);
+        $job = Queue::pushed(AutoPublishUploadedVideo::class)->first();
+        try {
+            $job->handle(app(AutomaticPublicationService::class));
+            self::fail('Revoked rights must block recovery.');
+        } catch (HttpException $error) {
+            self::assertSame(409, $error->getStatusCode());
+        }
+        $this->assertDatabaseHas('media_ingests', ['id' => $id, 'publication_retry_token' => null]);
+        $this->assertDatabaseCount('media_assets', 0);
+    }
+
+    private function assertGuestHls(int $asset): void
+    {
+        auth()->logout();
+        $this->get(route('public-hls.standalone', ['asset' => $asset, 'path' => 'master.m3u8']))->assertOk();
     }
 
     public function test_default_off_and_malicious_hls_paths_never_expose_private_video(): void

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Services\Media\MediaProcessingLock;
 use App\Services\Media\TranscodingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -21,6 +22,6 @@ class TranscodeApprovedIngest implements ShouldQueue
 
     public function handle(TranscodingService $service): void
     {
-        $service->encode($this->ingestId);
+        app(MediaProcessingLock::class)->run($this->ingestId, fn () => $service->encode($this->ingestId));
     }
 }

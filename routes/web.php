@@ -160,6 +160,8 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
         ->middleware('throttle:120,1')->whereNumber('ingest')->name('media.ingest-preview');
     Route::post('/media/artwork', [MediaController::class, 'artwork'])->name('media.artwork');
     Route::post('/media/ingests', [MediaController::class, 'ingest'])->name('media.ingest');
+    Route::post('/media/ingests/{ingest}/retry', [MediaController::class, 'retry'])
+        ->whereNumber('ingest')->middleware('throttle:10,1')->name('media.ingest-retry');
     Route::post('/tmdb/preview', [TmdbController::class, 'preview'])->name('tmdb.preview');
     Route::post('/tmdb/import', [TmdbController::class, 'import'])->name('tmdb.import');
     Route::get('/operations', [OperationsController::class, 'index'])->name('operations.index');
