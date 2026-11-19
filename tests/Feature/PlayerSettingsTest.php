@@ -28,6 +28,8 @@ final class PlayerSettingsTest extends TestCase
         $admin = $this->user();
         $this->actingAs($admin)->get('/dashboard/player-settings')->assertOk()
             ->assertSee('Player appearance')
+            ->assertSee('Bambodia Player')
+            ->assertSee('Plyr Player')
             ->assertSee('Playback speed')
             ->assertSee('Save player settings');
 

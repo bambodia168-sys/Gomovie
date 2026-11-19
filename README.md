@@ -29,7 +29,7 @@ Laravel 13, PHP 8.4+, Tailwind CSS 4, Alpine.js, hls.js 1.7, MySQL 8.0 / Postgre
 
 ## Watch player and video advertising
 
-Open **Dashboard → Player Settings → Configure player** to select **GoMovie (current player)** or **Plyr**. Both use the same HLS playback authorization and the same optional video ad tag. GoMovie is the default. Build the Vite assets and run the migrations before saving the new settings.
+Open **Dashboard → Player Settings → Configure player** to select **Bambodia Player** or **Plyr Player**. Both use the same HLS playback authorization, appearance settings, and optional video ad tag. Bambodia Player is the default. Build the Vite assets and run the migrations before saving the new settings.
 
 Set **Video ad tag URL** to a browser-accessible HTTPS VAST or VMAP tag. VAST supports in-stream ads and overlays. VMAP schedules pre-rolls, mid-rolls, and post-rolls. Google IMA handles eligible skip controls and ad tracking. GoMovie provides a sidebar slot for 300×250 and 300×60 static companion creatives. Clear the URL to turn off video advertising. Ads apply to free watch playback. Premium titles and private administrator previews are ad-free.
 

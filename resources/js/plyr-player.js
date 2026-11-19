@@ -24,7 +24,8 @@ export function mountPlyr(root, video, ui, stage, togglePlay) {
         speed: {options: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]},
         captions: {update: showCaptions, active: Boolean(video.querySelector('track[default]'))},
         seekTime,
-        hideControls: Number(root.dataset.hideSeconds) !== 0,
+        // The watch container applies the configured inactivity timer to both engines.
+        hideControls: false,
         clickToPlay: false,
         keyboard: {focused: false, global: false},
         fullscreen: {enabled: fullscreen, container: '.gm-player-stage', iosNative: false},

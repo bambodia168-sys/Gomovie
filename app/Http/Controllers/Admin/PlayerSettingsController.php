@@ -24,6 +24,10 @@ final class PlayerSettingsController extends Controller
             'preferences' => PlayerPreferences::current(),
             'engines' => PlayerPreferences::ENGINES,
             'accents' => PlayerPreferences::ACCENTS,
+            'seekIntervals' => PlayerPreferences::SEEK_INTERVALS,
+            'autoHideDelays' => PlayerPreferences::AUTO_HIDE_DELAYS,
+            'controls' => PlayerPreferences::CONTROLS,
+            'defaults' => PlayerPreferences::DEFAULTS,
         ]);
     }
 
@@ -35,8 +39,8 @@ final class PlayerSettingsController extends Controller
             'ad_tag_url' => ['sometimes', 'nullable', 'string', 'max:2048', 'url:https'],
             'accent' => ['required', Rule::in(array_keys(PlayerPreferences::ACCENTS))],
             'density' => ['required', Rule::in(['comfortable', 'compact'])],
-            'seek_seconds' => ['required', 'integer', Rule::in([5, 10, 15, 30])],
-            'auto_hide_seconds' => ['required', 'integer', Rule::in([0, 1, 2])],
+            'seek_seconds' => ['required', 'integer', Rule::in(PlayerPreferences::SEEK_INTERVALS)],
+            'auto_hide_seconds' => ['required', 'integer', Rule::in(PlayerPreferences::AUTO_HIDE_DELAYS)],
             'show_volume' => ['required', 'boolean'],
             'show_speed' => ['required', 'boolean'],
             'show_captions' => ['required', 'boolean'],

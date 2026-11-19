@@ -78,6 +78,16 @@
 .gm-pager-goto input{width:62px;min-height:34px;background:#0f1018;border:1px solid #4a4956;border-radius:8px;color:white;text-align:center}
 .gm-pager-goto button{min-height:34px;border-radius:8px;background:#2b2d38;border:1px solid #4a4956;padding:7px 12px;color:#fff;cursor:pointer}
 .gm-studio-modal{border:1px solid #5b5067;background:#191925;color:#f8f7fc;border-radius:18px;padding:0;width:min(570px,calc(100vw - 32px));max-height:90vh;box-shadow:0 32px 90px #000c}
+/* Tailwind's reset removes the native dialog margins. Center this workspace dialog explicitly. */
+.gm-player-settings-dialog[open]{position:fixed;inset:0;margin:auto;width:min(680px,calc(100% - 24px));height:fit-content;max-height:calc(100dvh - 24px);overflow:hidden}
+.gm-player-settings-dialog form{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:calc(100dvh - 26px)}
+.gm-player-settings-dialog .gm-studio-modal-body{max-height:none;min-height:0;overscroll-behavior:contain}
+.gm-player-settings-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+@media(max-width:540px){
+  .gm-player-settings-fields{grid-template-columns:1fr}
+  .gm-player-settings-dialog .gm-studio-modal-heading,.gm-player-settings-dialog .gm-studio-modal-body{padding:14px}
+  .gm-player-settings-dialog .gm-studio-modal-actions{padding:10px 14px;gap:6px}
+}
 .gm-studio-modal::backdrop{background:#02020bc9;backdrop-filter:blur(6px)}
 .gm-studio-modal-heading{display:flex;align-items:center;justify-content:space-between;padding:19px 22px;border-bottom:1px solid #ffffff1c}
 .gm-studio-modal-heading h3{font-size:18px;font-weight:850}
