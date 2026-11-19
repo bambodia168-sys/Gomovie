@@ -21,7 +21,11 @@ for dir in app bootstrap config database public resources routes storage vendor;
   cp -a "$ROOT/$dir" "$STAGE/"
 done
 mkdir -p "$STAGE/support/installer"
-cp -a "$ROOT/support/installer/InstallerEngine.php" "$STAGE/support/installer/"
+cp -a "$ROOT/support/installer/"{InstallerEngine,BambodiaLicense}.php "$STAGE/support/installer/"
+if [[ -n "${BAMBODIA_PRODUCT_ID:-}" ]]; then
+  [[ "$BAMBODIA_PRODUCT_ID" =~ ^[1-9][0-9]{8}$ ]]
+  printf '%s\n' "$BAMBODIA_PRODUCT_ID" > "$STAGE/support/installer/bambodia-product-id"
+fi
 for file in artisan composer.json composer.lock package.json package-lock.json .env.example LICENSE; do
   cp "$ROOT/$file" "$STAGE/$file"
 done
@@ -38,8 +42,9 @@ For a NEW, EMPTY, dedicated MySQL 8 or PostgreSQL 16 database.
 4. In the hosting File Manager open storage/framework/installer/owner-key.
    Copy the secret into Step 1 of the installer; it is never shown publicly.
 5. Complete the five steps:
-   Requirements and ownership, Application URL/Purchase Code (optional,
-   not verified), Database, Administrator and initial installation, Complete.
+   Requirements and ownership, Application URL, Database, Administrator
+   and initial installation, Complete. If the ZIP came from Bambodia, copy
+   the key from My licenses and enter it on the Administrator step.
 6. Remove public/installer/ using your hosting File Manager when setup succeeds.
 7. Verify HTTPS, SMTP delivery, backup restoration, queue supervision,
    and real devices before you consider the instance ready for customers.
@@ -66,6 +71,7 @@ find "$STAGE" -type d -exec chmod 755 {} +
 find "$STAGE" -type f -exec chmod 644 {} +
 test -f "$STAGE/public/installer/index.php"
 test -f "$STAGE/support/installer/InstallerEngine.php"
+test -f "$STAGE/support/installer/BambodiaLicense.php"
 test -f "$STAGE/public/build/manifest.json"
 test -f "$STAGE/vendor/autoload.php"
 test -f "$STAGE/composer.lock"
