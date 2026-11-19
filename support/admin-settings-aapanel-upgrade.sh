@@ -105,6 +105,44 @@ put_file() {
     return 1
 }
 
+merge_custom_admin_title() {
+    python3 - "$@" <<'PY_ADMIN_TITLE'
+from pathlib import Path
+import re
+import sys
+
+live, base, release, merged = map(Path, sys.argv[1:])
+old, new, current = (path.read_bytes() for path in (base, release, live))
+titles = re.compile(rb"(<title\b[^>]*>)(.*?)(</title\s*>)", re.I | re.S)
+brand = re.compile(rb"(?<![\w/])Go[ \t]*Movie(?![\w.])", re.I)
+expression = rb"{{ \App\Support\SiteSettings::get('site_name') }}"
+title_prefix = re.compile(rb"""^\s*@yield\(\s*['"]title['"]\s*(?:,\s*['"][^'"\r\n]*['"]\s*)?\)""")
+
+def title(source):
+    matches = list(titles.finditer(source))
+    if len(matches) != 1:
+        raise SystemExit("Expected one admin layout title")
+    return matches[0]
+
+expected = old.replace(b"Go Movie Studio</title>", expression + b" Studio</title>", 1)
+if expected != new or expected == old:
+    raise SystemExit("The release changes more than the admin title branding")
+
+match = title(current)
+text = match.group(2)
+if expression in text and text.count(expression) == 1:
+    merged.write_bytes(current)
+else:
+    prefix = title_prefix.match(text)
+    start = prefix.end() if prefix else 0
+    suffix = text[start:]
+    if re.search(rb"[@<>{}]", suffix) or len(brand.findall(suffix)) != 1:
+        raise SystemExit("The live admin title has no unambiguous Go Movie brand")
+    replacement = text[:start] + brand.sub(lambda _: expression, suffix)
+    merged.write_bytes(current[:match.start(2)] + replacement + current[match.end(2):])
+PY_ADMIN_TITLE
+}
+
 on_exit() {
     local result=$? restored=1 file
     trap - EXIT HUP INT TERM
@@ -157,8 +195,12 @@ for file in "${files[@]}"; do
                     || fail "The deployed frontend differs from the build base: $file"
             else
                 gh api -H 'Accept: application/vnd.github.raw+json' "$base_url" > "$work/base-file"
-                git merge-file -p "$site/$file" "$work/base-file" "$work/ready/$file" > "$work/merged-file" \
-                    || fail "Overlapping local customization: $file"
+                if ! git merge-file -p "$site/$file" "$work/base-file" "$work/ready/$file" > "$work/merged-file"; then
+                    [[ "$file" = resources/views/layouts/admin.blade.php ]] \
+                        && merge_custom_admin_title "$site/$file" "$work/base-file" "$work/ready/$file" "$work/merged-file" \
+                        || fail "Overlapping local customization: $file"
+                    echo 'CUSTOM_ADMIN_TITLE_MERGED=YES'
+                fi
                 mv "$work/merged-file" "$work/ready/$file"
             fi
         fi
