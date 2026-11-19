@@ -23,6 +23,64 @@ final class CatalogManagementTableTest extends TestCase
         return $user;
     }
 
+    public function test_upload_returns_artwork_url_before_movie_is_saved_and_reuses_existing_storage(): void
+    {
+        Storage::fake('public');
+        $admin = $this->staff();
+        $this->actingAs($admin);
+
+        $url = $this->postJson('/dashboard/media/artwork', [
+            'type' => 'movie', 'slot' => 'poster', 'upload_only' => '1',
+            'image' => UploadedFile::fake()->image('poster.jpg', 80, 120),
+        ])->assertCreated()->json('url');
+
+        $files = Storage::disk('public')->allFiles('artwork/movie');
+        self::assertCount(1, $files);
+        self::assertSame(Storage::disk('public')->url($files[0]), $url);
+        $this->assertDatabaseCount('movies', 0);
+        $this->assertDatabaseHas('admin_audit_events', [
+            'actor_id' => $admin->id, 'action' => 'media.artwork_stored', 'resource_id' => null,
+        ]);
+
+        $this->post('/dashboard/catalog/movies', [
+            'title' => 'Immediate Artwork QA', 'release_year' => 2026,
+            'is_premium' => '1', 'status' => 'draft', 'poster_path' => $url,
+        ])->assertRedirect();
+
+        $movie = Movie::query()->where('slug', 'immediate-artwork-qa')->firstOrFail();
+        self::assertSame($files[0], $movie->poster_path);
+        self::assertSame($files, Storage::disk('public')->allFiles('artwork/movie'));
+        $this->get(route('admin.catalog.edit', ['movies', $movie->id]))->assertOk()
+            ->assertSee('value="'.e($url).'"', false);
+    }
+
+    public function test_media_library_keeps_existing_attachment_behavior_and_rejects_invalid_upload_only_requests(): void
+    {
+        Storage::fake('public');
+        $this->actingAs($this->staff());
+        $movie = Movie::create(['title' => 'Media Library QA', 'slug' => 'media-library-qa', 'status' => 'draft']);
+        $payload = ['type' => 'movie', 'slot' => 'backdrop'];
+
+        $this->postJson('/dashboard/media/artwork', $payload + [
+            'image' => UploadedFile::fake()->image('backdrop.png'),
+        ])->assertUnprocessable()->assertJsonValidationErrors('title_id');
+        $invalid = tempnam(sys_get_temp_dir(), 'gomovie-invalid-artwork-');
+        try {
+            file_put_contents($invalid, 'not an image');
+            $this->postJson('/dashboard/media/artwork', $payload + [
+                'upload_only' => '1', 'image' => new UploadedFile($invalid, 'fake.png', 'image/png', UPLOAD_ERR_OK, true),
+            ])->assertUnprocessable()->assertJsonValidationErrors('image');
+        } finally {
+            unlink($invalid);
+        }
+        self::assertSame([], Storage::disk('public')->allFiles('artwork/movie'));
+
+        $this->post('/dashboard/media/artwork', $payload + [
+            'title_id' => $movie->id, 'image' => UploadedFile::fake()->image('backdrop.png'),
+        ])->assertRedirect();
+        Storage::disk('public')->assertExists($movie->fresh()->backdrop_path);
+    }
+
     public function test_movie_artwork_can_mix_upload_and_url_and_be_updated_independently(): void
     {
         Storage::fake('public');

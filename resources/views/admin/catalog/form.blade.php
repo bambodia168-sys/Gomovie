@@ -18,7 +18,9 @@
 @endif
 </div></div>
 <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
-<form id="title-form" action="{{ $title ? route('admin.catalog.update',[$type,$title->id]) : route('admin.catalog.store',$type) }}" method="POST" enctype="multipart/form-data" class="min-w-0 space-y-6">
+<form id="title-form" action="{{ $title ? route('admin.catalog.update',[$type,$title->id]) : route('admin.catalog.store',$type) }}" method="POST" enctype="multipart/form-data" class="min-w-0 space-y-6"
+      data-catalog-artwork-url="{{ route('admin.media.artwork', [], false) }}"
+      data-catalog-artwork-type="{{ $type === 'movies' ? 'movie' : 'series' }}">
 @csrf @if($title) @method('PUT') @endif
 <section class="space-y-5 rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
   <h3 class="text-lg font-semibold">Main content</h3>
@@ -38,7 +40,7 @@
 </section>
 <section class="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-6">
   <h3 class="text-lg font-semibold">Artwork references</h3>
-  <p class="text-xs text-zinc-500">Paste a public HTTPS image URL or upload a JPG, PNG, or WebP up to 8 MB per image. TMDB and Media Library paths are also supported.</p>
+  <p class="text-xs text-zinc-500">Upload a public JPG, PNG, or WebP up to 8 MB to fill the URL automatically, or paste an image URL or an existing artwork path.</p>
   @if($title)
     @php
       $posterPreview = \App\Support\CatalogArtwork::url($title->poster_path, 'w342');
@@ -65,11 +67,11 @@
   @foreach(['poster'=>'Poster', 'backdrop'=>'Backdrop'] as $slot => $label)
     @php($pathField = $slot.'_path')
     @php($uploadField = $slot.'_upload')
-    <div data-catalog-artwork-field>
+    <div data-catalog-artwork-field="{{ $slot }}">
       <label for="{{ $pathField }}" class="mb-2 block text-sm text-zinc-300">{{ $label }} artwork path</label>
       <div class="flex items-stretch gap-2">
-        <input id="{{ $pathField }}" name="{{ $pathField }}" maxlength="1024"
-               value="{{ old($pathField, $title?->{$pathField} ?? '') }}"
+        <input type="text" id="{{ $pathField }}" name="{{ $pathField }}" maxlength="1024"
+               value="{{ old($pathField, \App\Support\CatalogArtwork::formReference($title?->{$pathField})) }}"
                placeholder="https://… or artwork/…"
                class="min-w-0 w-full rounded-xl border border-white/15 bg-zinc-950 px-4 py-3 text-sm">
         <button type="button" class="gm-studio-button shrink-0" aria-label="Upload {{ strtolower($label) }} artwork"
@@ -79,10 +81,7 @@
         <input type="file" id="{{ $uploadField }}" name="{{ $uploadField }}" hidden
                aria-label="{{ $label }} artwork file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
       </div>
-      <div class="mt-2 text-xs text-zinc-400" data-catalog-artwork-selection hidden>
-        <span role="status" data-catalog-artwork-name></span>
-        <button type="button" class="underline" data-catalog-artwork-clear>Clear selection</button>
-      </div>
+      <p class="mt-2 text-xs text-zinc-400" role="status" data-catalog-artwork-status hidden></p>
       @error($pathField)<p class="mt-2 text-sm text-rose-300" role="alert">{{ $message }}</p>@enderror
       @error($uploadField)<p class="mt-2 text-sm text-rose-300" role="alert">{{ $message }}</p>@enderror
     </div>
@@ -103,24 +102,70 @@
 </aside>
 </div>
 <script>
-for (const field of document.querySelectorAll('[data-catalog-artwork-field]')) {
-  const input = field.querySelector('input[type="file"]');
-  const open = field.querySelector('[data-catalog-artwork-open]');
-  const selection = field.querySelector('[data-catalog-artwork-selection]');
-  const name = field.querySelector('[data-catalog-artwork-name]');
+(() => {
+  const form = document.getElementById('title-form');
+  const save = document.querySelector('[form="title-form"][type="submit"]');
+  let pending = 0;
 
-  open.addEventListener('click', () => input.click());
-  input.addEventListener('change', () => {
-    const file = input.files[0];
-    selection.hidden = !file;
-    name.textContent = file ? file.name + ' will be saved as artwork. ' : '';
+  form.addEventListener('submit', event => {
+    if (pending > 0) event.preventDefault();
   });
-  field.querySelector('[data-catalog-artwork-clear]').addEventListener('click', () => {
-    input.value = '';
-    selection.hidden = true;
-    name.textContent = '';
-    open.focus();
-  });
-}
+
+  for (const field of form.querySelectorAll('[data-catalog-artwork-field]')) {
+    const fileInput = field.querySelector('input[type="file"]');
+    const reference = field.querySelector('input[type="text"]');
+    const open = field.querySelector('[data-catalog-artwork-open]');
+    const status = field.querySelector('[data-catalog-artwork-status]');
+
+    open.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async () => {
+      const image = fileInput.files[0];
+      if (!image) return;
+      fileInput.value = '';
+      status.hidden = false;
+      if (image.size > 8 * 1024 * 1024) {
+        status.textContent = 'Choose an image up to 8 MB.';
+        return;
+      }
+
+      const body = new FormData();
+      body.append('type', form.dataset.catalogArtworkType);
+      body.append('slot', field.dataset.catalogArtworkField);
+      body.append('upload_only', '1');
+      body.append('image', image);
+
+      pending++;
+      save.disabled = true;
+      open.disabled = true;
+      reference.readOnly = true;
+      status.textContent = 'Uploading artwork…';
+
+      try {
+        const response = await fetch(form.dataset.catalogArtworkUrl, {
+          method: 'POST',
+          headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': form.elements._token.value},
+          body,
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.url) {
+          const message = response.status === 419 ? 'Your session expired. Sign in again to upload artwork.'
+            : response.status === 413 ? 'The server rejected this file size. Choose a smaller image.'
+            : result.errors?.image?.[0] ?? 'Artwork could not be uploaded. Choose the file again to retry.';
+          throw new Error(message);
+        }
+
+        reference.value = result.url;
+        status.textContent = 'Artwork uploaded. Save the title to attach it.';
+      } catch (error) {
+        status.textContent = error instanceof TypeError ? 'Connection interrupted. Choose the file again to retry.' : error.message;
+      } finally {
+        open.disabled = false;
+        reference.readOnly = false;
+        pending--;
+        save.disabled = pending > 0;
+      }
+    });
+  }
+})();
 </script>
 @endsection

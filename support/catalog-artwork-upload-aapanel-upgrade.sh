@@ -11,18 +11,26 @@ fi
 release="$1"
 mode="$2"
 repo='bambodia168-sys/Gomovie'
-base='a827494592f5b3d60357698d7bbbb7eec9854034'
+base='a298561a1ba3e2191244f21466c979c92a3e0e32'
 host='gomovie.tonsamith.com'
 site="/www/wwwroot/$host"
 files=(
     app/Support/CatalogArtwork.php
     app/Http/Controllers/Admin/CatalogController.php
+    app/Http/Controllers/Admin/MediaController.php
     resources/views/admin/catalog/form.blade.php
 )
 expected=(
-    35188f4140f5aac8ceb33ede7a6720bba440dc64
-    e044fe17e4ae970ca797a0701fe9d454665d8955
-    164636065583cf329f1057f016f0f4e8acb9f6a5
+    894547e4fca5698330c456171bb13a3403fadaf5
+    127807e183322e6a98ebab605a24d4f2a3058639
+    17b97252a80618a875845c96cd46e47b06917426
+    767f4d81597f4950df835c4b73cb8c7dd5f49ac4
+)
+initial=(
+    178188a1f41ddf415a1717bb5b7e66a305f0bf89
+    abb2214beb70f7d1c9155148d97c5f414432d6b2
+    ee46869680763decf86a393aadeb40e98380236d
+    82416b41b782eeece04552b25497ab5a87047677
 )
 
 fail() {
@@ -115,7 +123,8 @@ for index in "${!files[@]}"; do
     gh api -H 'Accept: application/vnd.github.raw+json' "repos/$repo/contents/$file?ref=$release" > "$work/release/$file"
     test "$(git hash-object "$work/release/$file")" = "${expected[$index]}" || fail "GitHub source checksum mismatch: $file"
 
-    if cmp -s "$work/original/$file" "$work/release/$file"; then
+    if cmp -s "$work/original/$file" "$work/release/$file" \
+        || [[ "$(git hash-object "$work/original/$file")" = "${initial[$index]}" ]]; then
         cp "$work/release/$file" "$work/ready/$file"
     else
         gh api -H 'Accept: application/vnd.github.raw+json' "repos/$repo/contents/$file?ref=$base" > "$work/base/$file"

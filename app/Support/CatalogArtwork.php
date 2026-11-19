@@ -26,11 +26,36 @@ final class CatalogArtwork
             return 'https://image.tmdb.org/t/p/'.$size.$path;
         }
 
-        if (preg_match('#\Aartwork/[A-Za-z0-9_/-]+\.(?:jpg|jpeg|png|webp)\z#iD', $path)) {
+        if (self::isStorageKey($path)) {
             return Storage::disk('public')->url($path);
         }
 
         return null;
+    }
+
+    public static function formReference(?string $path): string
+    {
+        $path = (string) $path;
+
+        return self::isStorageKey($path) ? Storage::disk('public')->url($path) : $path;
+    }
+
+    public static function normalizeReference(string $reference): string
+    {
+        $prefix = rtrim(Storage::disk('public')->url('artwork'), '/').'/';
+        if (str_starts_with($reference, $prefix)) {
+            $key = 'artwork/'.substr($reference, strlen($prefix));
+            if (self::isStorageKey($key)) {
+                return $key;
+            }
+        }
+
+        return $reference;
+    }
+
+    private static function isStorageKey(string $path): bool
+    {
+        return (bool) preg_match('#\Aartwork/[A-Za-z0-9_/-]+\.(?:jpg|jpeg|png|webp)\z#iD', $path);
     }
 
     private static function isHttpsImageUrl(string $url): bool

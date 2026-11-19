@@ -263,8 +263,11 @@ class CatalogController extends Controller
         ]);
 
         foreach (self::ARTWORK_FIELDS as $pathField => $uploadField) {
-            $path = $data[$pathField] ?? null;
-            if ($path !== null && !isset($data[$uploadField]) && $path !== $title->{$pathField}
+            if (!isset($data[$pathField])) {
+                continue;
+            }
+            $path = $data[$pathField] = CatalogArtwork::normalizeReference($data[$pathField]);
+            if (!isset($data[$uploadField]) && $path !== $title->{$pathField}
                 && CatalogArtwork::url($path) === null) {
                 throw ValidationException::withMessages([
                     $pathField => 'Enter a public HTTPS image URL, a TMDB artwork path, or an uploaded artwork path.',
