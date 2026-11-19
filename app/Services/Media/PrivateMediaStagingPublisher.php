@@ -2,6 +2,7 @@
 
 namespace App\Services\Media;
 
+use App\Support\SiteSettings;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +17,7 @@ final class PrivateMediaStagingPublisher
 {
     public function stage(int $ingestId, User $publisher): int
     {
-        abort_unless(config('gomovie.media_staging_enabled') === true, 503,
+        abort_unless(SiteSettings::get('media_staging_enabled') === true, 503,
             'Private media staging is disabled.');
         abort_unless($publisher->is_active && $publisher->hasVerifiedEmail()
             && in_array($publisher->role, ['admin','super_admin'], true), 403,

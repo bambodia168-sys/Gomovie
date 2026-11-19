@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\SiteSettings;
 use App\Http\Controllers\Controller;
 use App\Models\Movie;
 use App\Models\Series;
@@ -17,8 +18,9 @@ class TmdbController extends Controller
 {
     private function metadata(string $type,int $tmdbId): array
     {
-        $token = (string) config('gomovie.tmdb_token');
-        abort_if(strlen($token)<20,503,'TMDB API is not configured.');
+        $token = (string) SiteSettings::get('tmdb_token');
+        abort_if(!SiteSettings::get('tmdb_enabled') || strlen($token) < 20, 503,
+            'TMDB import is disabled or unconfigured. Check Site Settings.');
         $endpoint = $type==='movie' ? 'movie' : 'tv';
         $response = Http::withToken($token)->acceptJson()->timeout(12)
             ->get('https://api.themoviedb.org/3/'.$endpoint.'/'.$tmdbId,['language'=>'en-US']);

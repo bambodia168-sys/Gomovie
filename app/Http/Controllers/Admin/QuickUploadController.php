@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\SiteSettings;
 use App\Http\Controllers\Controller;
 use App\Models\Movie;
 use App\Services\Media\PrivateVideoIntake;
@@ -65,9 +66,9 @@ final class QuickUploadController extends Controller
 
         return view('admin.quick-upload', [
             'maxUploadBytes' => $max,
-            'autoReady' => config('gomovie.automatic_publication_enabled') === true
-                && config('gomovie.public_hls_enabled') === true
-                && config('gomovie.transcoding_enabled') === true,
+            'autoReady' => SiteSettings::get('automatic_publication_enabled') === true
+                && SiteSettings::get('public_hls_enabled') === true
+                && SiteSettings::get('transcoding_enabled') === true,
             'ingestId' => $ingestId,
             'resumeAccess' => $resumeAccess,
         ]);
@@ -86,9 +87,9 @@ final class QuickUploadController extends Controller
         ]);
 
         $isFree = $data['access'] === 'free';
-        $autoReady = config('gomovie.automatic_publication_enabled') === true
-            && config('gomovie.public_hls_enabled') === true
-            && config('gomovie.transcoding_enabled') === true;
+        $autoReady = SiteSettings::get('automatic_publication_enabled') === true
+            && SiteSettings::get('public_hls_enabled') === true
+            && SiteSettings::get('transcoding_enabled') === true;
         if ($isFree) {
             abort_unless($autoReady, 409,
                 'Free publication is not configured on this installation. Choose Private instead.');

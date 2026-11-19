@@ -133,11 +133,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
               </label>
               <label class="access">
                 <input type="radio" name="access" value="paid">
-                <span><b>Paid video · Draft</b><small>Prepare a paid listing, stored privately. Purchases are unavailable until checkout is configured and verified.</small></span>
+                <span><b>Premium title · Draft</b><small>Create a premium catalog draft and keep the source video private.</small></span>
               </label>
             </div>
             @unless($autoReady)
-            <p class="help">Public processing is not configured on this installation. Private uploads are available now.</p>
+            <p class="help">Public processing is off. <a class="underline" href="{{ route('admin.site-settings.edit') }}#media">Manage video processing</a></p>
             @endunless
           </div>
           <label class="permission">

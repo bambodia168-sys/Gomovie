@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\SiteSettings;
 use App\Models\Genre;
 use App\Models\Movie;
 use App\Models\Series;
@@ -45,9 +46,9 @@ final class ImportPopularCatalog extends Command
             return self::FAILURE;
         }
 
-        $token = trim((string) config('gomovie.tmdb_token'));
-        if (strlen($token) < 20) {
-            $this->error('TMDB is not configured. Set GOMOVIE_TMDB_TOKEN privately in the installed .env; do not paste it into chat.');
+        $token = trim((string) SiteSettings::get('tmdb_token'));
+        if (!SiteSettings::get('tmdb_enabled') || strlen($token) < 20) {
+            $this->error('Enable TMDB metadata import and save a token in Dashboard → Site Settings.');
             return self::FAILURE;
         }
 

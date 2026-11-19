@@ -2,6 +2,7 @@
 
 namespace App\Services\Media;
 
+use App\Support\SiteSettings;
 use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Series;
@@ -21,12 +22,12 @@ final class AutomaticPublicationService
 {
     public function enabled(): bool
     {
-        return config('gomovie.automatic_publication_enabled') === true && $this->publicEnabled();
+        return SiteSettings::get('automatic_publication_enabled') === true && $this->publicEnabled();
     }
 
     public function publicEnabled(): bool
     {
-        return config('gomovie.public_hls_enabled') === true;
+        return SiteSettings::get('public_hls_enabled') === true;
     }
 
     public function readyAsset(string $kind, int $titleId): ?object
@@ -82,7 +83,7 @@ final class AutomaticPublicationService
 
     public function process(int $ingestId): void
     {
-        if (!$this->enabled() || config('gomovie.transcoding_enabled') !== true) return;
+        if (!$this->enabled() || SiteSettings::get('transcoding_enabled') !== true) return;
         $ingest = DB::table('media_ingests')->where('id', $ingestId)->first();
         if (!$ingest || $ingest->status !== 'quarantined') return;
         $kind = (string) $ingest->ingestable_type;

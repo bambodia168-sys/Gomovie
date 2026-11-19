@@ -2,6 +2,7 @@
 
 namespace App\Services\Media;
 
+use App\Support\SiteSettings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -60,7 +61,7 @@ final class TranscodingService
         ];
         // No upscaling: higher tiers are created only when the verified source
         // has sufficient vertical resolution and an operator opted in.
-        if (config('gomovie.high_res_transcoding_enabled') === true) {
+        if (SiteSettings::get('high_res_transcoding_enabled') === true) {
             $tiers = [
                 2160 => ['rate'=>'16000k','buf'=>'32000k','bandwidth'=>18500000,'audio'=>'192k'],
                 1440 => ['rate'=>'9000k','buf'=>'18000k','bandwidth'=>10300000,'audio'=>'160k'],

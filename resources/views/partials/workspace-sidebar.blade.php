@@ -14,7 +14,7 @@
       <small>{{ $workspaceIsStudio ? 'MANAGEMENT STUDIO' : 'MY ACCOUNT' }}</small>
     </span>
     <span class="gm-workspace-brand-compact" aria-hidden="true">
-      <img src="{{ asset('favicon-32x32.png') }}" alt="" width="34" height="34">
+      <img src="{{ \App\Support\SiteSettings::brandAsset('site_icon', 'favicon-32x32.png') }}" alt="" width="34" height="34">
     </span>
   </a>
   <nav class="gm-workspace-sidebar-nav" aria-label="{{ $workspaceIsStudio ? 'Studio pages' : 'Account pages' }}">
@@ -46,9 +46,19 @@
          aria-label="Media Library" title="Media Library">
         @include('partials.studio-icon',['name'=>'media'])<span class="gm-workspace-link-label">Media Library</span>
       </a>
+      @if($workspaceIsAdmin)
+        <a href="{{ route('admin.distribution-rights.index') }}" @class(['is-current'=>request()->routeIs('admin.distribution-rights.*')])
+           aria-label="Distribution Rights" title="Distribution Rights" @if(request()->routeIs('admin.distribution-rights.*')) aria-current="page" @endif>
+          @include('partials.studio-icon',['name'=>'shield'])<span class="gm-workspace-link-label">Distribution Rights</span>
+        </a>
+      @endif
 
       @if($workspaceIsAdmin)
-        <p class="gm-studio-nav-heading">Appearance &amp; configuration</p>
+        <p class="gm-studio-nav-heading">Settings</p>
+        <a href="{{ route('admin.site-settings.edit') }}" @class(['is-current'=>request()->routeIs('admin.site-settings.*')])
+           aria-label="Site Settings" title="Site Settings" @if(request()->routeIs('admin.site-settings.*')) aria-current="page" @endif>
+          @include('partials.studio-icon',['name'=>'settings'])<span class="gm-workspace-link-label">Site Settings</span>
+        </a>
         <a href="{{ route('admin.appearance.index') }}" @class(['is-current'=>request()->routeIs('admin.appearance.*')])
            aria-label="Appearance" title="Appearance">
           @include('partials.studio-icon',['name'=>'appearance'])<span class="gm-workspace-link-label">Appearance</span>

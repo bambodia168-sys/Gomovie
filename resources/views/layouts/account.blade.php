@@ -4,8 +4,8 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0b0c11">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<meta name="description" content="Manage your Go Movie account, settings, and viewing library.">
-<title>@yield('title','My Account') — Go Movie</title>
+<meta name="description" content="Manage your account, settings, and viewing library.">
+<title>@yield('title','My Account') — {{ \App\Support\SiteSettings::get('site_name') }}</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')
 @include('partials.brand-head')

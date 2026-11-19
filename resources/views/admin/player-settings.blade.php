@@ -32,6 +32,10 @@
   </div>
 </section>
 
+<p class="mt-4 text-sm">
+  <a class="underline underline-offset-4" href="{{ route('admin.site-settings.edit') }}#media">Manage FFmpeg and video processing</a>
+</p>
+
 <dialog class="gm-studio-modal gm-player-settings-dialog" id="gm-player-config-dialog" aria-labelledby="gm-player-config-heading">
   <form method="POST" action="{{ route('admin.player-settings.update') }}" id="gm-player-settings-form">
     @csrf @method('PATCH')

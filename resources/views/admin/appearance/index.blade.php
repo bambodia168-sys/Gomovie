@@ -2,12 +2,56 @@
 @section('title','Appearance')
 @section('content')
 <div class="gm-appearance-workspace">
-<div class="gm-page-heading"><div><p class="text-xs uppercase tracking-widest text-amber-300">Branding & frontend pages</p>
-<h2>Appearance</h2><p>Customize text, metadata and typography without rearranging frontend layouts.</p></div>
+<div class="gm-page-heading"><div>
+<h2>Appearance</h2><p>Manage branding, frontend pages, and typography.</p></div>
 <div class="gm-page-actions">
 @if($canEdit)<button class="gm-studio-button" type="button" data-studio-open="appearance-type">@include('partials.studio-icon',['name'=>'type']) Typography</button>
 <button class="gm-studio-button is-primary" type="button" data-studio-open="appearance-new">@include('partials.studio-icon',['name'=>'plus']) Create page</button>@endif
 </div></div>
+<section class="gm-studio-panel mb-5 scroll-mt-20" id="branding" aria-labelledby="gm-branding-heading">
+  <div class="gm-studio-panel-head"><h3 id="gm-branding-heading">Site branding</h3></div>
+  @if($canEdit)
+    <form method="POST" action="{{ route('admin.appearance.branding.update') }}" enctype="multipart/form-data">
+      @csrf @method('PATCH')
+      <div class="gm-studio-panel-body">
+        <div class="grid gap-x-4 md:grid-cols-2">
+          <label class="gm-studio-field">
+            <span>Site name</span>
+            <input class="gm-studio-input" name="site_name" value="{{ old('site_name', $brandName) }}" required maxlength="60">
+          </label>
+          <label class="gm-studio-field">
+            <span>Footer link (optional)</span>
+            <input class="gm-studio-input" name="footer_url" type="url" value="{{ old('footer_url', $footerUrl) }}" maxlength="1024">
+          </label>
+        </div>
+        <div class="grid gap-4 md:grid-cols-3">
+          @foreach($brandImages as $key => [$label, $default])
+            <div class="min-w-0">
+              <label class="gm-studio-field">
+                <span>{{ $label }}</span>
+                <img class="gm-branding-preview {{ $key === 'logo_light' ? 'is-light' : '' }}"
+                     src="{{ \App\Support\SiteSettings::brandAsset($key, $default) }}" alt="Current {{ strtolower($label) }}">
+                <input class="gm-studio-input" name="{{ $key }}" type="file"
+                       accept="{{ $key === 'site_icon' ? 'image/png' : 'image/jpeg,image/png,image/webp' }}">
+                <small class="gm-studio-muted">{{ $key === 'site_icon' ? 'Square PNG up to 512 × 512' : 'JPG, PNG or WebP up to 2 MB' }}</small>
+              </label>
+              @if(\App\Support\SiteSettings::get($key))
+                <label class="flex items-center gap-2 text-sm">
+                  <input class="gm-studio-input" name="reset_{{ $key }}" type="checkbox" value="1"> Use default image
+                </label>
+              @endif
+            </div>
+          @endforeach
+        </div>
+      </div>
+      <div class="gm-site-setting-actions">
+        <button type="submit" class="gm-studio-button is-primary">Save branding</button>
+      </div>
+    </form>
+  @else
+    <p class="gm-studio-panel-body gm-studio-muted">{{ $brandName }} · A super administrator can edit branding.</p>
+  @endif
+</section>
 <div class="gm-studio-metrics mb-5">
  <div class="gm-studio-metric"><small>Existing frontend pages</small><strong>{{ count($builtIns) }}</strong></div>
  <div class="gm-studio-metric"><small>Custom pages</small><strong>{{ $customPages->total() }}</strong></div>

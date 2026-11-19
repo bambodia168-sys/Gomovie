@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#090812">
-<meta name="description" content="@yield('description','Sign in or manage your Gomovie account.')">
-<title>@yield('title','Sign in') — Gomovie</title>
+<meta name="description" content="@yield('description','Sign in or manage your account.')">
+<title>@yield('title','Sign in') — {{ \App\Support\SiteSettings::get('site_name') }}</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')
 @include('partials.brand-head')
@@ -18,7 +18,7 @@
 <a href="#auth-content" class="gm-skip">Skip to sign-in form</a>
 <div class="gm-auth-atmosphere" aria-hidden="true"><span class="gm-auth-orbit gm-orbit-one"></span><span class="gm-auth-orbit gm-orbit-two"></span></div>
 <div class="gm-auth-container">
-  <header class="gm-auth-topbar"><a href="{{ route('home') }}" class="gm-brand" aria-label="Go Movie homepage">
+  <header class="gm-auth-topbar"><a href="{{ route('home') }}" class="gm-brand" aria-label="{{ \App\Support\SiteSettings::get('site_name') }} homepage">
       @include('partials.brand-logo')
     </a>
     <a href="{{ route('home') }}" class="gm-auth-back">← Back to homepage</a>
@@ -35,12 +35,12 @@
       </div>
     </div>
     <section class="gm-auth-card" aria-label="@yield('title','Account') form">
-      <div class="gm-auth-card-mark gm-auth-card-mark--favicon" aria-hidden="true"><img src="{{ asset('apple-touch-icon.png') }}?v=20261110" alt="" width="65" height="65" decoding="async"></div>
+      <div class="gm-auth-card-mark gm-auth-card-mark--favicon" aria-hidden="true"><img src="{{ \App\Support\SiteSettings::brandAsset('site_icon', 'apple-touch-icon.png') }}?v=20261110" alt="" width="65" height="65" decoding="async"></div>
       @yield('content')
     </section>
   </main>
   <footer class="gm-auth-footer">
-    <span>© {{ date('Y') }} Gomovie</span>
+    <span>© {{ date('Y') }} {{ \App\Support\SiteSettings::get('site_name') }}</span>
     <span>Published catalogs · Personal watchlists · Secure accounts</span>
   </footer>
 </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Frontend;
 
+use App\Support\SiteSettings;
 use App\Http\Controllers\Controller;
 use App\Models\Episode;
 use App\Models\Movie;
@@ -128,7 +129,7 @@ class BrowseController extends Controller
             && auth()->user()->is_active && auth()->user()->hasVerifiedEmail();
         $profileId = $viewerAuthorized ? UserProfile::query()->where('user_id',auth()->id())
             ->where('is_kids',false)->value('id') : null;
-        $playerEnabled = config('gomovie.edge_enabled') === true && (bool) $profileId;
+        $playerEnabled = SiteSettings::get('edge_enabled') === true && (bool) $profileId;
         $publicWatchId = $type === 'movie' ? (int) $title->id : (int) ($selectedEpisode?->id ?? 0);
         $publicAsset = $publicWatchId > 0
             ? app(\App\Services\Media\AutomaticPublicationService::class)

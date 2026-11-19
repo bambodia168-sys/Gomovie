@@ -1,12 +1,20 @@
 @extends('layouts.admin')
 @section('title','Media Library')
 @section('content')
+@php
+  $canConfigure = \App\Support\StudioNavigation::administrator(auth()->user());
+  $tmdbEnabled = \App\Support\SiteSettings::get('tmdb_enabled');
+@endphp
 <div class="gm-page-heading">
-<div><p class="text-xs uppercase tracking-widest text-amber-300">Content management</p><h2>Media Library</h2><p>Upload original videos privately or publish free videos automatically when processing and rights checks pass.</p></div>
+<div><h2>Media Library</h2><p>Manage source videos, artwork, and catalog metadata.</p></div>
 <div class="gm-page-actions">
 <button class="gm-studio-button" type="button" data-studio-open="gm-artwork-upload-dialog">@include('partials.studio-icon',['name'=>'media']) Upload artwork</button>
+@if($tmdbEnabled)
 <button class="gm-studio-button" type="button" data-studio-open="gm-tmdb-dialog">@include('partials.studio-icon',['name'=>'plus']) Import metadata</button>
-@if(in_array(auth()->user()->role,['admin','super_admin'],true))
+@elseif($canConfigure)
+<a class="gm-studio-button" href="{{ route('admin.site-settings.edit') }}#tmdb">Set up TMDB</a>
+@endif
+@if($canConfigure)
 <a class="gm-studio-button is-primary" href="{{ route('upload-studio.index') }}">@include('partials.studio-icon',['name'=>'upload']) Upload video</a>
 @endif</div></div>
 <section class="gm-studio-panel">
@@ -34,10 +42,6 @@
 </tbody></table></div>
 @include('partials.studio-pager',['paginator'=>$assets,'id'=>'media-page-go'])
 </section>
-<div class="grid gap-4 mt-5 lg:grid-cols-2">
-<div class="gm-studio-panel p-5"><h3 class="font-bold text-sm">Artwork management</h3><p class="gm-studio-muted text-sm mt-2">Upload a licensed poster or backdrop linked to an existing movie or series. Media files are validated on the server.</p></div>
-<div class="gm-studio-panel p-5"><h3 class="font-bold text-sm">Draft metadata import</h3><p class="gm-studio-muted text-sm mt-2">Import catalog metadata using a configured TMDB API token. Metadata is not proof of distribution rights.</p></div>
-</div>
 <dialog class="gm-studio-modal" id="gm-artwork-upload-dialog" aria-labelledby="gm-artwork-heading">
 <form method="POST" action="{{ route('admin.media.artwork') }}" enctype="multipart/form-data">@csrf
 <div class="gm-studio-modal-heading"><h3 id="gm-artwork-heading">Upload artwork</h3><button type="button" class="gm-studio-button" data-studio-close aria-label="Close">×</button></div>
@@ -47,6 +51,7 @@
 <label class="gm-studio-field"><span>Image placement</span><select name="slot" class="gm-studio-input"><option value="poster">Poster</option><option value="backdrop">Backdrop</option></select></label>
 <label class="gm-studio-field"><span>JPG, PNG or WebP · maximum 8 MB</span><input class="gm-studio-input" type="file" accept="image/jpeg,image/png,image/webp" name="image" required></label>
 </div><div class="gm-studio-modal-actions"><button type="button" class="gm-studio-button" data-studio-close>Cancel</button><button class="gm-studio-button is-primary" type="submit">Upload artwork</button></div></form></dialog>
+@if($tmdbEnabled)
 <dialog class="gm-studio-modal" id="gm-tmdb-dialog" aria-labelledby="gm-tmdb-heading">
 <form method="POST" action="{{ route('admin.tmdb.import') }}">@csrf
 <div class="gm-studio-modal-heading"><h3 id="gm-tmdb-heading">Import TMDB metadata</h3><button type="button" class="gm-studio-button" data-studio-close aria-label="Close">×</button></div>
@@ -54,4 +59,5 @@
 <label class="gm-studio-field"><span>Content type</span><select class="gm-studio-input" name="type"><option value="movie">Movie</option><option value="series">Series</option></select></label>
 <label class="gm-studio-field"><span>TMDB ID</span><input class="gm-studio-input" name="tmdb_id" type="number" min="1" required></label>
 </div><div class="gm-studio-modal-actions"><button type="button" class="gm-studio-button" data-studio-close>Cancel</button><button type="submit" class="gm-studio-button is-primary">Import as draft</button></div></form></dialog>
+@endif
 @endsection

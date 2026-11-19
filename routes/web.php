@@ -5,6 +5,7 @@ use App\Http\Controllers\Account\SettingsController;
 use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AppearanceController;
+use App\Http\Controllers\Admin\DistributionRightsController;
 use App\Http\Controllers\Admin\EpisodeStudioController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\PrivateIngestPreviewController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\Admin\UploadStudioWorkflowController;
 use App\Http\Controllers\Admin\UploadCaptionController;
 use App\Http\Controllers\Admin\OperationsController;
 use App\Http\Controllers\Admin\PlayerSettingsController;
+use App\Http\Controllers\Admin\SiteSettingsController;
 use App\Http\Controllers\Admin\TmdbController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\SessionController;
@@ -139,6 +141,16 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
         return redirect()->route('admin.media.index');
     })->whereNumber('ingest')->name('upload-studio.legacy-review');
     Route::get('/media', [MediaController::class, 'index'])->name('media.index');
+    Route::get('/distribution-rights', [DistributionRightsController::class, 'index'])
+        ->name('distribution-rights.index');
+    Route::get('/distribution-rights/{kind}/{title}', [DistributionRightsController::class, 'edit'])
+        ->whereIn('kind', ['movie', 'episode'])->whereNumber('title')->name('distribution-rights.edit');
+    Route::post('/distribution-rights/{kind}/{title}', [DistributionRightsController::class, 'save'])
+        ->whereIn('kind', ['movie', 'episode'])->whereNumber('title')
+        ->middleware('throttle:20,1')->name('distribution-rights.store');
+    Route::patch('/distribution-rights/{kind}/{title}/{record}', [DistributionRightsController::class, 'save'])
+        ->whereIn('kind', ['movie', 'episode'])->whereNumber(['title', 'record'])
+        ->middleware('throttle:20,1')->name('distribution-rights.update');
     // Admin-only preview; never grants public playback, rights or stream entitlements.
     Route::get('/media/ingests/{ingest}/preview', PrivateIngestPreviewController::class)
         ->middleware('throttle:120,1')->whereNumber('ingest')->name('media.ingest-preview');
@@ -148,6 +160,8 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::post('/tmdb/import', [TmdbController::class, 'import'])->name('tmdb.import');
     Route::get('/operations', [OperationsController::class, 'index'])->name('operations.index');
     Route::get('/appearance', [AppearanceController::class, 'index'])->name('appearance.index');
+    Route::patch('/appearance/branding', [AppearanceController::class, 'branding'])
+        ->middleware('throttle:10,1')->name('appearance.branding.update');
     Route::post('/appearance/pages', [AppearanceController::class,'store'])
         ->middleware('throttle:12,1')->name('appearance.pages.store');
     Route::put('/appearance/pages/{slug}', [AppearanceController::class,'update'])
@@ -169,6 +183,12 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->prefix('dashboard')-
     Route::get('/player-settings', [PlayerSettingsController::class, 'edit'])->name('player-settings.edit');
     Route::patch('/player-settings', [PlayerSettingsController::class, 'update'])
         ->middleware('throttle:20,1')->name('player-settings.update');
+    Route::get('/site-settings', [SiteSettingsController::class, 'edit'])->name('site-settings.edit');
+    Route::patch('/site-settings/{section}', [SiteSettingsController::class, 'update'])
+        ->whereIn('section', ['media', 'tmdb', 'storage', 'edge', 'monitoring'])
+        ->middleware('throttle:20,1')->name('site-settings.update');
+    Route::post('/site-settings/test-ffmpeg', [SiteSettingsController::class, 'testFfmpeg'])
+        ->middleware('throttle:6,1')->name('site-settings.test-ffmpeg');
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
 });

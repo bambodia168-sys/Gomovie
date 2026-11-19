@@ -49,6 +49,9 @@
 <td class="text-right"><button type="button" class="gm-studio-dots" aria-label="Actions for {{ $episode->title }}" data-studio-menu="gm-episode-actions-{{ $episode->id }}" aria-expanded="false">@include('partials.studio-icon',['name'=>'dots'])</button>
 <template id="gm-episode-actions-{{ $episode->id }}">
 <button role="menuitem" type="button" data-studio-open="gm-edit-episode-{{ $episode->id }}">@include('partials.studio-icon',['name'=>'edit']) Edit episode</button>
+@if(\App\Support\StudioNavigation::administrator(auth()->user()))
+<a role="menuitem" href="{{ route('admin.distribution-rights.edit', ['episode', $episode]) }}">@include('partials.studio-icon',['name'=>'shield']) Distribution rights</a>
+@endif
 @if($episode->status==='draft' && in_array(auth()->user()->role,['admin','super_admin'],true))
 <form method="POST" action="{{ route('admin.episodes.destroy',[$series,$season,$episode]) }}">@csrf @method('DELETE')
 <button role="menuitem" type="submit" class="is-danger" data-studio-confirm="Delete this draft episode?">@include('partials.studio-icon',['name'=>'trash']) Delete draft</button></form>

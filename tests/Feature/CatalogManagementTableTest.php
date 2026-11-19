@@ -8,6 +8,8 @@ use App\Models\Season;
 use App\Models\Series;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class CatalogManagementTableTest extends TestCase
@@ -19,6 +21,115 @@ final class CatalogManagementTableTest extends TestCase
         $user = User::factory()->create();
         $user->forceFill(['role' => $role])->save();
         return $user;
+    }
+
+    public function test_upload_returns_artwork_url_before_movie_is_saved_and_reuses_existing_storage(): void
+    {
+        Storage::fake('public');
+        $admin = $this->staff();
+        $this->actingAs($admin);
+
+        $url = $this->postJson('/dashboard/media/artwork', [
+            'type' => 'movie', 'slot' => 'poster', 'upload_only' => '1',
+            'image' => UploadedFile::fake()->image('poster.jpg', 80, 120),
+        ])->assertCreated()->json('url');
+
+        $files = Storage::disk('public')->allFiles('artwork/movie');
+        self::assertCount(1, $files);
+        self::assertSame(Storage::disk('public')->url($files[0]), $url);
+        $this->assertDatabaseCount('movies', 0);
+        $this->assertDatabaseHas('admin_audit_events', [
+            'actor_id' => $admin->id, 'action' => 'media.artwork_stored', 'resource_id' => null,
+        ]);
+
+        $this->post('/dashboard/catalog/movies', [
+            'title' => 'Immediate Artwork QA', 'release_year' => 2026,
+            'is_premium' => '1', 'status' => 'draft', 'poster_path' => $url,
+        ])->assertRedirect();
+
+        $movie = Movie::query()->where('slug', 'immediate-artwork-qa')->firstOrFail();
+        self::assertSame($files[0], $movie->poster_path);
+        self::assertSame($files, Storage::disk('public')->allFiles('artwork/movie'));
+        $this->get(route('admin.catalog.edit', ['movies', $movie->id]))->assertOk()
+            ->assertSee('value="'.e($url).'"', false);
+    }
+
+    public function test_media_library_keeps_existing_attachment_behavior_and_rejects_invalid_upload_only_requests(): void
+    {
+        Storage::fake('public');
+        $this->actingAs($this->staff());
+        $movie = Movie::create(['title' => 'Media Library QA', 'slug' => 'media-library-qa', 'status' => 'draft']);
+        $payload = ['type' => 'movie', 'slot' => 'backdrop'];
+
+        $this->postJson('/dashboard/media/artwork', $payload + [
+            'image' => UploadedFile::fake()->image('backdrop.png'),
+        ])->assertUnprocessable()->assertJsonValidationErrors('title_id');
+        $invalid = tempnam(sys_get_temp_dir(), 'gomovie-invalid-artwork-');
+        try {
+            file_put_contents($invalid, 'not an image');
+            $this->postJson('/dashboard/media/artwork', $payload + [
+                'upload_only' => '1', 'image' => new UploadedFile($invalid, 'fake.png', 'image/png', UPLOAD_ERR_OK, true),
+            ])->assertUnprocessable()->assertJsonValidationErrors('image');
+        } finally {
+            unlink($invalid);
+        }
+        self::assertSame([], Storage::disk('public')->allFiles('artwork/movie'));
+
+        $this->post('/dashboard/media/artwork', $payload + [
+            'title_id' => $movie->id, 'image' => UploadedFile::fake()->image('backdrop.png'),
+        ])->assertRedirect();
+        Storage::disk('public')->assertExists($movie->fresh()->backdrop_path);
+    }
+
+    public function test_movie_artwork_can_mix_upload_and_url_and_be_updated_independently(): void
+    {
+        Storage::fake('public');
+        $this->actingAs($this->staff());
+        $this->get('/dashboard/catalog/movies/create')->assertOk()
+            ->assertSee('name="poster_upload"', false)->assertSee('name="backdrop_upload"', false);
+
+        $data = ['title' => 'Artwork QA', 'release_year' => 2026, 'is_premium' => '1', 'status' => 'draft'];
+        $url = 'https://images.example.test/backdrop?id=123&size=full';
+        $response = $this->post('/dashboard/catalog/movies', $data + [
+            'poster_path' => '/old-tmdb-poster.jpg',
+            'poster_upload' => UploadedFile::fake()->image('poster.jpg', 80, 120),
+            'backdrop_path' => $url,
+        ]);
+        $movie = Movie::query()->where('slug', 'artwork-qa')->firstOrFail();
+        $response->assertRedirect(route('admin.catalog.edit', ['movies', $movie->id]));
+        self::assertStringStartsWith('artwork/movie/', $movie->poster_path);
+        $poster = $movie->poster_path;
+        Storage::disk('public')->assertExists($poster);
+        self::assertSame($url, $movie->backdrop_path);
+
+        $this->get(route('admin.catalog.edit', ['movies', $movie->id]))->assertOk()
+            ->assertSee('src="'.e($url).'"', false);
+        $this->put('/dashboard/catalog/movies/'.$movie->id, $data + [
+            'backdrop_upload' => UploadedFile::fake()->image('backdrop.png', 120, 80),
+        ])->assertRedirect();
+        $movie->refresh();
+        self::assertSame($poster, $movie->poster_path);
+        self::assertStringStartsWith('artwork/movie/', $movie->backdrop_path);
+        Storage::disk('public')->assertExists($movie->backdrop_path);
+    }
+
+    public function test_invalid_artwork_does_not_store_a_file_or_create_a_title(): void
+    {
+        Storage::fake('public');
+        $this->actingAs($this->staff());
+        $this->post('/dashboard/catalog/movies', [
+            'title' => 'Invalid Artwork QA', 'release_year' => 2026, 'is_premium' => '1', 'status' => 'draft',
+            'poster_upload' => UploadedFile::fake()->createWithContent('poster.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>'),
+            'backdrop_path' => 'https://127.0.0.1/internal.png',
+        ])->assertSessionHasErrors('poster_upload');
+
+        $this->post('/dashboard/catalog/movies', [
+            'title' => 'Invalid URL QA', 'release_year' => 2026, 'is_premium' => '1', 'status' => 'draft',
+            'poster_upload' => UploadedFile::fake()->image('poster.jpg'),
+            'backdrop_path' => 'https://127.0.0.1/internal.png',
+        ])->assertSessionHasErrors('backdrop_path');
+        self::assertSame([], Storage::disk('public')->allFiles('artwork'));
+        $this->assertDatabaseCount('movies', 0);
     }
 
     public function test_compact_movies_table_paginates_ten_by_default_with_search_and_filters(): void

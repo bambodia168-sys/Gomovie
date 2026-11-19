@@ -5,8 +5,8 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#090812">
-<meta name="description" content="@yield('description', 'Discover licensed movies and TV series on Gomovie.')">
-<title>@yield('title','Discover') — Gomovie</title>
+<meta name="description" content="@yield('description', 'Discover licensed movies and TV series.')">
+<title>@yield('title','Discover') — {{ \App\Support\SiteSettings::get('site_name') }}</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 @include('partials.feedback')
 @include('partials.brand-head')
@@ -17,7 +17,7 @@
 <a href="#main-content" class="gm-skip">Skip to content</a>
 <header class="gm-site-header">
   <div class="gm-container gm-header-inner" x-data="{ mobileOpen:false }">
-    <a class="gm-brand" href="{{ route('home') }}" aria-label="Go Movie homepage">
+    <a class="gm-brand" href="{{ route('home') }}" aria-label="{{ \App\Support\SiteSettings::get('site_name') }} homepage">
       @include('partials.brand-logo')
     </a>
     <button class="gm-mobile-toggle" type="button" @click="mobileOpen=!mobileOpen"
@@ -43,9 +43,15 @@
 </main>
 <footer class="gm-site-footer">
   <div class="gm-container gm-footer-inner">
-    <a class="gm-brand gm-brand-small" href="{{ route('home') }}" aria-label="Go Movie homepage">@include('partials.brand-logo')</a>
-    <nav aria-label="Footer"><a href="{{ route('about') }}">{{ \App\Support\StudioAppearance::slot('footer-about-label') }}</a><a href="{{ route('browse') }}">{{ \App\Support\StudioAppearance::slot('footer-browse-label') }}</a><a href="https://tonsamith.com">{{ \App\Support\StudioAppearance::slot('footer-publisher-label') }}</a></nav>
-    <span>© {{ date('Y') }} Gomovie · Licensed media only</span>
+    <a class="gm-brand gm-brand-small" href="{{ route('home') }}" aria-label="{{ \App\Support\SiteSettings::get('site_name') }} homepage">@include('partials.brand-logo')</a>
+    <nav aria-label="Footer">
+      <a href="{{ route('about') }}">{{ \App\Support\StudioAppearance::slot('footer-about-label') }}</a>
+      <a href="{{ route('browse') }}">{{ \App\Support\StudioAppearance::slot('footer-browse-label') }}</a>
+      @if($footerUrl = \App\Support\SiteSettings::get('footer_url'))
+        <a href="{{ $footerUrl }}">{{ \App\Support\StudioAppearance::slot('footer-publisher-label') }}</a>
+      @endif
+    </nav>
+    <span>© {{ date('Y') }} {{ \App\Support\SiteSettings::get('site_name') }} · Licensed media only</span>
   </div>
 </footer>
 </body>
