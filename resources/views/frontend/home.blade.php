@@ -52,7 +52,7 @@
         @else<div class="gm-hero-placeholder"><span aria-hidden="true">▶</span></div>@endif
         <span class="gm-hero-tile-overlay" aria-hidden="true"></span>
         <span class="gm-hero-badge">{{ $feature->is_premium ? '♛ Premium' : 'Free' }}</span>
-        <span class="gm-hero-tile-caption"><strong>{{ $feature->title }}</strong><small>{{ $entry['kind']==='movie' ? 'Film' : 'TV Series' }}</small></span>
+        <span class="gm-hero-tile-caption"><strong>{{ $feature->title }}</strong><small>{{ $entry['kind'] === 'movie' ? ($feature->is_standalone_video ? 'Video' : 'Film') : 'TV Series' }}</small></span>
         <span class="gm-hero-play" aria-hidden="true">▶</span>
       </button>
     @endforeach
