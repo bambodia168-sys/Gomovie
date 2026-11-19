@@ -90,6 +90,7 @@ mkdir -p /var/backups/gomovie
 work="$(mktemp -d /var/backups/gomovie/admin-settings.XXXXXXXX)"
 echo "BACKUP_DIRECTORY=$work"
 phase=prepare-sources
+conflicts=()
 applied=()
 complete=0
 worker_restarted=0
@@ -105,42 +106,110 @@ put_file() {
     return 1
 }
 
-merge_custom_admin_title() {
-    python3 - "$@" <<'PY_ADMIN_TITLE'
+merge_custom_branding() {
+    python3 - "$@" <<'PY_CUSTOM_BRANDING'
+import hashlib
 from pathlib import Path
 import re
 import sys
 
-live, base, release, merged = map(Path, sys.argv[1:])
-old, new, current = (path.read_bytes() for path in (base, release, live))
-titles = re.compile(rb"(<title\b[^>]*>)(.*?)(</title\s*>)", re.I | re.S)
-brand = re.compile(rb"(?<![\w/])Go[ \t]*Movie(?![\w.])", re.I)
-expression = rb"{{ \App\Support\SiteSettings::get('site_name') }}"
-title_prefix = re.compile(rb"""^\s*@yield\(\s*['"]title['"]\s*(?:,\s*['"][^'"\r\n]*['"]\s*)?\)""")
+relative, live, base, release, merged = sys.argv[1:]
+# Only the known branding changes can use this fallback.
+blobs = {
+    'layouts/admin.blade.php': ('00c49ce9b6a7c7ab4193a032749a23d608cc23a9', 'b261c15f107aad597d50699c5bd84b2d50dedbc6'),
+    'layouts/account.blade.php': ('401b8acbdf677cb73eea0aa8d7737b405b00608a', 'cd7588fac606a2a5d32d2112a3c310ae7f349411'),
+    'layouts/app.blade.php': ('6bc9f4d9458fd9b574a9be16711a1a7531742339', '3366a990ef151cefb21978385ef1facaa944f026'),
+    'layouts/auth.blade.php': ('c6f5c2cac43e27460c77b5fab133c3c555034301', '5d616a95313e4ae21403bc0036d55c38c2fed706'),
+    'partials/brand-head.blade.php': ('935182208427dfdfcf1b211f95faff01d8fe14c7', 'a5ef5146679044c71a97de4e0c7e3198a7b67da4'),
+    'partials/brand-logo.blade.php': ('3b87e24faf08149628c577f1e9652e5e2b083785', '132d1041d59e9756a405ceeadd81f84a9d961014'),
+    'partials/header-actions.blade.php': ('f4f0091db5fe7c0eeccaf0e875f7eb5413a9e3bf', '20e25aaa242b44c39f911e5351496dc89504964c'),
+}
+key = relative.removeprefix('resources/views/')
 
-def title(source):
-    matches = list(titles.finditer(source))
-    if len(matches) != 1:
-        raise SystemExit("Expected one admin layout title")
-    return matches[0]
+def blob(source):
+    data = Path(source).read_bytes()
+    return hashlib.sha1(f'blob {len(data)}\0'.encode() + data).hexdigest()
 
-expected = old.replace(b"Go Movie Studio</title>", expression + b" Studio</title>", 1)
-if expected != new or expected == old:
-    raise SystemExit("The release changes more than the admin title branding")
+if blobs.get(key) != (blob(base), blob(release)):
+    raise SystemExit("No supported branding merge for these source revisions")
 
-match = title(current)
-text = match.group(2)
-if expression in text and text.count(expression) == 1:
-    merged.write_bytes(current)
-else:
-    prefix = title_prefix.match(text)
-    start = prefix.end() if prefix else 0
-    suffix = text[start:]
-    if re.search(rb"[@<>{}]", suffix) or len(brand.findall(suffix)) != 1:
-        raise SystemExit("The live admin title has no unambiguous Go Movie brand")
-    replacement = text[:start] + brand.sub(lambda _: expression, suffix)
-    merged.write_bytes(current[:match.start(2)] + replacement + current[match.end(2):])
-PY_ADMIN_TITLE
+current = Path(live).read_bytes().decode('utf-8')
+text = current
+if re.search(r'(?m)^(?:<<<<<<< |\|{7} |={7}\s*$|>>>>>>> )', text):
+    raise SystemExit("Live source contains unresolved merge markers")
+
+site_name = r"{{ \App\Support\SiteSettings::get('site_name') }}"
+brand = re.compile(r"(?<![\w/])Go[ \t]*Movie(?![\w.])", re.I)
+notes = []
+
+def title(match):
+    opening, label, closing = match.groups()
+    if site_name in label:
+        return match.group()
+    prefix = re.match(r"""^\s*@yield\(\s*['"]title['"]\s*(?:,\s*['"][^'"\r\n]*['"]\s*)?\)""", label)
+    end = prefix.end() if prefix else 0
+    suffix = label[end:]
+    if re.search(r'[@<>{}]', suffix) or len(brand.findall(suffix)) != 1:
+        notes.append('custom title retained')
+        return match.group()
+    return opening + label[:end] + brand.sub(lambda _: site_name, suffix) + closing
+
+def asset(source, key, path):
+    pattern = re.compile(r"""\{\{\s*asset\(\s*(['"])""" + re.escape(path) + r"""\1\s*\)\s*\}\}""")
+    replacement = r"{{ \App\Support\SiteSettings::brandAsset('" + key + "', '" + path + "') }}"
+    return pattern.sub(lambda _: replacement, source)
+
+if key.startswith('layouts/'):
+    titles = re.compile(r'(<title\b[^>]*>)(.*?)(</title\s*>)', re.I | re.S)
+    if len(titles.findall(text)) == 1:
+        text = titles.sub(title, text)
+    else:
+        notes.append('custom title retained')
+    text = re.sub(
+        r"""(?<![-\w])(aria-label\s*=\s*['"])Go[ \t]*Movie( homepage['"])""",
+        lambda m: m[1] + site_name + m[2], text, flags=re.I,
+    )
+    text = re.sub(
+        r"""((?:©|&copy;)\s*\{\{\s*date\(\s*['"]Y['"]\s*\)\s*\}\}\s*)Go[ \t]*Movie(?!\w)""",
+        lambda m: m[1] + site_name, text, flags=re.I,
+    )
+
+if key == 'layouts/app.blade.php':
+    # The publisher slot identifies the Appearance-controlled link.
+    setting = r"\App\Support\SiteSettings::get('footer_url')"
+    link = re.compile(r'(<a\b[^>]*>)((?:(?!</?a\b).)*)(</a\s*>)', re.I | re.S)
+    slot = re.compile(r"""StudioAppearance::slot\(\s*(['"])footer-publisher-label\1\s*\)""")
+    default_url = re.compile(r"""(?<=\s)href\s*=\s*(['"])https://tonsamith\.com/?\1""", re.I)
+    anchors = [match for match in link.finditer(text) if slot.search(match[2])]
+    if setting not in text and len(anchors) == 1 and default_url.search(anchors[0][1]):
+        anchor = anchors[0]
+        opening = default_url.sub('href="{{ $footerUrl }}"', anchor[1], count=1)
+        conditional = '@if($footerUrl = ' + setting + ') ' + opening + anchor[2] + anchor[3] + ' @endif'
+        text = text[:anchor.start()] + conditional + text[anchor.end():]
+    elif setting not in text:
+        notes.append('custom publisher link retained')
+
+if key in ('layouts/auth.blade.php', 'partials/brand-head.blade.php'):
+    if key == 'partials/brand-head.blade.php':
+        original = Path(base).read_text()
+        incoming = Path(release).read_text()
+        icons = '\n'.join(line for line in original.splitlines() if line.startswith('<link rel="icon"'))
+        new_icons = incoming[incoming.index('@if('):incoming.index('@endif') + len('@endif')]
+        if icons and text.count(icons) == 1 and new_icons not in text:
+            text = text.replace(icons, new_icons, 1)
+        elif new_icons not in text:
+            notes.append('custom favicon markup retained')
+    text = asset(text, 'site_icon', 'apple-touch-icon.png')
+elif key == 'partials/brand-logo.blade.php':
+    text = asset(text, 'logo_light', 'brand/gomovie-logo-light.webp')
+    text = asset(text, 'logo_dark', 'brand/gomovie-logo-dark.webp')
+elif key == 'partials/header-actions.blade.php':
+    text = text.replace('>Welcome to Go Movie</div>', '>Welcome to ' + site_name + '</div>')
+
+Path(merged).write_bytes(text.encode('utf-8'))
+for note in notes:
+    print(f'CUSTOM_BRANDING_NOTE={relative}: {note}')
+PY_CUSTOM_BRANDING
 }
 
 on_exit() {
@@ -184,24 +253,34 @@ for file in "${files[@]}"; do
         if ! cmp -s "$site/$file" "$work/ready/$file"; then
             case "$file" in
                 "$migration"|app/Support/SiteSettings.php|app/Http/Controllers/Admin/SiteSettingsController.php|app/Http/Controllers/Admin/DistributionRightsController.php|resources/views/admin/site-settings*|resources/views/admin/distribution-rights/*)
-                    fail "A new settings file already exists with different content: $file" ;;
+                    conflicts+=("$file")
+                    echo "SOURCE_CONFLICT=$file: a new settings file already exists with different content" >&2
+                    continue ;;
                 resources/css/studio.css|resources/views/admin/player-settings.blade.php) previous="$player_base" ;;
                 app/Http/Controllers/Admin/CatalogController.php|resources/views/admin/catalog/form.blade.php) previous="$artwork_base" ;;
                 *) previous="$base" ;;
             esac
             base_url="repos/$repo/contents/$file?ref=$previous"
             if [[ "$file" = *.css || "$file" = *.js || "$file" = package.json ]]; then
-                [[ "$(git hash-object "$site/$file")" = "$(gh api "$base_url" --jq '.sha')" ]] \
-                    || fail "The deployed frontend differs from the build base: $file"
+                previous_sha="$(gh api "$base_url" --jq '.sha')"
+                if [[ "$(git hash-object "$work/original/$file")" != "$previous_sha" ]]; then
+                    conflicts+=("$file")
+                    echo "SOURCE_CONFLICT=$file: the deployed frontend differs from the build base" >&2
+                    continue
+                fi
             else
                 gh api -H 'Accept: application/vnd.github.raw+json' "$base_url" > "$work/base-file"
-                if ! git merge-file -p "$site/$file" "$work/base-file" "$work/ready/$file" > "$work/merged-file"; then
-                    [[ "$file" = resources/views/layouts/admin.blade.php ]] \
-                        && merge_custom_admin_title "$site/$file" "$work/base-file" "$work/ready/$file" "$work/merged-file" \
-                        || fail "Overlapping local customization: $file"
-                    echo 'CUSTOM_ADMIN_TITLE_MERGED=YES'
+                if git merge-file -p --diff3 "$work/original/$file" "$work/base-file" "$work/ready/$file" > "$work/merged-file"; then
+                    mv "$work/merged-file" "$work/ready/$file"
+                elif [[ "$file" = resources/views/layouts/*.blade.php || "$file" = resources/views/partials/brand-*.blade.php || "$file" = resources/views/partials/header-actions.blade.php ]] \
+                    && merge_custom_branding "$file" "$work/original/$file" "$work/base-file" "$work/ready/$file" "$work/merged-file"; then
+                    echo "CUSTOM_BRANDING_MERGED=$file"
+                    mv "$work/merged-file" "$work/ready/$file"
+                else
+                    conflicts+=("$file")
+                    echo "SOURCE_CONFLICT=$file" >&2
+                    continue
                 fi
-                mv "$work/merged-file" "$work/ready/$file"
             fi
         fi
         chown --reference="$work/original/$file" "$work/ready/$file"
@@ -213,6 +292,10 @@ for file in "${files[@]}"; do
     if [[ "$file" = *.php ]]; then "$php" -l "$work/ready/$file" >/dev/null; fi
     echo "SOURCE_READY=$file"
 done
+if (( ${#conflicts[@]} > 0 )); then
+    phase=source-conflicts
+    fail "Overlapping local customizations: ${conflicts[*]}"
+fi
 
 phase=prepare-frontend-build
 gh run download "$run" --repo "$repo" --name gomovie-frontend-build --dir "$work/artifact"
