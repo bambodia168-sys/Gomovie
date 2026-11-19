@@ -133,7 +133,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
               </label>
               <label class="access">
                 <input type="radio" name="access" value="paid">
-                <span><b>Premium title · Draft</b><small>Create a premium catalog draft and keep the source video private.</small></span>
+                <span><b>Paid video · Draft</b><small>Create a premium catalog draft and keep the source video private.</small></span>
               </label>
             </div>
             @unless($autoReady)
