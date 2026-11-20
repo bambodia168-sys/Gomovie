@@ -11,7 +11,9 @@
       ? request()->query('view') : 'auto';
   $usePlyr = $playerPreferences['engine'] === 'plyr';
   $canPlayPublic = $publicAsset && ($standaloneVideo || $viewerAuthorized);
-  $adTag = !$title->is_premium && ($canPlayPublic || ($playerEnabled && $publicWatchId > 0))
+  $canPlayProtected = $playerEnabled && $playbackState === 'ready' && !$canPlayPublic;
+  $resumeTime = gmdate($resumeAt >= 3600 ? 'G:i:s' : 'i:s', $resumeAt);
+  $adTag = !$title->is_premium && ($canPlayPublic || $canPlayProtected)
       ? $playerPreferences['ad_tag_url'] : null;
 @endphp
 <div class="gm-watch-layout">
@@ -25,7 +27,7 @@
         @if($canPlayPublic)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
                data-gomovie-player data-public-hls-url="{{ route($standaloneVideo ? 'public-hls.standalone' : 'public-hls.show', ['asset' => $publicAsset->id, 'path' => 'master.m3u8'], false) }}"
-               data-profile-id="0" data-modern-player data-gomovie-engine="{{ $playerPreferences['engine'] }}"
+               data-profile-id="{{ $profileId ?? 0 }}" data-resume-seconds="{{ $resumeAt }}" data-modern-player data-gomovie-engine="{{ $playerPreferences['engine'] }}"
                data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
                data-hide-seconds="{{ $playerPreferences['auto_hide_seconds'] }}"
                style="--gm-player-accent:{{ \App\Support\PlayerPreferences::accentColor($playerPreferences) }}">
@@ -50,7 +52,7 @@
           </div>
         @elseif(!auth()->check())
           @include('frontend.partials.guest-watch-signin')
-        @elseif($privatePreviewIngest && !$playerEnabled)
+        @elseif($privatePreviewIngest && !$canPlayProtected)
           <div class="gm-player-live gm-modern-player {{ $playerPreferences['density']==='compact' ? 'is-compact' : '' }}"
                data-gomovie-private-preview data-modern-player data-gomovie-engine="{{ $playerPreferences['engine'] }}"
                data-seek-seconds="{{ $playerPreferences['seek_seconds'] }}"
@@ -72,8 +74,8 @@
             @include('frontend.partials.modern-player-controls', ['secure' => false])
             <span class="gm-player-private-badge">PRIVATE ADMIN PREVIEW</span>
           </div>
-        @elseif($playerEnabled && $profileId)
-        <div data-gomovie-player data-profile-id="{{ $profileId }}"
+        @elseif($canPlayProtected)
+        <div data-gomovie-player data-profile-id="{{ $profileId }}" data-resume-seconds="{{ $resumeAt }}"
              data-next-url="{{ $autoNext['url'] ?? '' }}"
              data-next-title="{{ $autoNext['title'] ?? '' }}"
              data-auto-start="{{ request('autoplay') === '1' ? '1' : '0' }}"
@@ -102,12 +104,16 @@
           <div class="gm-player-lock-panel">
             <span class="gm-player-lock-icon" aria-hidden="true">♛</span>
             <p class="gm-eyebrow">{{ $title->is_premium ? 'Premium title' : 'Gomovie viewing' }}</p>
-            <h2>{{ $viewerAuthorized ? 'Secure playback is being prepared' : 'Your next story starts here' }}</h2>
+            <h2>{{ $viewerAuthorized ? \App\Services\Streaming\PlaybackAvailability::LABELS[$playbackState] : 'Your next story starts here' }}</h2>
             <p>
               @if(!$viewerAuthorized)
                 Sign in or create an account to save this title and follow new episodes. Playback opens when the licensed media service is approved.
               @else
-                Secure streaming is not yet enabled for this installation. Media rights and delivery must be independently approved before playback.
+                {{ match ($playbackState) {
+                    'membership' => 'An active subscription is required for this title.',
+                    'processing' => 'Check back once the video is ready.',
+                    default => 'You can save this title to your watchlist.',
+                } }}
               @endif
             </p>
             <div class="gm-watch-lock-actions">
@@ -127,7 +133,7 @@
     @if($usePlyr)
       <div class="gm-plyr-options" data-gm-plyr-options hidden></div>
     @endif
-    @if($privatePreviewIngest && !$playerEnabled && !$publicAsset)
+    @if($privatePreviewIngest && !$canPlayProtected && !$publicAsset)
       <p class="gm-muted" style="font-size:12px;line-height:1.6;margin:12px 0 0">
         Private administrator preview · Not publicly available. Source video duration may differ from the catalog runtime.
       </p>
@@ -153,6 +159,16 @@
       @endif
     @endif
 
+    @if($resumeAt > 0)
+      <div class="gm-resume-actions">
+        <span>Resume from {{ $resumeTime }}</span>
+        <a href="{{ route('watch.show', array_filter([
+          'type' => $type, 'slug' => $title->slug, 'episode' => $selectedEpisode?->id,
+          'view' => request()->query('view'), 'restart' => 1,
+        ] + $profileQuery)) }}">Start over</a>
+      </div>
+    @endif
+
     @if($type==='series')
       <section class="gm-episode-section gm-episode-section-near-player" aria-labelledby="episode-heading">
         <div class="gm-section-heading">
@@ -162,12 +178,12 @@
         @if($selectedEpisode)
           <div class="gm-episode-navigation" aria-label="Episode navigation">
             @if($previousEpisode)
-              <a href="{{ route('watch.show', ['type' => 'series', 'slug' => $title->slug, 'episode' => $previousEpisode->id, 'view' => $displayMode]) }}">← Previous episode</a>
+              <a href="{{ route('watch.show', ['type' => 'series', 'slug' => $title->slug, 'episode' => $previousEpisode->id, 'view' => $displayMode] + $profileQuery) }}">← Previous episode</a>
             @else
               <span>Beginning of series</span>
             @endif
             @if($nextEpisode)
-              <a href="{{ route('watch.show', ['type' => 'series', 'slug' => $title->slug, 'episode' => $nextEpisode->id, 'view' => $displayMode]) }}">Next episode →</a>
+              <a href="{{ route('watch.show', ['type' => 'series', 'slug' => $title->slug, 'episode' => $nextEpisode->id, 'view' => $displayMode] + $profileQuery) }}">Next episode →</a>
             @else
               <span>Latest published episode</span>
             @endif
@@ -189,7 +205,7 @@
                   <a href="{{ route('watch.show', [
                       'type' => 'series', 'slug' => $title->slug,
                       'episode' => $episode->id, 'view' => $displayMode,
-                  ]) }}" @class(['gm-episode-chip', 'is-selected' => $selectedEpisode?->id === $episode->id])
+                  ] + $profileQuery) }}" @class(['gm-episode-chip', 'is-selected' => $selectedEpisode?->id === $episode->id])
                      @if($selectedEpisode?->id === $episode->id) aria-current="page" @endif
                      title="{{ $episode->title }}">
                     <span class="gm-episode-cover">
@@ -224,6 +240,7 @@
       <div class="gm-watch-info-actions">
         <div class="gm-watch-tags">
           <span class="{{ $title->is_premium ? 'gm-tag-premium' : 'gm-tag-free' }}">{{ $title->is_premium ? '♛ Premium' : 'Free title' }}</span>
+          <span class="gm-card-availability" data-playback-state="{{ $playbackState }}">{{ \App\Services\Streaming\PlaybackAvailability::LABELS[$playbackState] }}</span>
           <span>{{ $standaloneVideo ? 'Video' : ($type==='movie' ? 'Film' : 'TV Series') }}</span>
           @if($year)<span>{{ $year }}</span>@endif
           @if($type==='movie' && $title->runtime_minutes)<span>{{ $title->runtime_minutes }} minutes</span>@endif

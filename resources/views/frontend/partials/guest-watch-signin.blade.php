@@ -1,13 +1,14 @@
 {{-- Guest watch gate. A successful login returns to this exact on-site title;
      playback still requires published, approved media and normal entitlements. --}}
+@php $signInToWatch = $playbackState === 'sign-in'; @endphp
 <div class="gm-guest-watch" x-data="{ open:false }" @keydown.escape.window="open=false">
   <div class="gm-player-lock-panel gm-guest-watch-card">
     <span class="gm-player-lock-icon" aria-hidden="true">▶</span>
     <p class="gm-eyebrow">{{ $title->is_premium ? 'Premium title' : 'Free title' }}</p>
-    <h2>Sign in to watch</h2>
-    <p>Use your Go Movie account to continue with {{ $title->title }}. Playback is available only for approved media and valid access rights.</p>
+    <h2>{{ \App\Services\Streaming\PlaybackAvailability::LABELS[$playbackState] }}</h2>
+    <p>{{ $signInToWatch ? 'Sign in with your Go Movie account to play this title.' : 'Sign in to save this title to your watchlist.' }}</p>
     <button type="button" class="gm-button gm-button-primary"
-            @click="$refs.watchLogin.showModal()" aria-haspopup="dialog">Sign In to Watch</button>
+            @click="$refs.watchLogin.showModal()" aria-haspopup="dialog">{{ $signInToWatch ? 'Sign In to Watch' : 'Sign In' }}</button>
     <a href="{{ route('register') }}" class="gm-button gm-button-secondary">Create Account</a>
   </div>
   <dialog x-ref="watchLogin" class="gm-watch-login-dialog"
@@ -18,8 +19,8 @@
       <button type="button" class="gm-watch-login-close" aria-label="Close sign in"
               @click="$refs.watchLogin.close()">×</button>
       <img src="{{ \App\Support\SiteSettings::brandAsset('site_icon', 'apple-touch-icon.png') }}" width="54" height="54" alt="" class="gm-watch-login-mark">
-      <h2 id="gm-watch-login-title">Sign in to continue watching</h2>
-      <p class="gm-watch-login-description">{{ $title->title }} · Your viewing will resume on this page after sign-in.</p>
+      <h2 id="gm-watch-login-title">Sign in</h2>
+      <p class="gm-watch-login-description">{{ $title->title }} · You’ll return to this page after signing in.</p>
       @if($errors->any())
         <div role="alert" class="gm-watch-login-error">
           {{ $errors->first('email') ?: $errors->first('password') ?: 'Please review your sign-in details.' }}

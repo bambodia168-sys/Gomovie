@@ -40,10 +40,15 @@ class WatchHistoryController extends Controller
         }
 
         if ($data['watchable_type'] === 'movie') {
-            Movie::query()->where('status', 'published')->findOrFail($data['watchable_id']);
+            Movie::query()->where('status', 'published')
+                ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()))
+                ->findOrFail($data['watchable_id']);
         } else {
-            Episode::query()->where('status', 'published')->whereHas('season.series',
-                fn ($q) => $q->where('status', 'published'))->findOrFail($data['watchable_id']);
+            Episode::query()->where('status', 'published')
+                ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()))
+                ->whereHas('season.series', fn ($q) => $q->where('status', 'published')
+                    ->where(fn ($visible) => $visible->whereNull('published_at')->orWhere('published_at', '<=', now())))
+                ->findOrFail($data['watchable_id']);
         }
 
         $identity = [

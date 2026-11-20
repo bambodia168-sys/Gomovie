@@ -128,7 +128,7 @@ final class RealCatalogImportTest extends TestCase
             ->assertSee('Verified Fixture Series');
         $this->get('/browse?type=movie')->assertOk()->assertSee('Verified Fixture Movie');
         $this->get('/watch/movie/'.$movie->slug)->assertOk()
-            ->assertSee('Sign in to watch')->assertSee('Playback is available only for approved media');
+            ->assertSee('Currently unavailable')->assertDontSee('data-gomovie-player');
         $this->get('/watch/series/'.$series->slug.'?view=portrait')->assertOk()
             ->assertSee('Actual Episode One')->assertSee('Actual Episode Two')
             ->assertDontSee('Future Episode');

@@ -8,6 +8,7 @@ use App\Models\Series;
 use App\Models\Season;
 use App\Models\Episode;
 use App\Models\User;
+use App\Models\UserProfile;
 use App\Services\Media\AutomaticPublicationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -418,6 +419,65 @@ final class AutomaticPublicPlaybackTest extends TestCase
     {
         auth()->logout();
         $this->get(route('public-hls.standalone', ['asset' => $asset, 'path' => 'master.m3u8']))->assertOk();
+    }
+
+    public function test_continue_watching_is_private_profile_scoped_and_uses_the_saved_position(): void
+    {
+        $this->enable();
+        [$id, $video] = $this->package();
+        $video->update(['is_standalone_video' => true]);
+        app(AutomaticPublicationService::class)->finalize($id);
+
+        $viewer = User::factory()->create();
+        $main = UserProfile::create(['user_id' => $viewer->id, 'name' => 'Main', 'slug' => 'main']);
+        $other = UserProfile::create(['user_id' => $viewer->id, 'name' => 'Second', 'slug' => 'second']);
+        $foreign = UserProfile::create(['user_id' => User::factory()->create()->id, 'name' => 'Foreign', 'slug' => 'foreign']);
+        $watch = '/watch/movie/'.$video->slug;
+        $this->get('/')->assertOk()->assertDontSee('continue-watching-heading');
+
+        $this->actingAs($viewer)->postJson('/api/v1/user/watch-history/sync', [
+            'profile_id' => $other->id, 'watchable_type' => 'movie', 'watchable_id' => $video->id,
+            'progress_seconds' => 42, 'duration_seconds' => 100,
+        ])->assertOk();
+        $this->get('/?profile_id='.$main->id)->assertOk()->assertDontSee('42% watched');
+        $this->get('/?profile_id='.$other->id)->assertOk()
+            ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
+            ->assertSee('42% watched')->assertSee('profile_id='.$other->id);
+        $this->get($watch)->assertOk()
+            ->assertSee('data-profile-id="'.$other->id.'"', false)
+            ->assertSee('data-resume-seconds="42"', false)->assertSee('Start over');
+        $this->get($watch.'?restart=1')->assertOk()->assertSee('data-resume-seconds="0"', false);
+        $this->get($watch.'?profile_id='.$foreign->id)->assertNotFound();
+
+        DB::table('content_rights')->where('licensable_id', $video->id)->update(['status' => 'revoked']);
+        $this->get('/?profile_id='.$other->id)->assertOk()->assertDontSee('42% watched');
+        $this->get($watch)->assertOk()->assertSee('Currently unavailable')->assertDontSee('data-public-hls-url=');
+    }
+
+    public function test_catalog_labels_processing_and_unavailable_and_links_to_a_playable_episode(): void
+    {
+        $this->enable();
+        config()->set('gomovie.transcoding_enabled', true);
+        [$episodeUpload, $episode, $series] = $this->package('episode');
+        $episode->update(['episode_number' => 2]);
+        $first = Episode::create([
+            'season_id' => $episode->season_id, 'episode_number' => 1,
+            'title' => 'Missing Media Episode', 'status' => 'published',
+        ]);
+        app(AutomaticPublicationService::class)->finalize($episodeUpload);
+
+        [$videoUpload, $video] = $this->package();
+        $video->update(['is_standalone_video' => true, 'status' => 'published']);
+        DB::table('media_ingests')->where('id', $videoUpload)->update([
+            'status' => 'quarantined', 'auto_publication_requested' => true,
+        ]);
+        Movie::create(['title' => 'Metadata Only', 'slug' => 'metadata-only', 'status' => 'published']);
+
+        $response = $this->get('/browse')->assertOk();
+        $response->assertSee('View '.$series->title.' — series, Sign in to watch')
+            ->assertSee('episode='.$episode->id)->assertDontSee('episode='.$first->id.'"', false)
+            ->assertSee('View '.$video->title.' — video, Processing')
+            ->assertSee('View Metadata Only — movie, Currently unavailable');
     }
 
     public function test_default_off_and_malicious_hls_paths_never_expose_private_video(): void

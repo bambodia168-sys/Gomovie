@@ -69,7 +69,10 @@
     @endforeach
   </div>
   @foreach($heroTitles as $index=>$entry)
-    @php $feature=$entry['item']; @endphp
+    @php
+      $feature = $entry['item'];
+      $featurePlayback = $availability[$entry['kind'].':'.$feature->id];
+    @endphp
     <div class="gm-hero-description" x-show="active==={{ $index }}" x-cloak x-transition.opacity>
       <div>
         <span class="gm-eyebrow">{{ $entry['kind']==='movie' ? 'Featured movie' : 'Featured series' }} <span aria-hidden="true">·</span> {{ $feature->is_premium ? 'Premium title' : 'Free title' }}</span>
@@ -77,7 +80,8 @@
         <p>{{ \Illuminate\Support\Str::limit($feature->overview ?: 'Explore the story, seasons, and publication details.',160) }}</p>
       </div>
       <div class="gm-hero-actions">
-        <a class="gm-button gm-button-primary" href="{{ route('watch.show',[$entry['kind'],$feature->slug]) }}">▶ View title</a>
+        <a class="gm-button gm-button-primary" href="{{ route('watch.show', array_filter(['type' => $entry['kind'], 'slug' => $feature->slug,
+            'episode' => $featurePlayback['episode'] ?? null, 'profile_id' => $profile?->id])) }}">{{ $featurePlayback['state'] === 'ready' ? '▶ Watch now' : 'View title' }}</a>
         <a class="gm-button gm-button-secondary" href="{{ route('browse') }}">Explore catalog</a>
       </div>
     </div>
@@ -106,6 +110,34 @@
       @guest<a href="{{ route('register') }}" class="gm-button gm-button-secondary">Create your account</a>@endguest
     </div>
   </div>
+</section>
+@endif
+
+@if($continueWatching->isNotEmpty() || $profiles->count() > 1)
+<section class="gm-content-section gm-continue-watching" aria-labelledby="continue-watching-heading">
+  <div class="gm-section-heading">
+    <h2 id="continue-watching-heading"><span class="gm-section-marker" aria-hidden="true"></span>Continue Watching</h2>
+    @if($profiles->count() > 1)
+      <form class="gm-watch-profile-form" method="get" action="{{ route('home') }}#continue-watching-heading">
+        <label for="continue-profile">Profile</label>
+        <select id="continue-profile" name="profile_id">
+          @foreach($profiles as $choice)
+            <option value="{{ $choice->id }}" @selected($profile?->id === $choice->id)>{{ $choice->name }}</option>
+          @endforeach
+        </select>
+        <button class="gm-button gm-button-secondary" type="submit">Switch</button>
+      </form>
+    @endif
+  </div>
+  @if($continueWatching->isEmpty())
+    <p class="gm-empty-state">Titles you start watching will appear here.</p>
+  @else
+    <div class="gm-poster-grid">
+      @foreach($continueWatching as $entry)
+        @include('frontend.partials.card', ['item' => $entry['item'], 'kind' => $entry['kind'], 'resumeCard' => $entry])
+      @endforeach
+    </div>
+  @endif
 </section>
 @endif
 

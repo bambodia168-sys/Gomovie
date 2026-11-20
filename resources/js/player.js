@@ -32,6 +32,12 @@ if (root) {
     let nextSeconds = 7;
     let sourceReady = false;
     let playWhenReady = false;
+    let resumeAt = Math.max(0, Number(root.dataset.resumeSeconds) || 0);
+    let contentPlayed = false;
+    let lastSavedPosition = '';
+    let lastSaveAt = 0;
+    let pendingProgress = null;
+    let writingProgress = false;
 
     let nextUrl = null;
     if (root.dataset.nextUrl) {
@@ -75,8 +81,67 @@ if (root) {
         return json.data || json;
     }
 
+    async function flushProgress() {
+        if (writingProgress) return;
+        writingProgress = true;
+        try {
+            while (pendingProgress) {
+                const progress = pendingProgress;
+                pendingProgress = null;
+                try {
+                    const response = await fetch('/api/v1/user/watch-history/sync', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        keepalive: true,
+                        headers: {'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf},
+                        body: JSON.stringify(progress),
+                    });
+                    if (!response.ok) lastSavedPosition = '';
+                } catch {
+                    lastSavedPosition = '';
+                }
+            }
+        } finally {
+            writingProgress = false;
+        }
+    }
+
+    function saveProgress() {
+        if (!csrf || profileId <= 0 || !playing || !sourceReady || !contentPlayed || ads?.blocksPlayback || video.seeking) return;
+        const duration = Math.ceil(video.duration);
+        if (!Number.isFinite(duration) || duration < 1 || duration > 86400) return;
+
+        const seconds = video.ended ? duration : Math.min(duration, Math.floor(video.currentTime));
+        if (!Number.isFinite(seconds) || (seconds < 5 && !video.ended)) return;
+        const fingerprint = [playing.type, playing.titleId, seconds, duration].join(':');
+        if (fingerprint === lastSavedPosition) return;
+
+        lastSavedPosition = fingerprint;
+        lastSaveAt = Date.now();
+        resumeAt = seconds >= duration * 0.95 ? 0 : seconds;
+        pendingProgress = {
+            profile_id: profileId,
+            watchable_type: playing.type,
+            watchable_id: Number(playing.titleId),
+            progress_seconds: seconds,
+            duration_seconds: duration,
+        };
+        void flushProgress();
+    }
+
+    if (csrf && profileId > 0) {
+        video.addEventListener('playing', () => { if (sourceReady && !ads?.blocksPlayback) contentPlayed = true; });
+        video.addEventListener('timeupdate', () => {
+            if (Date.now() - lastSaveAt >= 15000) saveProgress();
+        });
+        video.addEventListener('pause', saveProgress);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) saveProgress(); });
+    }
+
     function clearPlayback() {
+        saveProgress();
         sourceReady = false;
+        contentPlayed = false;
         playWhenReady = false;
         if (instance) {
             instance.destroy();
@@ -194,6 +259,8 @@ if (root) {
     }
 
     async function stopCurrent() {
+        saveProgress();
+        contentPlayed = false;
         ads?.stop();
         window.clearInterval(heartbeatTimer);
         heartbeatTimer = null;
@@ -241,12 +308,12 @@ if (root) {
         if (!['movie', 'episode'].includes(type) || !/^[1-9][0-9]*$/.test(String(titleId))) return;
         busy = true;
         const generation = ++requestGeneration;
-        playing = {type, titleId: String(titleId)};
         cancelNext();
         setRetry(false);
 
         try {
             const stopping = stopCurrent();
+            playing = {type, titleId: String(titleId)};
             // IMA needs the original Play gesture before async HLS or token work.
             ads?.waitForStart();
             if (navigator.userActivation?.isActive) {
@@ -258,7 +325,7 @@ if (root) {
                 if (!publicHlsUrl.startsWith('/hls/')) throw new Error('Invalid public playback source.');
                 setStatus('Loading free public playback…');
                 stopButton.hidden = false;
-                attach(publicHlsUrl, 0, true, true);
+                attach(publicHlsUrl, resumeAt, true, true);
                 setStatus('Free video ready to watch.');
                 return;
             }
@@ -270,7 +337,7 @@ if (root) {
             session = grant.session_id;
             loadedExpiry = Date.parse(grant.expires_at);
             stopButton.hidden = false;
-            attach(grant.playback_url, 0, true, true);
+            attach(grant.playback_url, resumeAt, true, true);
             setStatus('Secure streaming session active.');
             heartbeatTimer = window.setInterval(() => heartbeat(generation), 30000);
         } catch (error) {
@@ -344,6 +411,7 @@ if (root) {
     });
 
     video.addEventListener('ended', () => {
+        saveProgress();
         if (ads) ads.contentComplete(prepareNext);
         else prepareNext();
     });
@@ -414,6 +482,7 @@ if (root) {
     }
 
     window.addEventListener('pagehide', () => {
+        saveProgress();
         cancelNext();
         window.clearInterval(heartbeatTimer);
         if (session && csrf) {

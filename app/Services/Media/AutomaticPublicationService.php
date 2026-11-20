@@ -7,6 +7,7 @@ use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Series;
 use App\Services\Rights\GlobalRights;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
@@ -38,16 +39,21 @@ final class AutomaticPublicationService
             || !$this->hasDocumentedRights($kind, $titleId)) return null;
         $target = $this->eligibleTitle($kind, $titleId, true);
         if (!$target) return null;
+        return $this->verifiedPublicAssets()->where('assets.streamable_type', $kind)
+            ->where('assets.streamable_id', $titleId)
+            ->orderByDesc('assets.id')->first();
+    }
+
+    public function verifiedPublicAssets(): Builder
+    {
         return DB::table('media_assets as assets')
             ->join('media_ingests as ingests', 'ingests.encoded_manifest_key', '=', 'assets.manifest_key')
-            ->where('assets.streamable_type', $kind)
-            ->where('assets.streamable_id', $titleId)
             ->where('assets.storage_disk', 'local')
             ->where('assets.format', 'hls')
             ->where('assets.status', 'ready')
             ->whereNull('assets.drm_scheme')
-            ->where('ingests.ingestable_type', $kind)
-            ->where('ingests.ingestable_id', $titleId)
+            ->whereColumn('ingests.ingestable_type', 'assets.streamable_type')
+            ->whereColumn('ingests.ingestable_id', 'assets.streamable_id')
             ->where('ingests.status', 'encoded')
             ->where('ingests.security_scan_status', 'clean')
             ->where('ingests.rights_review_status', 'verified')
@@ -55,8 +61,7 @@ final class AutomaticPublicationService
             ->whereNotNull('ingests.approved_by')
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('public_media_files as files')
                 ->whereColumn('files.media_asset_id', 'assets.id'))
-            ->select('assets.id', 'assets.manifest_key')
-            ->orderByDesc('assets.id')->first();
+            ->select('assets.id', 'assets.manifest_key', 'assets.streamable_type', 'assets.streamable_id');
     }
 
     /** Preexisting verified distribution rights, never fabricated by upload. */
@@ -243,13 +248,8 @@ final class AutomaticPublicationService
 
     private function hasDocumentedRights(string $kind, int $id): bool
     {
-        return DB::table('content_rights')->where('licensable_type', $kind)
-            ->where('licensable_id', $id)->where('status', 'active')
-            ->whereNull('territories')->whereNotNull('rights_reference')
-            ->where('rights_reference', '!=', '')
-            ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
-            ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>', now()))
-            ->exists();
+        return app(GlobalRights::class)->activeQuery(documented: true)->where('licensable_type', $kind)
+            ->where('licensable_id', $id)->exists();
     }
 
     public function failure(int $ingestId, Throwable $error): void

@@ -116,19 +116,28 @@ class PlaybackGrantService
         return [$asset, $limit];
     }
 
+    public static function edgeConfigured(): bool
+    {
+        return SiteSettings::get('edge_enabled') === true
+            && str_starts_with((string) SiteSettings::get('media_edge_url'), 'https://')
+            && strlen((string) SiteSettings::get('media_signing_key')) >= 32
+            && strlen((string) SiteSettings::get('edge_shared_key')) >= 32;
+    }
+
     private function assertEdgeConfigured(): void
     {
-        $edge = (string) SiteSettings::get('media_edge_url');
-        $key = (string) SiteSettings::get('media_signing_key');
-        abort_unless(SiteSettings::get('edge_enabled') === true && str_starts_with($edge, 'https://') && strlen($key) >= 32
-            && strlen((string) SiteSettings::get('edge_shared_key')) >= 32,
-            503, 'Private streaming edge is not configured.');
+        abort_unless(self::edgeConfigured(), 503, 'Private streaming edge is not configured.');
+    }
+
+    public static function usableManifestKey(mixed $key): bool
+    {
+        return is_string($key) && preg_match('#\A(?!/)(?!.*\.\.)[A-Za-z0-9_./-]+\.m3u8\z#', $key) === 1;
     }
 
     private function grant(MediaAsset $asset, User $user, UserProfile $profile, string $sessionId): array
     {
         $key = $asset->getRawOriginal('manifest_key');
-        abort_unless(is_string($key) && preg_match('#\A(?!/)(?!.*\.\.)[A-Za-z0-9_./-]+\.m3u8\z#', $key),
+        abort_unless(self::usableManifestKey($key),
             503, 'Invalid private manifest key.');
 
         $expires = now()->addSeconds(max(30, min(300, (int) config('gomovie.stream_token_ttl', 120))))->timestamp;

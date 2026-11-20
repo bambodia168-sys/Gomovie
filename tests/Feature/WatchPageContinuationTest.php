@@ -64,6 +64,16 @@ final class WatchPageContinuationTest extends TestCase
         return $viewer;
     }
 
+    private function configureEdge(): void
+    {
+        config([
+            'gomovie.edge_enabled' => true,
+            'gomovie.media_edge_url' => 'https://media.example.test',
+            'gomovie.media_signing_key' => str_repeat('a', 32),
+            'gomovie.edge_shared_key' => str_repeat('b', 32),
+        ]);
+    }
+
     private function hintFor(Episode|Movie $item): void
     {
         $type = $item instanceof Episode ? 'episode' : 'movie';
@@ -114,12 +124,13 @@ final class WatchPageContinuationTest extends TestCase
     public function test_autoplay_hint_never_appears_without_active_rights_and_ready_media(): void
     {
         [$series, $first, $second] = $this->seriesWithEpisodes();
-        config()->set('gomovie.edge_enabled', true);
+        $this->configureEdge();
         $this->actingAs($this->verifiedViewer())
             ->get('/watch/series/'.$series->slug)
             ->assertOk()
-            ->assertSee('data-gomovie-player')
-            ->assertSee('data-next-url=""', false)
+            ->assertSee('data-playback-state="unavailable"', false)
+            ->assertDontSee('data-gomovie-player')
+            ->assertDontSee('data-next-url')
             ->assertDontSee('data-gomovie-next-prompt')
             ->assertDontSee('Private Draft Episode');
     }
@@ -127,6 +138,7 @@ final class WatchPageContinuationTest extends TestCase
     public function test_licensed_published_next_episode_is_first_autoplay_choice(): void
     {
         [$series, $first, $second] = $this->seriesWithEpisodes();
+        $this->hintFor($first);
         $this->hintFor($second);
         $fallback = Movie::create([
             'title' => 'Related Licensed Movie',
@@ -134,7 +146,7 @@ final class WatchPageContinuationTest extends TestCase
             'status' => 'published',
         ]);
         $this->hintFor($fallback);
-        config()->set('gomovie.edge_enabled', true);
+        $this->configureEdge();
 
         $this->actingAs($this->verifiedViewer())
             ->get('/watch/series/'.$series->slug.'?episode='.$first->id.'&view=portrait')
@@ -157,8 +169,9 @@ final class WatchPageContinuationTest extends TestCase
             'status' => 'published',
             'is_premium' => false,
         ]);
+        $this->hintFor($second);
         $this->hintFor($movie);
-        config()->set('gomovie.edge_enabled', true);
+        $this->configureEdge();
 
         $this->actingAs($this->verifiedViewer())
             ->get('/watch/series/'.$series->slug.'?episode='.$second->id)
@@ -172,9 +185,10 @@ final class WatchPageContinuationTest extends TestCase
     {
         [$series, $first, $second, $draft] = $this->seriesWithEpisodes();
         $second->forceFill(['published_at' => now()->addDays(2)])->save();
+        $this->hintFor($first);
         $this->hintFor($draft);
         $this->hintFor($second);
-        config()->set('gomovie.edge_enabled', true);
+        $this->configureEdge();
 
         $this->actingAs($this->verifiedViewer())
             ->get('/watch/series/'.$series->slug)
