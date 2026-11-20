@@ -74,6 +74,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:810px){.columns{grid-template-columns:1fr}.main{padding:25px 15px 58px}.topbar-inner{padding:12px 16px}.content{padding:21px}.nav a{padding:9px 10px}}
 @media(prefers-reduced-motion:reduce){.progress span{transition:none}}
 </style>
+  @vite('resources/js/resumable-upload.js')
 </head>
 <body>
 <header class="topbar"><div class="topbar-inner">
@@ -103,7 +104,10 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <section class="card content" id="normal-video" aria-labelledby="normal-video-heading" @if($ingestId) hidden @endif>
         <h2 id="normal-video-heading">Upload a normal video</h2>
         <p class="subtitle">Your watch page is public as soon as the upload succeeds. Anyone can watch once processing finishes.</p>
-        <form id="quick-upload-form" method="post" enctype="multipart/form-data"
+        <form id="quick-upload-form"
+              data-transfer-url="{{ route('upload-studio.transfers.store') }}"
+              data-transfer-owner="{{ auth()->id() }}" data-transfer-workflow="quick"
+              data-direct-upload-bytes="{{ $directUploadBytes }}" method="post" enctype="multipart/form-data"
               action="{{ route('upload-studio.quick') }}" data-max="{{ $maxUploadBytes }}"
               data-status-template="{{ url('/upload-studio/__id__/status') }}"
               data-resume="{{ $ingestId ?? '' }}" data-resume-access="{{ $resumeAccess ?? '' }}">
@@ -143,6 +147,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
             <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div>
             <div class="progress-label" id="progress-text">Uploading 0%</div>
           </div>
+          @include('admin.partials.resumable-upload-controls', ['noticeClass' => 'help', 'actionsClass' => 'actions'])
           <p class="error" id="upload-error" role="alert" hidden></p>
           @if($errors->any())<p class="error" role="alert">{{ $errors->first() }}</p>@endif
         </form>
@@ -188,6 +193,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   const resumeAccess=form.dataset.resumeAccess||'';
   let timer=null;
   let xhr=null;
+  let transfer=null;
 
   function error(text){get('upload-error').textContent=text;get('upload-error').hidden=false;}
   function notify(text){window.GomovieFeedback?.show(text,'success');}
@@ -209,7 +215,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
   drop.addEventListener('drop',e=>{
     e.preventDefault();drop.classList.remove('drag');
-    if(!e.dataTransfer?.files?.length) return;
+    if(file.disabled||!e.dataTransfer?.files?.length) return;
     try{const dt=new DataTransfer();dt.items.add(e.dataTransfer.files[0]);file.files=dt.files;setFile();}
     catch{error('Use the file chooser to select a video.');}
   });
@@ -263,15 +269,63 @@ button:disabled{opacity:.5;cursor:not-allowed}
     timer=setInterval(()=>{if(++count>=60){clearInterval(timer);timer=null;return;}refresh();},5000);
   }
   get('result-refresh').addEventListener('click',refresh);
-  form.addEventListener('submit',e=>{
+  function setProgress(pct){
+    get('upload-progress').hidden=pct===null;
+    if(pct===null)return;
+    get('progress-fill').style.width=pct+'%';
+    get('upload-progress').querySelector('[role="progressbar"]').setAttribute('aria-valuenow',String(pct));
+    get('progress-text').textContent=pct===100?'Saving your video…':'Uploading '+pct+'%';
+  }
+  function completeUpload(data){
+    ingest=Number(data.upload_id);
+    get('progress-fill').style.width='100%';
+    get('progress-text').textContent='Upload complete';
+    setResult(data.message||'Video uploaded.');
+    get('result-status').textContent='Uploaded';
+    get('normal-video').hidden=true;
+    const watch=get('result-watch');
+    watch.href=data.watch_url;
+    watch.hidden=false;
+    notify(data.message||'Video uploaded successfully.');
+    window.history.replaceState({},'',window.location.pathname+'?ingest='+encodeURIComponent(String(ingest)));
+    startPoll();
+    get('upload-result').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  if(!ingest){
+    document.addEventListener('DOMContentLoaded',()=>{
+      transfer=window.GomovieResumableUpload?.attach(form,{
+        submit, fields:['title','description'], progress:setProgress,
+        restore:fields=>{
+          form.elements.title.value=fields.title||'';
+          form.elements.description.value=fields.description||'';
+        },
+      });
+    });
+  }
+  form.addEventListener('submit',async e=>{
     if(!window.XMLHttpRequest)return;
     e.preventDefault();
-    if(xhr||ingest)return;
+    if(xhr||ingest||transfer?.active)return;
     const selected=file.files?.[0];
     if(!form.reportValidity())return;
     if(!selected||!selected.size||selected.size>max){error('Choose a non-empty video within the upload limit.');return;}
     if(!/\.(mp4|mov|mkv|webm)$/i.test(selected.name)){error('Please choose an MP4, MOV, MKV or WebM file.');return;}
     const payload=new FormData(form);
+    if(transfer?.shouldUse(selected)){
+      submit.disabled=true;
+      file.disabled=true;
+      get('upload-error').hidden=true;
+      try{
+        const data=await transfer.send(selected,payload);
+        if(data)completeUpload(data);
+      }catch(err){
+        error(err.message);
+      }finally{
+        submit.disabled=!!ingest;
+        file.disabled=!!ingest;
+      }
+      return;
+    }
     const token=form.querySelector('[name="_token"]')?.value;
     xhr=new XMLHttpRequest();
     xhr.open('POST',form.action,true);
@@ -282,29 +336,13 @@ button:disabled{opacity:.5;cursor:not-allowed}
     submit.disabled=true;get('upload-error').hidden=true;
     get('upload-progress').hidden=false;
     xhr.upload.onprogress=ev=>{
-      if(!ev.lengthComputable)return;
-      const pct=Math.min(100,Math.round(100*ev.loaded/ev.total));
-      get('progress-fill').style.width=pct+'%';
-      get('upload-progress').querySelector('[role="progressbar"]').setAttribute('aria-valuenow',String(pct));
-      get('progress-text').textContent='Uploading '+pct+'%';
+      if(ev.lengthComputable)setProgress(Math.round(100*ev.loaded/ev.total));
     };
     xhr.onload=()=>{
       let data={};
       try{data=JSON.parse(xhr.responseText)}catch{}
       if(xhr.status===201&&data.ok===true&&Number(data.upload_id)>0){
-        ingest=Number(data.upload_id);
-        get('progress-fill').style.width='100%';
-        get('progress-text').textContent='Upload complete';
-        setResult(data.message||'Video uploaded.');
-        get('result-status').textContent='Uploaded';
-        get('normal-video').hidden=true;
-        const watch=get('result-watch');
-        watch.href=data.watch_url;
-        watch.hidden=false;
-        notify(data.message||'Video uploaded successfully.');
-        window.history.replaceState({},'',window.location.pathname+'?ingest='+encodeURIComponent(String(ingest)));
-        startPoll();
-        get('upload-result').scrollIntoView({behavior:'smooth',block:'center'});
+        completeUpload(data);
       }else{
         let msg=data.message||'Upload failed. Please try again.';
         if(data.errors){const messages=Object.values(data.errors).flat();if(messages.length)msg=messages[0];}

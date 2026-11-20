@@ -41,7 +41,7 @@
                  max="{{ \App\Support\VideoUploadLimit::MAX_MB }}" step="1"
                  value="{{ old('video_upload_max_mb', $uploadLimit) }}">
         </label>
-        <p class="gm-studio-muted text-sm">This limit applies to each movie, TV episode, and normal video. Upload Studio can currently accept up to {{ number_format($effectiveUploadMb, 2) }} MB under the PHP limits. Your web server may also limit the request size.</p>
+        <p class="gm-studio-muted text-sm">This limit applies to each movie, TV episode, and normal video. Larger uploads in Upload Studio can be paused and resumed.</p>
       </div>
       <div class="gm-site-setting-actions">
         <button class="gm-studio-button is-primary" type="submit">Save upload settings</button>

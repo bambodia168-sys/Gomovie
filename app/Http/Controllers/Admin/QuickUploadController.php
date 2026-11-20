@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Movie;
 use App\Services\Media\PrivateVideoIntake;
+use App\Services\Media\ResumableVideoUpload;
 use App\Support\SiteSettings;
 use App\Support\VideoUploadLimit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -50,14 +52,15 @@ final class QuickUploadController extends Controller
         }
 
         return view('admin.quick-upload', [
-            'maxUploadBytes' => VideoUploadLimit::effectiveBytes(),
+            'maxUploadBytes' => VideoUploadLimit::bytes(),
+            'directUploadBytes' => ResumableVideoUpload::directLimit(),
             'autoReady' => $this->publicProcessingEnabled(),
             'ingestId' => $ingestId,
             'resumeAccess' => $resumeAccess,
         ]);
     }
 
-    public function store(Request $request, PrivateVideoIntake $intake): JsonResponse|RedirectResponse
+    public function store(Request $request, PrivateVideoIntake $intake, ResumableVideoUpload $uploads): JsonResponse|RedirectResponse
     {
         $this->requireAdmin($request);
 
@@ -66,14 +69,50 @@ final class QuickUploadController extends Controller
             'description' => ['nullable', 'string', 'max:12000'],
             'access' => ['sometimes', 'required', Rule::in(['free'])],
             'rights_confirmed' => ['accepted'],
-            'video' => VideoUploadLimit::fileRules(),
+            'transfer_id' => ['sometimes', 'required', 'uuid', 'prohibits:video'],
+            'video' => $request->has('transfer_id') ? ['prohibited'] : VideoUploadLimit::fileRules(),
         ]);
 
+        $register = fn (UploadedFile $video, ?string $sourcePrefix = null): int =>
+            $this->register($request, $intake, $data, $video, $sourcePrefix);
+        $ingestId = isset($data['transfer_id'])
+            ? $uploads->complete(strtolower($data['transfer_id']), (int) $request->user()->id, 'quick', $register)
+            : $register($data['video']);
+
+        $message = 'Your watch page is public. Playback starts after the video finishes processing.';
+
+        if ($request->expectsJson()) {
+            $movie = Movie::findOrFail(DB::table('media_ingests')->where('id', $ingestId)->value('ingestable_id'));
+
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'movie_id' => $movie->id,
+                'upload_id' => $ingestId,
+                'access' => 'free',
+                'will_publish_automatically' => true,
+                'status_url' => route('upload-studio.status', ['ingest' => $ingestId]),
+                'watch_url' => route('watch.show', ['type' => 'movie', 'slug' => $movie->slug]),
+                'media_library_url' => route('admin.media.index'),
+            ], 201)->header('Cache-Control', 'private, no-store');
+        }
+
+        return redirect()->route('upload-studio.index', ['ingest' => $ingestId])
+            ->with('status', $message);
+    }
+
+    private function register(
+        Request $request,
+        PrivateVideoIntake $intake,
+        array $data,
+        UploadedFile $video,
+        ?string $sourcePrefix,
+    ): int {
         abort_unless($this->publicProcessingEnabled(), 409,
             'Enable FFmpeg transcoding, HLS playback, and automatic publication in Site Settings to upload a normal video.');
 
         $uploader = (int) $request->user()->id;
-        $filename = pathinfo($data['video']->getClientOriginalName(), PATHINFO_FILENAME);
+        $filename = pathinfo($video->getClientOriginalName(), PATHINFO_FILENAME);
         $filename = preg_replace('/[\p{C}_-]+/u', ' ', $filename) ?? '';
         $title = Str::limit(trim($data['title'] ?? $filename) ?: 'Untitled video', 255, '');
         $slug = substr(Str::slug($title) ?: 'video', 0, 175).'-'.strtolower(Str::random(16));
@@ -125,7 +164,7 @@ final class QuickUploadController extends Controller
 
         try {
             $ingestId = $intake->store('movie', (int) $movie->id,
-                $data['video'], $uploader, $request->ip(), publishWatchPage: true);
+                $video, $uploader, $request->ip(), publishWatchPage: true, sourcePrefix: $sourcePrefix);
         } catch (Throwable $error) {
             // Do not delete a movie after a partially successful intake.
             // An existing ingest may already be queued or independently mirrored.
@@ -145,24 +184,7 @@ final class QuickUploadController extends Controller
             throw $error;
         }
 
-        $message = 'Your watch page is public. Playback starts after the video finishes processing.';
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'ok' => true,
-                'message' => $message,
-                'movie_id' => $movie->id,
-                'upload_id' => $ingestId,
-                'access' => 'free',
-                'will_publish_automatically' => true,
-                'status_url' => route('upload-studio.status', ['ingest' => $ingestId]),
-                'watch_url' => route('watch.show', ['type' => 'movie', 'slug' => $slug]),
-                'media_library_url' => route('admin.media.index'),
-            ], 201)->header('Cache-Control', 'private, no-store');
-        }
-
-        return redirect()->route('upload-studio.index', ['ingest' => $ingestId])
-            ->with('status', $message);
+        return $ingestId;
     }
 
     private function publicProcessingEnabled(): bool

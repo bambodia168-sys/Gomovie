@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Episode;
 use App\Models\Movie;
 use App\Services\Media\PrivateVideoIntake;
+use App\Services\Media\ResumableVideoUpload;
 use App\Services\Media\AutomaticPublicationService;
 use App\Support\VideoUploadLimit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -59,7 +61,8 @@ final class UploadStudioController extends Controller
         return view('admin.upload-studio', [
             'movies' => $movies,
             'episodes' => $episodes,
-            'maxUploadBytes' => VideoUploadLimit::effectiveBytes(),
+            'maxUploadBytes' => VideoUploadLimit::bytes(),
+            'directUploadBytes' => ResumableVideoUpload::directLimit(),
             'selectedType' => $selectedType,
             'selectedId' => $selectedId,
             'resume' => $resume,
@@ -67,29 +70,40 @@ final class UploadStudioController extends Controller
         ]);
     }
 
-    public function upload(Request $request, PrivateVideoIntake $intake): JsonResponse|RedirectResponse
+    public function upload(Request $request, PrivateVideoIntake $intake, ResumableVideoUpload $uploads): JsonResponse|RedirectResponse
     {
         $this->requireAdmin($request);
         $data = $request->validate([
             'type' => ['required', Rule::in(['movie', 'episode'])],
             'title_id' => ['required', 'integer', 'min:1'],
-            'video' => VideoUploadLimit::fileRules(),
+            'transfer_id' => ['sometimes', 'required', 'uuid', 'prohibits:video'],
+            'video' => $request->has('transfer_id') ? ['prohibited'] : VideoUploadLimit::fileRules(),
         ]);
 
-        $model = $data['type'] === 'movie' ? Movie::class : Episode::class;
-        $model::query()
-            ->when($data['type'] === 'movie', fn ($query) => $query->where('is_standalone_video', false))
-            ->findOrFail($data['title_id']);
+        $uploader = (int) $request->user()->id;
+        $register = function (UploadedFile $video, ?string $sourcePrefix = null) use ($data, $intake, $request, $uploader): int {
+            $model = $data['type'] === 'movie' ? Movie::class : Episode::class;
+            $model::query()
+                ->when($data['type'] === 'movie', fn ($query) => $query->where('is_standalone_video', false))
+                ->findOrFail($data['title_id']);
 
-        $id = $intake->store($data['type'], (int) $data['title_id'],
-            $data['video'], (int) $request->user()->id, $request->ip());
+            return $intake->store($data['type'], (int) $data['title_id'],
+                $video, $uploader, $request->ip(), sourcePrefix: $sourcePrefix);
+        };
+        $id = isset($data['transfer_id'])
+            ? $uploads->complete(strtolower($data['transfer_id']), $uploader, 'catalog', $register)
+            : $register($data['video']);
 
         if ($request->expectsJson()) {
+            $ingest = DB::table('media_ingests')->where('id', $id)->firstOrFail();
+
             return response()->json([
                 'ok' => true,
                 'message' => 'Video uploaded successfully. Saved to your private Media Library.',
                 'automatic_publication_enabled' => app(AutomaticPublicationService::class)->enabled(),
                 'upload_id' => $id,
+                'type' => $ingest->ingestable_type,
+                'title_id' => (int) $ingest->ingestable_id,
                 'library_url' => route('admin.media.index'),
                 'editor_url' => route('upload-studio.index', ['upload' => $id]),
             ], 201)->header('Cache-Control', 'private, no-store');

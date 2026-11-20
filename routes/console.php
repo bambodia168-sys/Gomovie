@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Media\ResumableVideoUpload;
 use App\Support\SiteSettings;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -15,3 +16,8 @@ foreach (['default', 'gomovie-media'] as $queue) {
         ->withoutOverlapping();
 }
 Schedule::command('gomovie:prune-queue-probes')->dailyAt('03:15')->withoutOverlapping();
+
+Artisan::command('gomovie:prune-video-transfers', function () {
+    app(ResumableVideoUpload::class)->prune();
+})->purpose('Remove expired partial video uploads');
+Schedule::command('gomovie:prune-video-transfers')->hourly()->withoutOverlapping();
