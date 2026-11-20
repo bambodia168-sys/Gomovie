@@ -27,7 +27,7 @@ final class ApplySecurityHeaders
         }
 
         if ($request->is('dashboard', 'dashboard/*', 'account', 'account/*',
-            'login', 'register', 'reset-password/*', 'forgot-password', 'email/*',
+            'login', 'login/two-factor', 'login/two-factor/*', 'register', 'reset-password/*', 'forgot-password', 'email/*',
             'api/v1/internal/*', 'api/v1/stream/*', 'api/v1/user/*')
             || $request->user() !== null) {
             $response->headers->set('Cache-Control', 'private, no-store, max-age=0');

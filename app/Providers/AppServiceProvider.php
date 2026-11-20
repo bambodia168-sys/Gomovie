@@ -7,7 +7,10 @@ use App\Models\Movie;
 use App\Models\Series;
 use App\Models\User;
 use App\Support\SiteSettings;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        RateLimiter::for('administrator-two-factor', fn (Request $request) => Limit::perMinute(12)->by(
+            $request->route()->getName().'|'.($request->user()?->id ?? $request->ip()),
+        ));
+
         // Never deserialize arbitrary class names from polymorphic database records.
         Relation::enforceMorphMap([
             'movie' => Movie::class,

@@ -111,3 +111,11 @@ The media pipeline now supports independent recorded reviews and **private stagi
 The application uses server values until an administrator first saves the corresponding setting. A saved dashboard value takes precedence over the server value. Existing service credentials are retained when their replacement fields are left blank. Dashboard credentials are encrypted with the application key, which must be available when restoring the database.
 
 Install FFmpeg, FFprobe, ClamAV, and the isolated media worker on the host. Paths to executables, the queue connection, S3 staging credentials, the server scheduler, and installation configuration are host settings. A successful FFmpeg test confirms the web process can launch the binaries. An end-to-end encoding test also verifies the media worker and its output.
+
+## Administrator two-factor authentication
+
+Administrators can enroll from **Account Settings → Two-factor authentication** after installing the dependencies and running migrations. Scan the QR code or enter the setup key in an authenticator app. Confirm the current six-digit code, then save the eight one-time recovery codes in a safe place. GoMovie renders the QR code locally when PHP has XMLWriter, and always displays the manual key.
+
+In staging, sign out after enrollment and sign in again. Check that a fresh authenticator code succeeds, a reused code fails, and a recovery code works exactly once. For a lost device, sign in with a recovery code. Within ten minutes, confirm the current password in Account Settings to replace the authenticator, even if that was the final recovery code. Confirming the replacement issues new recovery codes and invalidates the old authenticator, the old recovery codes, and other signed-in web sessions.
+
+After testing recovery on the deployment host, set `GOMOVIE_ADMIN_TWO_FACTOR_REQUIRED=true` and refresh the configuration cache to require enrollment for administrators. The default allows existing administrators to enroll individually. Enrolled accounts always need the second factor at sign-in.

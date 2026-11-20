@@ -4,6 +4,7 @@ use App\Http\Middleware\ApplyGoMovieLocale;
 use App\Http\Middleware\ApplySecurityHeaders;
 use App\Http\Middleware\EnsureActiveAccount;
 use App\Http\Middleware\EnsureStaff;
+use App\Http\Middleware\RequireAdministratorTwoFactor;
 use App\Support\SiteSettings;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -19,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
-        $middleware->web(append: [ApplyGoMovieLocale::class]);
+        $middleware->web(append: [ApplyGoMovieLocale::class, RequireAdministratorTwoFactor::class]);
         $middleware->append(ApplySecurityHeaders::class);
         $middleware->alias([
             'staff' => EnsureStaff::class,
@@ -27,7 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->dontFlash(SiteSettings::SECRETS);
+        $exceptions->dontFlash([...SiteSettings::SECRETS, 'two_factor_code']);
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

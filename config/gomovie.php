@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'administrator_two_factor_required' => env('GOMOVIE_ADMIN_TWO_FACTOR_REQUIRED', false),
     // Opt-in, off until FFmpeg, ClamAV and an isolated media worker are accepted.
     'automatic_publication_enabled' => filter_var(env('GOMOVIE_AUTOMATIC_PUBLICATION_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
     'public_hls_enabled' => filter_var(env('GOMOVIE_PUBLIC_HLS_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
