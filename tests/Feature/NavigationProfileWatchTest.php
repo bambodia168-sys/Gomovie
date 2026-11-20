@@ -62,7 +62,7 @@ final class NavigationProfileWatchTest extends TestCase
         Movie::create(['title' => 'Viewer Test Movie', 'slug' => 'viewer-test-movie', 'status' => 'published']);
         $url = '/watch/movie/viewer-test-movie';
         $this->get($url)->assertOk()
-            ->assertSee('Sign In to Watch')
+            ->assertSee('Currently unavailable')
             ->assertSee('gm-watch-login-dialog')
             ->assertSee('name="return" value="'.$url.'"', false);
         $this->get('/hls/999/master.m3u8')->assertRedirect(route('login'));

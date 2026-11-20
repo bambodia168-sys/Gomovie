@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\MediaAsset;
 use App\Models\Movie;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\UserProfile;
 use App\Support\PlayerPreferences;
@@ -258,7 +260,12 @@ final class PlayerSettingsTest extends TestCase
 
     public function test_admin_can_switch_players_without_resetting_the_ad_tag(): void
     {
-        config()->set('gomovie.edge_enabled', true);
+        config([
+            'gomovie.edge_enabled' => true,
+            'gomovie.media_edge_url' => 'https://media.example.test',
+            'gomovie.media_signing_key' => str_repeat('a', 32),
+            'gomovie.edge_shared_key' => str_repeat('b', 32),
+        ]);
         $admin = $this->user();
         UserProfile::create([
             'user_id' => $admin->id, 'name' => 'Main', 'slug' => 'main', 'is_kids' => false,
@@ -268,6 +275,12 @@ final class PlayerSettingsTest extends TestCase
         ]);
         $premium = Movie::create([
             'title' => 'Premium Player QA', 'slug' => 'premium-player-qa', 'status' => 'published', 'is_premium' => true,
+        ]);
+        $this->addPlayableAsset($free);
+        $this->addPlayableAsset($premium);
+        Subscription::create([
+            'user_id' => $admin->id, 'plan_name' => 'QA Premium', 'status' => 'active',
+            'starts_at' => now()->subDay(),
         ]);
         $tag = 'https://example.test/vmap?slot=video&group=free';
         $form = PlayerPreferences::DEFAULTS;
@@ -299,7 +312,12 @@ final class PlayerSettingsTest extends TestCase
 
     public function test_secure_player_uses_same_controls_but_keeps_existing_grant_system(): void
     {
-        config()->set('gomovie.edge_enabled', true);
+        config([
+            'gomovie.edge_enabled' => true,
+            'gomovie.media_edge_url' => 'https://media.example.test',
+            'gomovie.media_signing_key' => str_repeat('a', 32),
+            'gomovie.edge_shared_key' => str_repeat('b', 32),
+        ]);
         $admin = $this->user();
         UserProfile::create([
             'user_id' => $admin->id, 'name' => 'Main',
@@ -309,6 +327,7 @@ final class PlayerSettingsTest extends TestCase
             'title' => 'Secure Player UI', 'slug' => 'secure-player-ui',
             'status' => 'published', 'is_premium' => false,
         ]);
+        $this->addPlayableAsset($movie);
         $this->actingAs($admin)->get('/watch/movie/'.$movie->slug)->assertOk()
             ->assertSee('data-gomovie-player')
             ->assertSee('data-modern-player')
@@ -322,4 +341,16 @@ final class PlayerSettingsTest extends TestCase
         self::assertStringContainsString("sessionStorage.setItem('gomovie:autoplay-next'", $js);
         self::assertStringContainsString("document.querySelectorAll('[data-modern-player]')", $js);
     }
+
+    private function addPlayableAsset(Movie $movie): void
+    {
+        DB::table('content_rights')->insert([
+            'licensable_type' => 'movie', 'licensable_id' => $movie->id, 'status' => 'active',
+        ]);
+        MediaAsset::create([
+            'streamable_type' => 'movie', 'streamable_id' => $movie->id, 'storage_disk' => 'r2',
+            'manifest_key' => 'qa/movie-'.$movie->id.'/master.m3u8', 'format' => 'hls', 'status' => 'ready',
+        ]);
+    }
+
 }

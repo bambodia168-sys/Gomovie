@@ -9,7 +9,8 @@ use App\Models\Movie;
 use App\Models\Subscription;
 use App\Services\Rights\GlobalRights;
 use App\Models\Series;
-use App\Models\UserProfile;
+use App\Services\Streaming\PlaybackAvailability;
+use App\Services\Streaming\WatchProgress;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -18,8 +19,17 @@ use Illuminate\View\View;
 
 class BrowseController extends Controller
 {
-    public function home(): View
+    public function __construct(
+        private readonly PlaybackAvailability $availability,
+        private readonly WatchProgress $progress,
+    ) {}
+
+    public function home(Request $request): View
     {
+        $selection = $request->validate(['profile_id' => ['nullable', 'integer', 'min:1']]);
+        $viewer = $request->user();
+        $profiles = $this->progress->profiles($viewer);
+        $profile = $this->progress->selectProfile($request, $profiles, $viewer && isset($selection['profile_id']) ? (int) $selection['profile_id'] : null);
         $movies = $this->visible(Movie::query())->latest('published_at')->latest('id')->limit(24)->get();
         $series = $this->visible(Series::query())->latest('published_at')->latest('id')->limit(24)->get();
 
@@ -52,7 +62,11 @@ class BrowseController extends Controller
             ->sortByDesc(fn (array $entry): int =>
                 $rank[$entry['kind'].':'.$entry['item']->id])->take(10)->values();
 
-        return view('frontend.home', compact('heroTitles','topPicks','newReleases','trending','recentlyAdded'));
+        $availability = $this->availability->catalog($movies, $series, $viewer, $profile);
+        $continueWatching = $this->progress->continueWatching($viewer, $profile, $this->availability);
+
+        return view('frontend.home', compact('heroTitles','topPicks','newReleases','trending','recentlyAdded',
+            'availability','continueWatching','profiles','profile'));
     }
 
     public function index(Request $request): View
@@ -80,7 +94,11 @@ class BrowseController extends Controller
                 ->latest('published_at')->limit(24)->get()
             : collect();
 
-        return view('frontend.browse', compact('movies','series','type','access','q'));
+        $viewer = $request->user();
+        $profile = $this->progress->selectProfile($request, $this->progress->profiles($viewer));
+        $availability = $this->availability->catalog(($type === 'series' ? $movies : $movies->getCollection()), $series, $viewer, $profile);
+
+        return view('frontend.browse', compact('movies','series','type','access','q','availability','profile'));
     }
 
     public function show(Request $request, string $type, string $slug): View
@@ -89,6 +107,8 @@ class BrowseController extends Controller
         $params = $request->validate([
             'view'=>['nullable','in:widescreen,portrait'],
             'episode'=>['nullable','integer','min:1'],
+            'profile_id'=>['nullable','integer','min:1'],
+            'restart'=>['nullable','in:1'],
         ]);
         $model = $type === 'movie' ? Movie::query() : Series::query();
         $title = $this->visible($model)->where('slug',$slug)->firstOrFail();
@@ -126,10 +146,13 @@ class BrowseController extends Controller
             abort(404);
         }
 
-        $viewerAuthorized = auth()->check()
-            && auth()->user()->is_active && auth()->user()->hasVerifiedEmail();
-        $profileId = $viewerAuthorized ? UserProfile::query()->where('user_id',auth()->id())
-            ->where('is_kids',false)->value('id') : null;
+        $viewer = $request->user();
+        $viewerAuthorized = $viewer && $viewer->is_active && $viewer->hasVerifiedEmail();
+        $profiles = $this->progress->profiles($viewer);
+        $selectedProfile = $viewerAuthorized && isset($params['profile_id']) ? (int) $params['profile_id'] : null;
+        $profile = $this->progress->selectProfile($request, $profiles, $selectedProfile);
+        $profileId = $profile?->id;
+        $profileQuery = $selectedProfile ? ['profile_id' => $profileId] : [];
         $playerEnabled = SiteSettings::get('edge_enabled') === true && (bool) $profileId;
         $publicWatchId = $type === 'movie' ? (int) $title->id : (int) ($selectedEpisode?->id ?? 0);
         $publicAsset = $publicWatchId > 0
@@ -138,10 +161,14 @@ class BrowseController extends Controller
             : null;
 
         $standaloneVideo = $title instanceof Movie && $title->is_standalone_video;
-        $standaloneFailed = $standaloneVideo && !$publicAsset && DB::table('media_ingests')
-            ->where('ingestable_type', 'movie')->where('ingestable_id', $title->id)
-            ->where(fn ($query) => $query->where('status', 'rejected')->orWhereNotNull('pipeline_error'))
-            ->exists();
+        $watchable = $type === 'movie' ? $title : $selectedEpisode;
+        $watchKind = $type === 'movie' ? 'movie' : 'episode';
+        $playbackState = $watchable
+            ? $this->availability->forMedia(collect([$watchable]), $viewer, $profile)->get($watchKind.':'.$publicWatchId)
+            : 'unavailable';
+        $standaloneFailed = $standaloneVideo && !$publicAsset && $playbackState !== 'processing';
+        $resumeAt = $playbackState === 'ready' && $profile && !isset($params['restart'])
+            ? $this->progress->resumeAt($profile, $watchKind, $publicWatchId) : 0;
 
         // A verified administrator can preview their own private source on
         // the existing watch page. No public viewer sees the preview URL.
@@ -183,7 +210,7 @@ class BrowseController extends Controller
         // A follow-on player must always obtain a new, independently checked
         // signed stream session through the existing protected API.
         $autoNext = null;
-        if ($playerEnabled) {
+        if ($playerEnabled && $playbackState === 'ready' && !$publicAsset) {
             $rights = app(GlobalRights::class);
             $hasSubscription = Subscription::query()
                 ->where('user_id', auth()->id())->currentlyActive()->exists();
@@ -196,7 +223,7 @@ class BrowseController extends Controller
                     'url' => route('watch.show', [
                         'type' => 'series', 'slug' => $title->slug,
                         'episode' => $nextEpisode->id, 'view' => $displayMode, 'autoplay' => 1,
-                    ]),
+                    ] + $profileQuery),
                 ];
             }
 
@@ -227,7 +254,7 @@ class BrowseController extends Controller
                     $destination = [
                         'type' => $entry['kind'], 'slug' => $candidate->slug,
                         'view' => $displayMode, 'autoplay' => 1,
-                    ];
+                    ] + $profileQuery;
                     if ($media instanceof Episode) {
                         $destination['episode'] = $media->id;
                     }
@@ -242,7 +269,7 @@ class BrowseController extends Controller
         }
 
         $privatePreviewCaptions = collect();
-        if ($privatePreviewIngest && !$playerEnabled && !$publicAsset
+        if ($privatePreviewIngest && $playbackState !== 'ready' && !$publicAsset
             && \Illuminate\Support\Facades\Schema::hasTable('media_ingest_captions')) {
             // Return only subtitle metadata for a privately authorized preview.
             // The file route independently rechecks ownership, hash and status.
@@ -257,7 +284,8 @@ class BrowseController extends Controller
         return view('frontend.detail', compact(
             'title','type','displayMode','seasons','selectedEpisode','previousEpisode',
             'nextEpisode','related','autoNext','playerEnabled','profileId',
-            'isWatchlisted','viewerAuthorized','privatePreviewIngest','privatePreviewCaptions','playerPreferences','publicAsset', 'standaloneVideo', 'standaloneFailed','publicWatchId'
+            'isWatchlisted','viewerAuthorized','privatePreviewIngest','privatePreviewCaptions','playerPreferences','publicAsset', 'standaloneVideo', 'standaloneFailed','publicWatchId',
+            'playbackState','resumeAt','profileQuery'
         ));
     }
 

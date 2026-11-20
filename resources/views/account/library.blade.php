@@ -29,7 +29,12 @@
 @php
   $item=$entry['item'];$kind=$entry['kind'];$row=$entry['row'];
   $parent=$kind==='episode'?$item->season?->series:null;
-  $link=$parent?route('watch.show',['series',$parent->slug]):route('watch.show',[$kind,$item->slug]);
+  $link = route('watch.show', array_filter([
+    'type' => $parent ? 'series' : $kind,
+    'slug' => $parent?->slug ?? $item->slug,
+    'episode' => $kind === 'episode' ? $item->id : null,
+    'profile_id' => $profile->is_kids ? null : $profile->id,
+  ]));
   $progress=$section==='history'&&$row->duration_seconds>0?min(100,round(100*$row->progress_seconds/$row->duration_seconds)):0;
 @endphp
 <tr><td>{{ ($records->firstItem() ?? 1)+$loop->index }}</td><td><a href="{{ $link }}" class="font-semibold hover:text-rose-300">{{ $item->title }}</a><small class="block gm-studio-muted mt-1">{{ $parent?->title }}</small></td>
