@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\PrivateIngestPreviewController;
 use App\Http\Controllers\Admin\UploadStudioController;
 use App\Http\Controllers\Admin\QuickUploadController;
+use App\Http\Controllers\Admin\VideoUploadTransferController;
 use App\Http\Controllers\Admin\UploadStudioWorkflowController;
 use App\Http\Controllers\Admin\UploadCaptionController;
 use App\Http\Controllers\Admin\OperationsController;
@@ -94,6 +95,14 @@ Route::middleware(['auth', 'active', 'verified', 'staff'])->group(function (): v
         ->name('upload-studio.advanced');
     Route::post('/upload-studio', [UploadStudioController::class, 'upload'])
         ->middleware('throttle:12,1')->name('upload-studio.upload');
+    Route::post('/upload-studio/transfers', [VideoUploadTransferController::class, 'store'])
+        ->middleware('throttle:12,1')->name('upload-studio.transfers.store');
+    Route::get('/upload-studio/transfers/{transfer}', [VideoUploadTransferController::class, 'show'])
+        ->whereUuid('transfer')->name('upload-studio.transfers.show');
+    Route::put('/upload-studio/transfers/{transfer}', [VideoUploadTransferController::class, 'update'])
+        ->whereUuid('transfer')->name('upload-studio.transfers.update');
+    Route::delete('/upload-studio/transfers/{transfer}', [VideoUploadTransferController::class, 'destroy'])
+        ->whereUuid('transfer')->name('upload-studio.transfers.destroy');
     Route::get('/upload-studio/{ingest}/status', [UploadStudioWorkflowController::class, 'state'])
         ->whereNumber('ingest')->name('upload-studio.status');
     Route::delete('/upload-studio/{ingest}', [UploadStudioWorkflowController::class, 'destroy'])

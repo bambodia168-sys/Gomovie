@@ -71,6 +71,12 @@ The two probes verify individual execution, not uninterrupted worker uptime. To 
 
 Queue history older than 30 days is automatically pruned by the scheduler, while failed_jobs and admin_audit_events are never pruned by this feature.
 
+## Verify resumable uploads after an upgrade
+
+Deploy the frontend build together with the application files, then run migrations before bringing Upload Studio back online. Keep the local private disk writable by the PHP user. The scheduler runs `gomovie:prune-video-transfers` hourly to remove partial uploads that have been inactive for 24 hours. A full transfer can briefly require two copies of the video on the private disk while it enters quarantine.
+
+On aaPanel staging, sign in as an administrator. Check the configured maximum under **Site Settings → Upload settings**. Use a licensed or synthetic clip larger than 512 KiB to test resuming after a refresh. Pause after progress begins, reload the same tab, reselect the original clip, and resume. Test one normal video and one catalog upload. Confirm the normal video's public watch page opens and the catalog upload attaches to the selected title. If the reverse proxy or Nginx rejects the request, verify that the site accepts binary PUT requests with a body of up to 512 KiB.
+
 ## Recover automatic media processing
 
 Open **System Health → Media processing** to find failed or stalled uploads, their current stage, the age of the oldest waiting database media job, and free space on the private volume. The existing `gomovie:ops-check --json` command exposes the same diagnostics for host monitoring. Binary checks report whether FFmpeg, FFprobe and ClamAV are executable. Verify ClamAV signatures and scanning on the target host.

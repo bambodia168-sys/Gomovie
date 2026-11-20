@@ -42,7 +42,6 @@ final class SiteSettingsController extends Controller
         return view('admin.site-settings', [
             'values' => $values,
             'uploadLimit' => VideoUploadLimit::megabytes(),
-            'effectiveUploadMb' => VideoUploadLimit::effectiveBytes() / 1048576,
             'credentials' => array_map(fn ($key) => filled(SiteSettings::get($key)), array_combine(
                 SiteSettings::SECRETS, SiteSettings::SECRETS,
             )),

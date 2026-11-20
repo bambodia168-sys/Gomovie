@@ -113,6 +113,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
 @media(max-width:700px){.header-inner{padding:0 15px;min-height:66px}.quiet-link{font-size:11px;padding:7px 10px}.workspace{padding:24px 13px 60px}.steps{grid-template-columns:repeat(5,minmax(130px,1fr));overflow-x:auto;scrollbar-width:thin}.step{min-height:48px}.card-inner{padding:20px 17px}.row-fields{grid-template-columns:1fr}.type-select label{flex:1}.type-select span{min-width:0}}
 @media(prefers-reduced-motion:reduce){.progress-fill{transition:none}}
 </style>
+  @vite('resources/js/resumable-upload.js')
 </head>
 <body>
 <header class="header"><div class="header-inner">
@@ -135,7 +136,10 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
   </nav>
   <div class="columns">
     <div class="card">
-      <form id="gm-upload-studio-form" action="{{ route('upload-studio.upload') }}" method="POST" enctype="multipart/form-data" data-max-bytes="{{ $maxUploadBytes }}" data-resume-id="{{ $resume->id ?? '' }}" data-resume-type="{{ $resume->ingestable_type ?? '' }}" data-resume-target="{{ $selectedId ?: '' }}" data-upload-base="{{ route('upload-studio.index') }}" data-auto-publication="{{ $automaticPublicationEnabled ? '1' : '0' }}" novalidate>
+      <form id="gm-upload-studio-form"
+              data-transfer-url="{{ route('upload-studio.transfers.store') }}"
+              data-transfer-owner="{{ auth()->id() }}" data-transfer-workflow="catalog"
+              data-direct-upload-bytes="{{ $directUploadBytes }}" action="{{ route('upload-studio.upload') }}" method="POST" enctype="multipart/form-data" data-max-bytes="{{ $maxUploadBytes }}" data-resume-id="{{ $resume->id ?? '' }}" data-resume-type="{{ $resume->ingestable_type ?? '' }}" data-resume-target="{{ $selectedId ?: '' }}" data-upload-base="{{ route('upload-studio.index') }}" data-auto-publication="{{ $automaticPublicationEnabled ? '1' : '0' }}" novalidate>
         @csrf
         <section class="card-inner" data-panel="1">
           <div class="panel-title"><span class="count">1</span><h2>File &amp; Ingest</h2></div>
@@ -173,6 +177,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
             <div class="progress-head"><span id="gm-upload-progress-text">Uploading…</span><strong id="gm-upload-percent">0%</strong></div>
             <div class="progress-track" id="gm-upload-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill" id="gm-upload-progress-fill"></div></div>
           </div>
+          @include('admin.partials.resumable-upload-controls', ['noticeClass' => 'field-note', 'actionsClass' => 'bottom-actions'])
           <p class="message" id="gm-upload-feedback" role="status" aria-live="polite" hidden></p>
           <div class="bottom-actions">
             <button type="submit" class="btn btn-primary" id="gm-upload-submit">Upload video →</button>
@@ -367,6 +372,7 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
   let ingestStatus = ingestId ? 'quarantined' : '';
   let currentStep = 1;
   let xhr = null;
+  let resumable = null;
   let previewObjectUrl = null;
   const resumeType = form.dataset.resumeType || '';
   const resumeTarget = form.dataset.resumeTarget || '';
@@ -490,13 +496,13 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     el('gm-upload-progress').setAttribute('aria-valuenow', String(p));
     el('gm-upload-progress-text').textContent = p === 100 ? 'Saving your video…' : 'Uploading video…';
   }
-  function busy(value) {
+  function busy(value, canAbort = true) {
     submit.disabled = value;
     target.disabled = value;
     search.disabled = value;
     videoFile.disabled = value;
     types.forEach(t => { t.disabled = value; });
-    cancel.hidden = !value;
+    cancel.hidden = !value || !canAbort;
   }
   function firstError(data, fallback) {
     if (data?.errors) {
@@ -663,10 +669,52 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     else if (f?.size === 0) message('gm-upload-feedback','This video is empty.','error');
     else clearMessage('gm-upload-feedback');
   });
+  function completeUpload(data) {
+    ingestId = String(data.upload_id);
+    if (data.type !== currentType() || String(data.title_id) !== target.value) {
+      window.location.assign(data.editor_url);
+      return;
+    }
+    setProgress(100);
+    el('gm-upload-progress-text').textContent = 'Upload complete';
+    setUploadStatus('quarantined');
+    message('gm-upload-feedback',data.automatic_publication_enabled
+      ? 'Video uploaded successfully. Automatic processing has started.'
+      : 'Video uploaded successfully. You can finish now or add optional details.','ok');
+    enablePostUpload();
+    if (form.dataset.autoPublication === '1') startStatusPolling();
+    window.history.replaceState({}, '', '?upload=' + encodeURIComponent(ingestId));
+  }
+  function unlockUpload() {
+    busy(false);
+    if (ingestId) {
+      target.disabled = true;
+      search.disabled = true;
+      videoFile.disabled = true;
+      types.forEach(t => { t.disabled = true; });
+    }
+  }
+  if (!ingestId) {
+    document.addEventListener('DOMContentLoaded', () => {
+      resumable = window.GomovieResumableUpload?.attach(form, {
+        submit, fields: ['type', 'title_id'],
+        progress: value => {
+          if (value === null) el('gm-upload-progress-wrap').hidden = true;
+          else setProgress(value);
+        },
+        restore: fields => {
+          types.forEach(type => { type.checked = type.value === fields.type; });
+          filterTitles();
+          target.value = fields.title_id;
+          syncForms();
+        },
+      });
+    });
+  }
   cancel.addEventListener('click',() => xhr?.abort());
-  form.addEventListener('submit',e => {
+  form.addEventListener('submit',async e => {
     e.preventDefault();
-    if (xhr || ingestId) return;
+    if (xhr || ingestId || resumable?.active) return;
     const file = videoFile.files?.[0];
     if (!currentItem()) return message('gm-upload-feedback','Choose an existing movie or episode.','error');
     if (!file) return message('gm-upload-feedback','Select a video file first.','error');
@@ -677,6 +725,19 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
     const payload = new FormData(form);
     if (payload.get('type') !== currentType() || payload.get('title_id') !== target.value)
       return message('gm-upload-feedback','Unable to prepare the upload. Refresh and retry.','error');
+    if (resumable?.shouldUse(file)) {
+      busy(true, false);
+      clearMessage('gm-upload-feedback');
+      try {
+        const data = await resumable.send(file, payload);
+        if (data) completeUpload(data);
+      } catch (error) {
+        message('gm-upload-feedback', error.message, 'error');
+      } finally {
+        unlockUpload();
+      }
+      return;
+    }
     xhr = new XMLHttpRequest();
     xhr.open('POST',form.action,true);
     xhr.withCredentials = true;
@@ -688,28 +749,14 @@ textarea.control{resize:vertical;min-height:125px;line-height:1.55}
       let data = {};
       try { data = JSON.parse(xhr.responseText); } catch {}
       if (xhr.status === 201 && data.ok === true && Number(data.upload_id) > 0) {
-        ingestId = String(data.upload_id);
-        setProgress(100);
-        el('gm-upload-progress-text').textContent = 'Upload complete';
-        setUploadStatus('quarantined');
-        message('gm-upload-feedback',data.automatic_publication_enabled
-          ? 'Video uploaded successfully. Automatic processing has started.'
-          : 'Video uploaded successfully. You can finish now or add optional details.','ok');
-        enablePostUpload();
-        if (form.dataset.autoPublication === '1') startStatusPolling();
+        completeUpload(data);
       } else {
         let reason = firstError(data,'The upload failed. Try again.');
         if (xhr.status === 413) reason = 'The server rejected the file because it is too large.';
         if (xhr.status === 419) reason = 'Your session expired. Refresh and retry.';
         message('gm-upload-feedback',reason,'error');
       }
-      busy(false);
-      if (ingestId) {
-        target.disabled = true;
-        search.disabled = true;
-        videoFile.disabled = true;
-        types.forEach(t => { t.disabled = true; });
-      }
+      unlockUpload();
       xhr = null;
     };
     xhr.onerror = () => { message('gm-upload-feedback','Connection lost. Please retry.','error');busy(false);xhr=null; };

@@ -29,6 +29,7 @@ final class PrivateVideoIntake
         ?string $ip,
         bool $autoPublish = true,
         bool $publishWatchPage = false,
+        ?string $sourcePrefix = null,
     ): int {
         abort_unless(in_array($kind, ['movie', 'episode'], true), 422);
         $extension = match ($video->getMimeType()) {
@@ -48,7 +49,7 @@ final class PrivateVideoIntake
         $hash = hash_file('sha256', $source);
         abort_unless(is_string($hash), 422, 'Unable to fingerprint the video.');
 
-        $path = 'ingests/'.now()->format('Y/m').'/'.Str::uuid().'.'.$extension;
+        $path = ($sourcePrefix ?? 'ingests/'.now()->format('Y/m').'/'.Str::uuid()).'.'.$extension;
         $disk = Storage::disk('local');
         $stored = $video->storeAs(dirname($path), basename($path), 'local');
         abort_unless($stored === $path, 503, 'Private upload failed.');
@@ -115,6 +116,19 @@ final class PrivateVideoIntake
             throw $error;
         }
 
+        if ($sourcePrefix !== null) {
+            // Finalizing a resumable upload also records its receipt in the
+            // enclosing transaction. Workers can start once that is durable.
+            DB::afterCommit(fn () => $this->dispatchProcessing($id, $r2Enabled, $autoPublish));
+        } else {
+            $this->dispatchProcessing($id, $r2Enabled, $autoPublish);
+        }
+
+        return $id;
+    }
+
+    private function dispatchProcessing(int $id, bool $r2Enabled, bool $autoPublish): void
+    {
         // The uploaded local source is always available even if optional
         // external storage or a background worker is temporarily unavailable.
         if ($r2Enabled) {
@@ -137,7 +151,5 @@ final class PrivateVideoIntake
                 ]);
             }
         }
-
-        return $id;
     }
 }
