@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Account\AdministratorTwoFactorController;
 use App\Http\Controllers\Account\LibraryController;
 use App\Http\Controllers\Account\SettingsController;
 use App\Http\Controllers\Admin\CatalogController as AdminCatalogController;
@@ -47,6 +48,10 @@ Route::get('/hls/standalone/{asset}/{path}', PublicHlsController::class)
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [SessionController::class, 'loginForm'])->name('login');
     Route::post('/login', [SessionController::class, 'login'])->middleware('throttle:5,1');
+    Route::get('/login/two-factor', [SessionController::class, 'challengeForm'])->name('two-factor.challenge');
+    Route::post('/login/two-factor', [SessionController::class, 'challenge'])
+        ->middleware('throttle:administrator-two-factor')->name('two-factor.verify');
+    Route::post('/login/two-factor/cancel', [SessionController::class, 'cancelChallenge'])->name('two-factor.cancel');
     Route::get('/register', [SessionController::class, 'registerForm'])->name('register');
     Route::post('/register', [SessionController::class, 'register'])->middleware('throttle:5,1');
     Route::get('/forgot-password', [SessionController::class, 'forgotForm'])->name('password.request');
@@ -69,6 +74,12 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::get('/account', fn () => view('account.overview'))->name('account.overview');
         Route::get('/account/library/{section}',[LibraryController::class,'index'])->name('account.library');
         Route::post('/account/watchlist/toggle',[LibraryController::class,'toggle'])->name('account.watchlist.toggle');
+        Route::prefix('/account/security/two-factor')->name('account.two-factor.')->group(function (): void {
+            Route::get('/', [AdministratorTwoFactorController::class, 'show'])->name('show');
+            Route::post('/setup', [AdministratorTwoFactorController::class, 'begin'])->middleware('throttle:administrator-two-factor')->name('begin');
+            Route::post('/confirm', [AdministratorTwoFactorController::class, 'confirm'])->middleware('throttle:administrator-two-factor')->name('confirm');
+            Route::post('/cancel', [AdministratorTwoFactorController::class, 'cancel'])->name('cancel');
+        });
         Route::get('/account/settings', [SettingsController::class,'index'])->name('account.settings');
         Route::patch('/account/settings/identity',[SettingsController::class,'updateIdentity'])->name('account.identity');
         Route::post('/account/settings/avatar',[SettingsController::class,'updateAvatar'])

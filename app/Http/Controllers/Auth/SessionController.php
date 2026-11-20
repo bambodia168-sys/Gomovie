@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserProfile;
+use App\Support\AdministratorTwoFactor;
 use App\Support\StudioNavigation;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\Events\Registered;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
@@ -23,6 +25,7 @@ class SessionController extends Controller
 {
     public function loginForm(Request $request): View
     {
+        $request->session()->forget(AdministratorTwoFactor::CHALLENGE);
         $candidate = $request->query('return');
         if ($return = StudioNavigation::watchReturn(is_string($candidate) ? $candidate : null)) {
             $request->session()->put('gomovie.watchReturn', $return);
@@ -39,17 +42,100 @@ class SessionController extends Controller
             'remember' => ['sometimes', 'boolean'],
         ]);
 
-        $ok = Auth::attempt([
+        $request->session()->forget(AdministratorTwoFactor::CHALLENGE);
+        $pending = null;
+        $ok = Auth::guard('web')->attemptWhen([
             'email' => Str::lower($credentials['email']),
             'password' => $credentials['password'],
             'is_active' => true,
-        ], (bool) ($credentials['remember'] ?? false));
+        ], function (User $user) use (&$pending): bool {
+            if (! AdministratorTwoFactor::enabled($user)) {
+                return true;
+            }
+            $pending = $user;
+
+            return false;
+        }, (bool) ($credentials['remember'] ?? false));
+
+        if ($pending) {
+            $request->session()->regenerate(true);
+            $candidate = $request->input('return');
+            if ($return = StudioNavigation::watchReturn(is_string($candidate) ? $candidate : null)) {
+                $request->session()->put('gomovie.watchReturn', $return);
+            }
+            $request->session()->put(AdministratorTwoFactor::CHALLENGE, [
+                'user' => $pending->id,
+                'credential' => AdministratorTwoFactor::credentialFingerprint($pending),
+                'expires' => now()->addMinutes(5)->timestamp,
+            ]);
+
+            return redirect()->route('two-factor.challenge');
+        }
 
         if (!$ok) {
             return back()->withErrors(['email' => __('These credentials do not match our records.')])
                 ->onlyInput('email');
         }
 
+        return $this->completeLogin($request);
+    }
+
+    public function challengeForm(Request $request): View|RedirectResponse
+    {
+        return $this->pendingUser($request)
+            ? view('auth.two-factor-challenge')
+            : redirect()->route('login');
+    }
+
+    public function challenge(Request $request, AdministratorTwoFactor $twoFactor): RedirectResponse
+    {
+        $user = $this->pendingUser($request);
+        if (! $user) {
+            return redirect()->route('login')->with('status', 'Your sign-in expired. Enter your password again.');
+        }
+        $data = $request->validate(['two_factor_code' => ['required', 'string', 'max:32']]);
+        $key = 'two-factor-sign-in:'.$user->id;
+        $verified = RateLimiter::attempt($key, 6, fn () => $twoFactor->accept($user, $data['two_factor_code']) ?? '', 120);
+        if (! $verified instanceof User) {
+            return back()->withErrors(['two_factor_code' => $verified === false
+                ? 'Too many attempts. Wait two minutes and try again.'
+                : 'This code is invalid or has already been used.']);
+        }
+        RateLimiter::clear($key);
+        $request->session()->forget(AdministratorTwoFactor::CHALLENGE);
+        Auth::guard('web')->login($verified);
+        AdministratorTwoFactor::markVerified($request, $verified);
+        if (! preg_match('/^\d{6}$/D', $data['two_factor_code'])) {
+            AdministratorTwoFactor::recordRecoverySignIn($request, $verified);
+        }
+
+        return $this->completeLogin($request);
+    }
+
+    public function cancelChallenge(Request $request): RedirectResponse
+    {
+        $request->session()->forget(AdministratorTwoFactor::CHALLENGE);
+
+        return redirect()->route('login');
+    }
+
+    private function pendingUser(Request $request): ?User
+    {
+        $pending = $request->session()->get(AdministratorTwoFactor::CHALLENGE);
+        if ($pending && $pending['expires'] > now()->timestamp) {
+            $user = User::find($pending['user']);
+            if ($user?->is_active && AdministratorTwoFactor::enabled($user)
+                && hash_equals($pending['credential'], AdministratorTwoFactor::credentialFingerprint($user))) {
+                return $user;
+            }
+        }
+        $request->session()->forget(AdministratorTwoFactor::CHALLENGE);
+
+        return null;
+    }
+
+    private function completeLogin(Request $request): RedirectResponse
+    {
         $request->session()->regenerate();
 
         // Only allow the known on-site watch route as an explicit return URL.
